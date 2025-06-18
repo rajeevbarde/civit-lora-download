@@ -1,15 +1,10 @@
 <template>
-  <div>
-    <ModelTable />
+  <div id="app">
+    <router-view />
   </div>
 </template>
 
 <script>
-import ModelTable from './components/ModelTable.vue'
-
 export default {
-  components: {
-    ModelTable
-  }
-}
+};
 </script>

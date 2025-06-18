@@ -13,6 +13,22 @@ app.get('/api/models', (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
+    let query = `
+        SELECT
+            modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
+            modelVersionId, modelVersionName, modelVersionDescription,
+            basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
+            fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
+        FROM ALLCivitData
+    `;
+
+    const params = [];
+
+    if (req.query.modelVersionId) {
+        query += ' WHERE modelVersionId = ?';
+        params.push(req.query.modelVersionId);
+    }
+
     // First, get the total count
     db.get('SELECT COUNT(*) as total FROM ALLCivitData', [], (err, count) => {
         if (err) {
@@ -21,30 +37,21 @@ app.get('/api/models', (req, res) => {
         }
 
         // Then get the paginated data
-        db.all(
-            `SELECT
-                modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
-                modelVersionId, modelVersionName, modelVersionDescription,
-                basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-                fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
-            FROM ALLCivitData
-            LIMIT ? OFFSET ?`,
-            [limit, offset],
-            (err, rows) => {
-                if (err) {
-                    res.status(500).json({ error: err.message });
-                    return;
-                }
-                res.json({
-                    total: count.total,
-                    page: page,
-                    limit: limit,
-                    data: rows
-                });
+        db.all(query + ' LIMIT ? OFFSET ?', [...params, limit, offset], (err, rows) => {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
             }
-        );
+            res.json({
+                total: count.total,
+                page: page,
+                limit: limit,
+                data: rows
+            });
+        });
     });
 });
+
 
 const PORT = 3000;
 app.listen(PORT, () => {

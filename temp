@@ -1,1 +1,0 @@
-const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db', (err) => {

@@ -7,15 +7,15 @@
       <table>
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Name</th>
+            <th>Model ID</th>
+            <th>Model Name</th>
         <!--    <th>Description</th> -->
-            <th>Type</th>
-            <th>NSFW</th>
-            <th>NSFW Level</th>
-            <th>Download Count</th>
-            <th>Version ID</th>
-            <th>Version Name</th>
+            <th>Model Type</th>
+            <th>Model NSFW</th>
+            <th>Model NSFW Level</th>
+            <th>Model Download Count</th>
+            <th>Model Version ID</th>
+            <th>Model Version Name</th>
        <!--       <th>Version Description</th> -->
             <th>Base Model</th>
             <th>Base Model Type</th>
@@ -26,7 +26,7 @@
             <th>File Download URL</th>
             <th>Size (GB)</th>
             <th>Published At</th>
-            <th>Tags</th>
+         <!--    <th>Tags</th>-->
             <th>Downloaded</th>
             <th>File Path</th>
           </tr>
@@ -40,7 +40,16 @@
             <td>{{ model.modelNsfw }}</td>
             <td>{{ model.modelNsfwLevel }}</td>
             <td>{{ model.modelDownloadCount?.toLocaleString() }}</td>
-            <td>{{ model.modelVersionId }}</td>
+            <td>
+  <a 
+    :href="`http://localhost:5173/model/${model.modelVersionId}`" 
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    {{ model.modelVersionId }}
+  </a>
+</td>
+
             <td>{{ model.modelVersionName }}</td>
            <!--   <td>{{ model.modelVersionDescription }}</td>-->
             <td>{{ model.basemodel }}</td>
@@ -52,7 +61,7 @@
             <td>{{ model.fileDownloadUrl }}</td>
             <td>{{ model.size_in_gb }}</td>
             <td>{{ model.publishedAt }}</td>
-            <td>{{ model.tags }}</td>
+         <!--    <td>{{ model.tags }}</td> -->
             <td>{{ model.isDownloaded }}</td>
             <td>{{ model.file_path }}</td>
           </tr>
