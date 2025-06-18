@@ -52,6 +52,36 @@ app.get('/api/models', (req, res) => {
     });
 });
 
+app.get('/api/modeldetail/:id', (req, res) => {
+    const { id } = req.params;
+
+    // Query to get model details by modelVersionId
+    const query = `
+        SELECT
+            modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
+            modelVersionId, modelVersionName, modelVersionDescription,
+            basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
+            fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
+        FROM ALLCivitData
+        WHERE modelVersionId = ?
+    `;
+
+    db.get(query, [id], (err, row) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+
+        if (!row) {
+            return res.status(404).json({ error: 'Model not found' });
+        }
+
+        // Return only the model data — no pagination, total count, etc.
+        res.json(row);
+    });
+});
+
+
+
 
 const PORT = 3000;
 app.listen(PORT, () => {

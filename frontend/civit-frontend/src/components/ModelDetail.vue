@@ -31,59 +31,42 @@
 
 
 <script>
+
 import axios from 'axios';
 
+
 export default {
-  //props: ['modelVersionId'],
   data() {
     return {
-      model: {},
+      model: null,
       loading: false,
       error: null
     };
   },
   mounted() {
-    console.log("Route ID:", this.$route.params.id);
     this.fetchModelDetails();
   },
   methods: {
-async fetchModelDetails() {
-  this.loading = true;
-  this.error = null;
+    async fetchModelDetails() {
+      try {
+        const id = Number(this.$route.params.id);
+        if (isNaN(id)) {
+          throw new Error("Invalid model ID");
+        }
 
-  const modelVersionId = Number(this.$route.params.id); // ✅ Convert to number
+        // Fetch from your API
+        const response = await axios.get(`http://localhost:3000/api/modeldetail/${id}`);
+        this.model = response.data;
 
-  try {
-    console.log("Fetching data for ID:", modelVersionId);
-
-    const response = await axios.get(`http://localhost:3000/api/models`, {
-      params: { modelVersionId } 
-    });
-
-    console.log("API Response:", response.data);
-
-    // Find the first matching model
-    const foundModel = response.data.data.find(model => 
-      model.modelVersionId === modelVersionId // ✅ Both are numbers now!
-    );
-
-    if (!foundModel) {
-      throw new Error('No model found with the provided version ID.');
-    }
-
-    this.model = foundModel;
-  } catch (err) {
-    console.error(err);
-    this.error = 'Failed to fetch model details.';
-  } finally {
-    this.loading = false;
-  }
-}
-
-
-  }
+      } catch (err) {
+        console.error(err);
+        this.error = "Failed to load model details.";
+      }
+    },
+  },
 };
 </script>
+
 
 <style scoped>
 .app-container {
