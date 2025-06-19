@@ -17,7 +17,8 @@
           <tr v-for="row in matrixDownloaded" :key="row.modelVersionNsfwLevel">
             <td>{{ row.modelVersionNsfwLevel }}</td>
             <td v-for="bm in baseModelsDownloaded" :key="bm"
-                :class="getDownloadedCellClass(row[bm])">
+                :class="getDownloadedCellClass(row[bm])"
+                :style="getDownloadedCellStyle(row[bm])">
               ({{ row[bm]?.d1 || 0 }}, {{ row[bm]?.d2 || 0 }})
             </td>
           </tr>
@@ -44,7 +45,8 @@
           <tr v-for="row in matrix" :key="row.modelVersionNsfwLevel">
             <td>{{ row.modelVersionNsfwLevel }}</td>
             <td v-for="bm in baseModels" :key="bm"
-                :class="getMatrixCellClass(row[bm])">
+                :class="getMatrixCellClass(row[bm])"
+                :style="getMatrixCellStyle(row[bm])">
               {{ row[bm] }}
             </td>
           </tr>
@@ -129,6 +131,53 @@ export default {
         return 'cell-highlight';
       }
     },
+    getDownloadedCellStyle(cell) {
+      // Use d1+d2 as value, find global max for the table
+      const val = (cell?.d1 || 0) + (cell?.d2 || 0);
+      const max = this.getDownloadedGlobalMax();
+      return this.getGreenGradientStyle(val, max);
+    },
+    getMatrixCellStyle(value) {
+      const val = value || 0;
+      const max = this.getMatrixGlobalMax();
+      return this.getGreenGradientStyle(val, max);
+    },
+    getGreenGradientStyle(val, max) {
+      if (!val || max === 0) {
+        return '';
+      }
+      // Gradient from #f9f9f9 (0) to #bbf7d0 (max) to #22c55e (high)
+      let percent = max ? val / max : 0;
+      if (percent < 0.01) percent = 0.01;
+      if (percent > 1) percent = 1;
+      // Interpolate between #f9f9f9 and #bbf7d0, then toward #22c55e
+      // We'll use a simple 2-stop gradient for now
+      let bg = '';
+      if (percent < 0.7) {
+        // #f9f9f9 to #bbf7d0
+        bg = this.interpolateColor('#f9f9f9', '#bbf7d0', percent / 0.7);
+      } else {
+        // #bbf7d0 to #22c55e
+        bg = this.interpolateColor('#bbf7d0', '#22c55e', (percent - 0.7) / 0.3);
+      }
+      return `background: ${bg};`;
+    },
+    interpolateColor(a, b, t) {
+      // a, b: hex colors; t: 0-1
+      function hexToRgb(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+        const num = parseInt(hex, 16);
+        return [num >> 16, (num >> 8) & 0xff, num & 0xff];
+      }
+      function rgbToHex([r, g, b]) {
+        return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+      }
+      const rgbA = hexToRgb(a);
+      const rgbB = hexToRgb(b);
+      const rgb = rgbA.map((v, i) => Math.round(v + (rgbB[i] - v) * t));
+      return rgbToHex(rgb);
+    },
     getDownloadedTotal(bm, type) {
       let sum = 0;
       for (const row of this.matrixDownloaded) {
@@ -142,6 +191,26 @@ export default {
         sum += row[bm] || 0;
       }
       return sum;
+    },
+    getDownloadedGlobalMax() {
+      let max = 0;
+      for (const bm of this.baseModelsDownloaded) {
+        for (const row of this.matrixDownloaded) {
+          const v = (row[bm]?.d1 || 0) + (row[bm]?.d2 || 0);
+          if (v > max) max = v;
+        }
+      }
+      return max;
+    },
+    getMatrixGlobalMax() {
+      let max = 0;
+      for (const bm of this.baseModels) {
+        for (const row of this.matrix) {
+          const v = row[bm] || 0;
+          if (v > max) max = v;
+        }
+      }
+      return max;
     }
   }
 };
