@@ -71,7 +71,11 @@
             <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
             <td>{{ model.fileName }}</td>
             <td>{{ model.fileType }}</td>
-            <td>{{ model.fileDownloadUrl }}</td>
+            <td>
+              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1" @click="downloadModelFile(model)">Download</button>
+              <span v-else-if="model.isDownloaded === 1">Downloaded</span>
+              <span v-else>-</span>
+            </td>
             <td>{{ model.size_in_gb }}</td>
             <td>{{ model.publishedAt }}</td>
             <td>{{ model.isDownloaded }}</td>
@@ -155,7 +159,27 @@ export default {
     async changePage(newPage) {
       this.currentPage = newPage
       await this.fetchModels()
-    }
+    },
+    async downloadModelFile(model) {
+      try {
+        this.loading = true;
+        const response = await axios.post('http://localhost:3000/api/download-model-file', {
+          url: model.fileDownloadUrl,
+          fileName: model.fileName,
+          baseModel: model.basemodel,
+          modelVersionId: model.modelVersionId
+        });
+        if (response.data && response.data.success) {
+          this.fetchModels(); // Refresh table
+        } else {
+          alert(response.data.error || 'Download failed.');
+        }
+      } catch (err) {
+        alert('Download failed: ' + (err.response?.data?.error || err.message));
+      } finally {
+        this.loading = false;
+      }
+    },
   }
 }
 </script>

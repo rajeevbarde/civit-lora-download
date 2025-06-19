@@ -4,6 +4,7 @@ const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
 const app = express();
 app.use(cors());
@@ -438,6 +439,98 @@ app.get('/api/basemodels', (req, res) => {
         // Return as array of strings
         const baseModels = rows.map(r => r.basemodel);
         res.json({ baseModels });
+    });
+});
+
+// Download model file and update DB
+app.post('/api/download-model-file', async (req, res) => {
+  const { url, fileName, baseModel, modelVersionId } = req.body;
+  if (!url || !fileName || !baseModel || !modelVersionId) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  const baseDir = 'Z:/Projects/AI/BigFiles/SD/loras';
+  const targetDir = path.join(baseDir, baseModel);
+  try {
+    // Ensure directory exists
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const filePath = path.join(targetDir, fileName);
+    // Download file
+    const response = await axios({
+      method: 'get',
+      url,
+      responseType: 'stream',
+      timeout: 600000 // 10 min
+    });
+    const totalLength = parseInt(response.headers['content-length'], 10);
+    let downloaded = 0;
+    let lastLoggedPercent = 0;
+    const writer = fs.createWriteStream(filePath);
+    response.data.on('data', (chunk) => {
+      downloaded += chunk.length;
+      if (totalLength) {
+        const percent = Math.floor((downloaded / totalLength) * 100);
+        if (percent >= lastLoggedPercent + 10 || percent === 100) {
+          console.log(`Downloading ${fileName}: ${percent}% (${downloaded}/${totalLength} bytes)`);
+          lastLoggedPercent = percent;
+        }
+      }
+    });
+    await new Promise((resolve, reject) => {
+      response.data.pipe(writer);
+      let error = null;
+      writer.on('error', err => {
+        error = err;
+        writer.close();
+        reject(err);
+      });
+      writer.on('close', () => {
+        if (!error) resolve();
+      });
+    });
+    // Update DB
+    db.run(
+      'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
+      [filePath, modelVersionId],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: 'File saved but DB update failed: ' + err.message });
+        }
+        return res.json({ success: true, fullPath: filePath });
+      }
+    );
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint to get summary matrix for base models vs modelVersionNsfwLevel
+app.get('/api/summary-matrix', (req, res) => {
+    // Query to get counts grouped by basemodel and modelVersionNsfwLevel
+    const query = `
+        SELECT basemodel, modelVersionNsfwLevel, COUNT(*) as count
+        FROM ALLCivitData
+        WHERE basemodel IS NOT NULL AND basemodel != '' AND modelVersionNsfwLevel IS NOT NULL AND modelVersionNsfwLevel != ''
+        GROUP BY basemodel, modelVersionNsfwLevel
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        // Build unique lists for columns and rows
+        const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
+        const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
+        // Build matrix: { row: nsfwLevel, columns: { basemodel: count, ... } }
+        const matrix = nsfwLevels.map(nsfw => {
+            const row = { modelVersionNsfwLevel: nsfw };
+            baseModels.forEach(bm => {
+                const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw);
+                row[bm] = found ? found.count : 0;
+            });
+            return row;
+        });
+        res.json({ baseModels, nsfwLevels, matrix });
     });
 });
 
