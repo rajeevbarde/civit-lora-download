@@ -342,8 +342,7 @@ app.post('/api/check-files-in-db', (req, res) => {
         for (const dbName of dbFileNames) {
             normalizedDbMap[normalizeName(dbName)] = dbFileNameMap[dbName];
         }
-        const results = files.map(f => {
-            const lowerBase = (f.baseName || '').toLowerCase();
+        const results = files.map(f => {            const lowerBase = (f.baseName || '').toLowerCase();
             let status = '';
             if (dbFileNames.includes(lowerBase)) {
                 status = 'Present';
@@ -362,6 +361,62 @@ app.post('/api/check-files-in-db', (req, res) => {
         });
         res.json({ results });
     });
+});
+
+// Endpoint to mark files as downloaded in the DB
+app.post('/api/mark-downloaded', (req, res) => {
+    const files = req.body.files; // [{ status, fullPath, baseName }]
+    if (!Array.isArray(files)) {
+        return res.status(400).json({ error: 'files must be an array' });
+    }
+    let updated = 0;
+    let errors = [];
+    const dbFileNamesToUpdate = [];
+    files.forEach(f => {
+        let isDownloaded = 0;
+        let dbFileName = null;
+        if (f.status === 'Present') {
+            isDownloaded = 1;
+            dbFileName = f.baseName;
+        } else if (f.status.startsWith('Similar (')) {
+            isDownloaded = 2;
+            // Extract filename from status: Similar (filename)
+            const match = f.status.match(/Similar \((.+)\)/);
+            if (match) dbFileName = match[1];
+        }
+        if (isDownloaded && dbFileName) {
+            dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
+        }
+    });
+    if (!dbFileNamesToUpdate.length) {
+        return res.json({ updated: 0, errors: [] });
+    }
+    const sqlite = require('sqlite3').verbose();
+    const dbConn = new sqlite.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
+    let processed = 0;
+    function updateNext() {
+        if (processed >= dbFileNamesToUpdate.length) {
+            dbConn.close();
+            return res.json({ updated, errors });
+        }
+        const item = dbFileNamesToUpdate[processed];
+        dbConn.run(
+            'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?',
+            [item.isDownloaded, item.fullPath, item.dbFileName],
+            function (err) {
+                if (err) {
+                    errors.push({ fileName: item.dbFileName, error: err.message });
+                    console.log(`Error updating ${item.dbFileName}: ${err.message}`);
+                } else {
+                    updated++;
+                    console.log(`Updated ${item.dbFileName}: isDownloaded=${item.isDownloaded}, file_path=${item.fullPath}`);
+                }
+                processed++;
+                updateNext();
+            }
+        );
+    }
+    updateNext();
 });
 
 const PORT = 3000;

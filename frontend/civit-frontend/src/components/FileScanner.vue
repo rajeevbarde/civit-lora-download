@@ -43,6 +43,16 @@
           </tr>
         </tbody>
       </table>
+      <button 
+        v-if="checkedFiles.length" 
+        @click="markDownloaded" 
+        :disabled="markingDownloaded"
+        class="mark-btn"
+        style="margin-top: 1rem;"
+      >
+        Mark Downloaded in DB
+      </button>
+      <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
     <div v-if="scanStatus === '' && scanResults.length">
       <h2>Scan Results</h2>
@@ -72,6 +82,8 @@ export default {
       scanStatus: '',
       pollingInterval: null,
       checkedFiles: [], // [{ fullPath, baseName, status }]
+      markingDownloaded: false,
+      markDownloadedMsg: '',
     };
   },
   methods: {
@@ -225,6 +237,30 @@ export default {
         this.checkedFiles = [];
       }
     },
+    async markDownloaded() {
+      this.markingDownloaded = true;
+      this.markDownloadedMsg = '';
+      try {
+        const response = await fetch('http://localhost:3000/api/mark-downloaded', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: this.checkedFiles })
+        });
+        const data = await response.json();
+        if (response.ok && typeof data.updated === 'number') {
+          this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
+          if (data.errors && data.errors.length) {
+            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+          }
+        } else {
+          this.markDownloadedMsg = data.error || 'Failed to update DB.';
+        }
+      } catch (error) {
+        this.markDownloadedMsg = 'Error: ' + error.message;
+      } finally {
+        this.markingDownloaded = false;
+      }
+    },
   },
   mounted() {
     this.fetchSavedPaths();
@@ -304,5 +340,23 @@ progress {
 }
 .scan-table th {
   background: #f8f8f8;
+}
+.mark-btn {
+  background: #5cb85c;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.mark-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.mark-msg {
+  margin-top: 0.7rem;
+  color: #31708f;
+  font-weight: bold;
 }
 </style> 
