@@ -241,6 +241,14 @@ app.post('/api/start-scan', (req, res) => {
         // Start scan in background
         setImmediate(() => {
             let completed = 0;
+            // Deduplicated, case-insensitive allowed extensions
+            const allowedExts = [
+                 'safetensors'
+            ];
+            function hasAllowedExt(filename) {
+                const ext = path.extname(filename).replace('.', '');
+                return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
+            }
             paths.forEach((p, idx) => {
                 let result = { path: p, files: [], error: null };
                 const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
@@ -260,7 +268,9 @@ app.post('/api/start-scan', (req, res) => {
                                 if (fs.statSync(fullPath).isDirectory()) {
                                     getAllFiles(fullPath, arrayOfFiles);
                                 } else {
-                                    arrayOfFiles.push(fullPath);
+                                    if (hasAllowedExt(fullPath)) {
+                                        arrayOfFiles.push(fullPath);
+                                    }
                                 }
                             });
                         } catch (e) {}
