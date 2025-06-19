@@ -332,8 +332,15 @@ app.post('/api/check-files-in-db', (req, res) => {
             if (r.fileName) acc[r.fileName.toLowerCase()] = r.fileName;
             return acc;
         }, {});
-        function stripSuffix(name) {
-            return name.replace(/\.[a-zA-Z0-9]+(?=\.[^.]+$)/, '');
+        // Normalization: remove trailing .[alphanumeric], underscores, dashes, spaces, lowercase
+        function normalizeName(name) {
+            name = name.replace(/\.[a-zA-Z0-9]+(?=\.[^.]+$)/, '');
+            return name.replace(/[_\-\s]/g, '').toLowerCase();
+        }
+        // Build a map of normalized DB names to original DB file name
+        const normalizedDbMap = {};
+        for (const dbName of dbFileNames) {
+            normalizedDbMap[normalizeName(dbName)] = dbFileNameMap[dbName];
         }
         const results = files.map(f => {
             const lowerBase = (f.baseName || '').toLowerCase();
@@ -341,19 +348,10 @@ app.post('/api/check-files-in-db', (req, res) => {
             if (dbFileNames.includes(lowerBase)) {
                 status = 'Present';
             } else {
-                const stripped = stripSuffix(lowerBase);
-                if (stripped !== lowerBase && dbFileNames.includes(stripped)) {
-                    // Find the original DB filename for display
-                    status = `Similar (${dbFileNameMap[stripped]})`;
-                } else {
-                    let found = false;
-                    for (const dbName of dbFileNames) {
-                        if (stripSuffix(dbName) === stripped) {
-                            status = `Similar (${dbFileNameMap[dbName]})`;
-                            found = true;
-                            break;
-                        }
-                    }
+                // Similarity: normalization
+                const normScanned = normalizeName(lowerBase);
+                if (normalizedDbMap[normScanned]) {
+                    status = `Similar (${normalizedDbMap[normScanned]})`;
                 }
             }
             return {
