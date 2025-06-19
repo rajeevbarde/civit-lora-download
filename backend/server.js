@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // Update this path to your actual database file location
 const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
@@ -302,6 +302,61 @@ app.get('/api/scan-progress/:id', (req, res) => {
         progress: job.progress,
         total: job.total,
         results: job.status === 'done' ? job.results : undefined,
+    });
+});
+
+// Endpoint to get all file names from the database (for FileScanner presence check)
+app.get('/api/all-filenames', (req, res) => {
+    db.all('SELECT fileName FROM ALLCivitData', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        // Return as array of strings (file names)
+        const fileNames = rows.map(r => r.fileName);
+        res.json({ fileNames });
+    });
+});
+
+// Endpoint to check if files are present or similar in the DB
+app.post('/api/check-files-in-db', (req, res) => {
+    const files = req.body.files; // [{ fullPath, baseName }]
+    if (!Array.isArray(files)) {
+        return res.status(400).json({ error: 'files must be an array' });
+    }
+    db.all('SELECT fileName FROM ALLCivitData', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
+        // Helper to strip trailing .[alphanumeric] before extension
+        function stripSuffix(name) {
+            return name.replace(/\.[a-zA-Z0-9]+(?=\.[^.]+$)/, '');
+        }
+        const results = files.map(f => {
+            const lowerBase = (f.baseName || '').toLowerCase();
+            let status = '';
+            if (dbFileNames.includes(lowerBase)) {
+                status = 'Present';
+            } else {
+                const stripped = stripSuffix(lowerBase);
+                if (stripped !== lowerBase && dbFileNames.includes(stripped)) {
+                    status = 'Similar';
+                } else {
+                    for (const dbName of dbFileNames) {
+                        if (stripSuffix(dbName) === stripped) {
+                            status = 'Similar';
+                            break;
+                        }
+                    }
+                }
+            }
+            return {
+                fullPath: f.fullPath,
+                baseName: f.baseName,
+                status
+            };
+        });
+        res.json({ results });
     });
 });
 

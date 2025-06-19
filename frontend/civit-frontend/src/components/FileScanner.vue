@@ -25,15 +25,24 @@
       <progress :value="scanProgress" :max="scanTotal"></progress>
       <span>{{ scanProgress }} / {{ scanTotal }} scanned...</span>
     </div>
-    <div v-if="scanStatus === 'done'">
+    <div v-if="scanStatus === 'done' && checkedFiles.length">
       <h2>Scan Results</h2>
-      <div v-for="result in scanResults" :key="result.path" class="scan-result-block">
-        <strong>{{ result.path }}</strong>
-        <div v-if="result.error" class="error">Error: {{ result.error }}</div>
-        <ul v-else>
-          <li v-for="(file, idx) in result.files" :key="idx">{{ file }}</li>
-        </ul>
-      </div>
+      <table class="scan-table">
+        <thead>
+          <tr>
+            <th>Full Path</th>
+            <th>Present in db</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(file, idx) in checkedFiles" :key="file.fullPath + idx">
+            <td>{{ file.fullPath }}</td>
+            <td>
+              <span>{{ file.status }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
     <div v-if="scanStatus === '' && scanResults.length">
       <h2>Scan Results</h2>
@@ -62,6 +71,7 @@ export default {
       scanTotal: 0,
       scanStatus: '',
       pollingInterval: null,
+      checkedFiles: [], // [{ fullPath, baseName, status }]
     };
   },
   methods: {
@@ -144,6 +154,7 @@ export default {
     async startScan() {
       this.message = '';
       this.scanResults = [];
+      this.checkedFiles = [];
       this.scanProgress = 0;
       this.scanTotal = 0;
       this.scanStatus = '';
@@ -175,12 +186,44 @@ export default {
           if (data.status === 'done') {
             this.scanResults = data.results;
             clearInterval(this.pollingInterval);
+            await this.checkFilesInDb();
           }
         } catch (error) {
           clearInterval(this.pollingInterval);
           this.message = 'Error: ' + error.message;
         }
       }, 1000);
+    },
+    async checkFilesInDb() {
+      // Flatten all files from all scanResults
+      let files = [];
+      for (const result of this.scanResults) {
+        if (result && Array.isArray(result.files)) {
+          files = files.concat(result.files.map(f => ({
+            fullPath: f,
+            baseName: f.split(/\\|\//).pop() || f
+          })));
+        }
+      }
+      if (!files.length) {
+        this.checkedFiles = [];
+        return;
+      }
+      try {
+        const response = await fetch('http://localhost:3000/api/check-files-in-db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files })
+        });
+        const data = await response.json();
+        if (Array.isArray(data.results)) {
+          this.checkedFiles = data.results;
+        } else {
+          this.checkedFiles = [];
+        }
+      } catch (error) {
+        this.checkedFiles = [];
+      }
     },
   },
   mounted() {
@@ -189,6 +232,20 @@ export default {
   beforeDestroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   },
+  computed: {
+    allScannedFiles() {
+      let files = [];
+      for (const result of this.scanResults) {
+        if (result && Array.isArray(result.files)) {
+          files = files.concat(result.files.map(f => ({
+            fullPath: f,
+            baseName: f.split(/\\|\//).pop() || f
+          })));
+        }
+      }
+      return files;
+    }
+  }
 };
 </script>
 
@@ -235,5 +292,17 @@ progress {
   width: 300px;
   height: 20px;
   margin-right: 1rem;
+}
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.scan-table th, .scan-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+.scan-table th {
+  background: #f8f8f8;
 }
 </style> 
