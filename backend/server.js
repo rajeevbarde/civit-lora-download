@@ -534,6 +534,40 @@ app.get('/api/summary-matrix', (req, res) => {
     });
 });
 
+// Endpoint to get summary matrix for base models vs modelVersionNsfwLevel, with isDownloaded counts
+app.get('/api/summary-matrix-downloaded', (req, res) => {
+    // Query to get counts grouped by basemodel, modelVersionNsfwLevel, and isDownloaded
+    const query = `
+        SELECT basemodel, modelVersionNsfwLevel, isDownloaded, COUNT(*) as count
+        FROM ALLCivitData
+        WHERE basemodel IS NOT NULL AND basemodel != '' AND modelVersionNsfwLevel IS NOT NULL AND modelVersionNsfwLevel != ''
+              AND (isDownloaded = 1 OR isDownloaded = 2)
+        GROUP BY basemodel, modelVersionNsfwLevel, isDownloaded
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        // Build unique lists for columns and rows
+        const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
+        const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
+        // Build matrix: { row: nsfwLevel, columns: { basemodel: { d1: count, d2: count }, ... } }
+        const matrix = nsfwLevels.map(nsfw => {
+            const row = { modelVersionNsfwLevel: nsfw };
+            baseModels.forEach(bm => {
+                const d1 = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
+                const d2 = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 2);
+                row[bm] = {
+                    d1: d1 ? d1.count : 0,
+                    d2: d2 ? d2.count : 0
+                };
+            });
+            return row;
+        });
+        res.json({ baseModels, nsfwLevels, matrix });
+    });
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
