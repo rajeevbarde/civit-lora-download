@@ -328,7 +328,10 @@ app.post('/api/check-files-in-db', (req, res) => {
             return res.status(500).json({ error: err.message });
         }
         const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
-        // Helper to strip trailing .[alphanumeric] before extension
+        const dbFileNameMap = rows.reduce((acc, r) => {
+            if (r.fileName) acc[r.fileName.toLowerCase()] = r.fileName;
+            return acc;
+        }, {});
         function stripSuffix(name) {
             return name.replace(/\.[a-zA-Z0-9]+(?=\.[^.]+$)/, '');
         }
@@ -340,11 +343,14 @@ app.post('/api/check-files-in-db', (req, res) => {
             } else {
                 const stripped = stripSuffix(lowerBase);
                 if (stripped !== lowerBase && dbFileNames.includes(stripped)) {
-                    status = 'Similar';
+                    // Find the original DB filename for display
+                    status = `Similar (${dbFileNameMap[stripped]})`;
                 } else {
+                    let found = false;
                     for (const dbName of dbFileNames) {
                         if (stripSuffix(dbName) === stripped) {
-                            status = 'Similar';
+                            status = `Similar (${dbFileNameMap[dbName]})`;
+                            found = true;
                             break;
                         }
                     }
