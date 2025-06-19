@@ -21,6 +21,15 @@
               ({{ row[bm]?.d1 || 0 }}, {{ row[bm]?.d2 || 0 }})
             </td>
           </tr>
+          <tr style="font-weight:bold;background:#f3f4f6;">
+            <td>Total</td>
+            <td v-for="bm in baseModelsDownloaded" :key="bm">
+              (
+                {{ getDownloadedTotal(bm, 'd1') }},
+                {{ getDownloadedTotal(bm, 'd2') }}
+              )
+            </td>
+          </tr>
         </tbody>
       </table>
       <!-- Existing Matrix -->
@@ -37,6 +46,12 @@
             <td v-for="bm in baseModels" :key="bm"
                 :class="getMatrixCellClass(row[bm])">
               {{ row[bm] }}
+            </td>
+          </tr>
+          <tr style="font-weight:bold;background:#f3f4f6;">
+            <td>Total</td>
+            <td v-for="bm in baseModels" :key="bm">
+              {{ getMatrixTotal(bm) }}
             </td>
           </tr>
         </tbody>
@@ -113,6 +128,20 @@ export default {
       } else {
         return 'cell-highlight';
       }
+    },
+    getDownloadedTotal(bm, type) {
+      let sum = 0;
+      for (const row of this.matrixDownloaded) {
+        sum += row[bm]?.[type] || 0;
+      }
+      return sum;
+    },
+    getMatrixTotal(bm) {
+      let sum = 0;
+      for (const row of this.matrix) {
+        sum += row[bm] || 0;
+      }
+      return sum;
     }
   }
 };
