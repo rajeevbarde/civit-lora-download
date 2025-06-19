@@ -18,9 +18,24 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button @click="scanAllPaths">Scan All Saved Paths</button>
+    <button @click="scanAllPaths">Scan All Saved Paths (Old)</button>
+    <button @click="startScan">Scan All Saved Paths (with Progress)</button>
     <p v-if="message">{{ message }}</p>
-    <div v-if="scanResults.length" class="scan-results">
+    <div v-if="scanStatus === 'in_progress'">
+      <progress :value="scanProgress" :max="scanTotal"></progress>
+      <span>{{ scanProgress }} / {{ scanTotal }} scanned...</span>
+    </div>
+    <div v-if="scanStatus === 'done'">
+      <h2>Scan Results</h2>
+      <div v-for="result in scanResults" :key="result.path" class="scan-result-block">
+        <strong>{{ result.path }}</strong>
+        <div v-if="result.error" class="error">Error: {{ result.error }}</div>
+        <ul v-else>
+          <li v-for="(file, idx) in result.files" :key="idx">{{ file }}</li>
+        </ul>
+      </div>
+    </div>
+    <div v-if="scanStatus === '' && scanResults.length">
       <h2>Scan Results</h2>
       <div v-for="result in scanResults" :key="result.path" class="scan-result-block">
         <strong>{{ result.path }}</strong>
@@ -42,6 +57,11 @@ export default {
       message: '',
       savedPaths: [],
       scanResults: [],
+      scanId: null,
+      scanProgress: 0,
+      scanTotal: 0,
+      scanStatus: '',
+      pollingInterval: null,
     };
   },
   methods: {
@@ -121,9 +141,53 @@ export default {
         this.message = 'Error: ' + error.message;
       }
     },
+    async startScan() {
+      this.message = '';
+      this.scanResults = [];
+      this.scanProgress = 0;
+      this.scanTotal = 0;
+      this.scanStatus = '';
+      this.scanId = null;
+      if (this.pollingInterval) clearInterval(this.pollingInterval);
+      try {
+        const response = await fetch('http://localhost:3000/api/start-scan', { method: 'POST' });
+        const data = await response.json();
+        if (data.scanId) {
+          this.scanId = data.scanId;
+          this.scanStatus = 'in_progress';
+          this.pollScanProgress();
+        } else {
+          this.message = data.error || 'Failed to start scan.';
+        }
+      } catch (error) {
+        this.message = 'Error: ' + error.message;
+      }
+    },
+    async pollScanProgress() {
+      if (!this.scanId) return;
+      this.pollingInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`http://localhost:3000/api/scan-progress/${this.scanId}`);
+          const data = await response.json();
+          this.scanProgress = data.progress;
+          this.scanTotal = data.total;
+          this.scanStatus = data.status;
+          if (data.status === 'done') {
+            this.scanResults = data.results;
+            clearInterval(this.pollingInterval);
+          }
+        } catch (error) {
+          clearInterval(this.pollingInterval);
+          this.message = 'Error: ' + error.message;
+        }
+      }, 1000);
+    },
   },
   mounted() {
     this.fetchSavedPaths();
+  },
+  beforeDestroy() {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
   },
 };
 </script>
@@ -166,5 +230,10 @@ button {
   color: #d9534f;
   font-weight: bold;
   margin-top: 0.5rem;
+}
+progress {
+  width: 300px;
+  height: 20px;
+  margin-right: 1rem;
 }
 </style> 

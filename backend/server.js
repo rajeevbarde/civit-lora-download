@@ -3,6 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 app.use(cors());
@@ -10,6 +11,8 @@ app.use(express.json());
 
 // Update this path to your actual database file location
 const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
+
+const scanJobs = {};
 
 app.get('/api/models', (req, res) => {
     const page = parseInt(req.query.page) || 1;
@@ -209,6 +212,86 @@ app.get('/api/scan-all-paths', (req, res) => {
             return { path: p, files };
         });
         res.json({ results });
+    });
+});
+
+// Start scan endpoint
+app.post('/api/start-scan', (req, res) => {
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        let paths = [];
+        if (!err) {
+            try {
+                const json = JSON.parse(data);
+                if (Array.isArray(json.paths)) {
+                    paths = json.paths;
+                }
+            } catch (e) {}
+        }
+        if (!paths.length) {
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        const scanId = uuidv4();
+        scanJobs[scanId] = {
+            status: 'in_progress',
+            progress: 0,
+            total: paths.length,
+            results: [],
+        };
+        // Start scan in background
+        setImmediate(() => {
+            let completed = 0;
+            paths.forEach((p, idx) => {
+                let result = { path: p, files: [], error: null };
+                const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
+                if (!isValidWinPath) {
+                    result.error = 'Invalid full path format (should be like C:\\folder\\...)';
+                } else if (!fs.existsSync(p)) {
+                    result.error = 'Directory does not exist';
+                } else if (!fs.statSync(p).isDirectory()) {
+                    result.error = 'Path is not a directory';
+                } else {
+                    // Recursively get files
+                    function getAllFiles(dirPath, arrayOfFiles = []) {
+                        try {
+                            const files = fs.readdirSync(dirPath);
+                            files.forEach(file => {
+                                const fullPath = path.join(dirPath, file);
+                                if (fs.statSync(fullPath).isDirectory()) {
+                                    getAllFiles(fullPath, arrayOfFiles);
+                                } else {
+                                    arrayOfFiles.push(fullPath);
+                                }
+                            });
+                        } catch (e) {}
+                        return arrayOfFiles;
+                    }
+                    result.files = getAllFiles(p, []);
+                }
+                scanJobs[scanId].results[idx] = result;
+                completed++;
+                scanJobs[scanId].progress = completed;
+                if (completed === paths.length) {
+                    scanJobs[scanId].status = 'done';
+                }
+            });
+        });
+        res.json({ scanId });
+    });
+});
+
+// Progress endpoint
+app.get('/api/scan-progress/:id', (req, res) => {
+    const scanId = req.params.id;
+    const job = scanJobs[scanId];
+    if (!job) {
+        return res.status(404).json({ error: 'Scan not found' });
+    }
+    res.json({
+        status: job.status,
+        progress: job.progress,
+        total: job.total,
+        results: job.status === 'done' ? job.results : undefined,
     });
 });
 
