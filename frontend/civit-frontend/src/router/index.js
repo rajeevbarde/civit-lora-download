@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import ModelTable from '../components/ModelTable.vue';
 import ModelDetail from '../components/ModelDetail.vue';
 import Summary from '../components/Summary.vue';
+import FileScanner from '../components/FileScanner.vue';
 
 const routes = [
   {
@@ -18,6 +19,11 @@ const routes = [
     path: '/summary',
     name: 'Summary',
     component: Summary,
+  },
+  {
+    path: '/file-scanner',
+    name: 'FileScanner',
+    component: FileScanner,
   }
 ];
 
