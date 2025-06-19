@@ -1,9 +1,12 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
 // Update this path to your actual database file location
 const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
@@ -77,6 +80,135 @@ app.get('/api/modeldetail/:id', (req, res) => {
 
         // Return only the model data — no pagination, total count, etc.
         res.json(row);
+    });
+});
+
+// Endpoint to save directory path to a JSON file
+app.post('/api/save-path', (req, res) => {
+    const dirPath = req.body.path;
+    if (!dirPath) {
+        return res.status(400).json({ error: 'No path provided' });
+    }
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    // Read existing paths
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        let paths = [];
+        if (!err) {
+            try {
+                const json = JSON.parse(data);
+                if (Array.isArray(json.paths)) {
+                    paths = json.paths;
+                }
+            } catch (e) {}
+        }
+        // Only add if not already present
+        if (!paths.includes(dirPath)) {
+            paths.push(dirPath);
+        }
+        fs.writeFile(saveFilePath, JSON.stringify({ paths }, null, 2), (err) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to save path' });
+            }
+            res.json({ message: 'Path saved successfully' });
+        });
+    });
+});
+
+// Endpoint to get the saved directory path from the JSON file
+app.get('/api/saved-path', (req, res) => {
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        if (err) {
+            // If file doesn't exist, return empty array
+            return res.json({ paths: [] });
+        }
+        try {
+            const json = JSON.parse(data);
+            res.json({ paths: Array.isArray(json.paths) ? json.paths : [] });
+        } catch (e) {
+            res.json({ paths: [] });
+        }
+    });
+});
+
+// Endpoint to delete a path from the saved_path.json array
+app.delete('/api/saved-path', (req, res) => {
+    const pathToDelete = req.body.path;
+    if (!pathToDelete) {
+        return res.status(400).json({ error: 'No path provided' });
+    }
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        let paths = [];
+        if (!err) {
+            try {
+                const json = JSON.parse(data);
+                if (Array.isArray(json.paths)) {
+                    paths = json.paths;
+                }
+            } catch (e) {}
+        }
+        const newPaths = paths.filter(p => p !== pathToDelete);
+        fs.writeFile(saveFilePath, JSON.stringify({ paths: newPaths }, null, 2), (err) => {
+            if (err) {
+                return res.status(500).json({ error: 'Failed to delete path' });
+            }
+            res.json({ message: 'Path deleted successfully' });
+        });
+    });
+});
+
+// Endpoint to scan all saved paths and return all file names recursively
+app.get('/api/scan-all-paths', (req, res) => {
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        let paths = [];
+        if (!err) {
+            try {
+                const json = JSON.parse(data);
+                if (Array.isArray(json.paths)) {
+                    paths = json.paths;
+                }
+            } catch (e) {}
+        }
+        if (!paths.length) {
+            return res.json({ results: [] });
+        }
+        // Helper to recursively get all files in a directory
+        function getAllFiles(dirPath, arrayOfFiles = []) {
+            try {
+                const files = fs.readdirSync(dirPath);
+                files.forEach(file => {
+                    const fullPath = path.join(dirPath, file);
+                    if (fs.statSync(fullPath).isDirectory()) {
+                        getAllFiles(fullPath, arrayOfFiles);
+                    } else {
+                        arrayOfFiles.push(fullPath);
+                    }
+                });
+            } catch (e) {
+                // If error, just return what we have so far
+            }
+            return arrayOfFiles;
+        }
+        // Scan each path
+        const results = paths.map(p => {
+            // Validate Windows full path format (basic check)
+            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
+            if (!isValidWinPath) {
+                return { path: p, error: 'Invalid full path format (should be like C:\\folder\\...)', files: [] };
+            }
+            if (!fs.existsSync(p)) {
+                return { path: p, error: 'Directory does not exist', files: [] };
+            }
+            if (!fs.statSync(p).isDirectory()) {
+                return { path: p, error: 'Path is not a directory', files: [] };
+            }
+            // Scan recursively
+            const files = getAllFiles(p, []);
+            return { path: p, files };
+        });
+        res.json({ results });
     });
 });
 
