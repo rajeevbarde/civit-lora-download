@@ -1,6 +1,16 @@
 <template>
   <div class="app-container">
     <h1>Model Version Details</h1>
+    <div v-if="model && model.modelId && model.modelVersionId" style="margin-bottom: 16px;">
+      <a
+        :href="`https://civitai.com/models/${model.modelId}?modelVersionId=${model.modelVersionId}`"
+        target="_blank"
+        rel="noopener noreferrer"
+        style="font-size: 16px; color: #1976d2; text-decoration: underline;"
+      >
+        civitai.com/models/{{ model.modelId }}?modelVersionId={{ model.modelVersionId }}
+      </a>
+    </div>
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="model-detail">

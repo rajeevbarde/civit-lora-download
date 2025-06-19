@@ -1,6 +1,25 @@
 <template>
   <div class="app-container">
     <h1>Model Database</h1>
+    <!-- Filter Controls -->
+    <div class="filters" style="margin-bottom: 16px; display: flex; gap: 16px; align-items: center;">
+      <div>
+        <label for="baseModelSelect">Base Model:</label>
+        <select id="baseModelSelect" v-model="selectedBaseModel">
+          <option value="">All</option>
+          <option v-for="bm in baseModelOptions" :key="bm" :value="bm">{{ bm }}</option>
+        </select>
+      </div>
+      <div>
+        <label for="downloadedSelect">Downloaded:</label>
+        <select id="downloadedSelect" v-model="selectedDownloaded">
+          <option value="">All</option>
+          <option value="0">0</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+        </select>
+      </div>
+    </div>
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="table-wrapper">
@@ -9,14 +28,12 @@
           <tr>
             <th>Model ID</th>
             <th>Model Name</th>
-        <!--    <th>Description</th> -->
             <th>Model Type</th>
             <th>Model NSFW</th>
             <th>Model NSFW Level</th>
             <th>Model Download Count</th>
             <th>Model Version ID</th>
             <th>Model Version Name</th>
-       <!--       <th>Version Description</th> -->
             <th>Base Model</th>
             <th>Base Model Type</th>
             <th>Version NSFW Level</th>
@@ -26,7 +43,6 @@
             <th>File Download URL</th>
             <th>Size (GB)</th>
             <th>Published At</th>
-         <!--    <th>Tags</th>-->
             <th>Downloaded</th>
             <th>File Path</th>
           </tr>
@@ -35,23 +51,20 @@
           <tr v-for="model in models" :key="model.modelId">
             <td>{{ model.modelId }}</td>
             <td>{{ model.modelName }}</td>
-          <!--    <td>{{ model.modelDescription }}</td>-->
             <td>{{ model.modelType }}</td>
             <td>{{ model.modelNsfw }}</td>
             <td>{{ model.modelNsfwLevel }}</td>
             <td>{{ model.modelDownloadCount?.toLocaleString() }}</td>
             <td>
-  <a 
-    :href="`http://localhost:5173/model/${model.modelVersionId}`" 
-    target="_blank"
-    rel="noopener noreferrer"
-  >
-    {{ model.modelVersionId }}
-  </a>
-</td>
-
+              <a 
+                :href="`http://localhost:5173/model/${model.modelVersionId}`" 
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ model.modelVersionId }}
+              </a>
+            </td>
             <td>{{ model.modelVersionName }}</td>
-           <!--   <td>{{ model.modelVersionDescription }}</td>-->
             <td>{{ model.basemodel }}</td>
             <td>{{ model.basemodeltype }}</td>
             <td>{{ model.modelVersionNsfwLevel }}</td>
@@ -61,7 +74,6 @@
             <td>{{ model.fileDownloadUrl }}</td>
             <td>{{ model.size_in_gb }}</td>
             <td>{{ model.publishedAt }}</td>
-         <!--    <td>{{ model.tags }}</td> -->
             <td>{{ model.isDownloaded }}</td>
             <td>{{ model.file_path }}</td>
           </tr>
@@ -92,24 +104,50 @@ export default {
       error: null,
       currentPage: 1,
       itemsPerPage: 20,
-      totalItems: 0
+      totalItems: 0,
+      selectedBaseModel: '',
+      selectedDownloaded: '',
+      baseModelOptions: [],
+    }
+  },
+  watch: {
+    selectedBaseModel() {
+      this.currentPage = 1;
+      this.fetchModels();
+    },
+    selectedDownloaded() {
+      this.currentPage = 1;
+      this.fetchModels();
     }
   },
   mounted() {
-    this.fetchModels()
+    this.fetchBaseModels();
+    this.fetchModels();
   },
   methods: {
+    async fetchBaseModels() {
+      try {
+        const response = await axios.get('http://localhost:3000/api/basemodels');
+        this.baseModelOptions = response.data.baseModels || [];
+      } catch (error) {
+        this.baseModelOptions = [];
+      }
+    },
     async fetchModels() {
       this.loading = true
       this.error = null
       try {
-        const response = await axios.get(`http://localhost:3000/api/models?page=${this.currentPage}&limit=${this.itemsPerPage}`)
+        const params = {
+          page: this.currentPage,
+          limit: this.itemsPerPage,
+        };
+        if (this.selectedBaseModel) params.basemodel = this.selectedBaseModel;
+        if (this.selectedDownloaded !== '') params.isDownloaded = this.selectedDownloaded;
+        const response = await axios.get('http://localhost:3000/api/models', { params });
         this.models = response.data.data
         this.totalItems = response.data.total
-        console.log('Fetched data:', response.data)
       } catch (error) {
         this.error = 'Failed to load models'
-        console.error('Error fetching models:', error)
       } finally {
         this.loading = false
       }
@@ -121,6 +159,7 @@ export default {
   }
 }
 </script>
+
 
 <style>
 * {

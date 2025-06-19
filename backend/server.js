@@ -19,6 +19,24 @@ app.get('/api/models', (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
 
+    let baseWhere = [];
+    let params = [];
+
+    if (req.query.basemodel) {
+        baseWhere.push('basemodel = ?');
+        params.push(req.query.basemodel);
+    }
+    if (req.query.isDownloaded !== undefined && req.query.isDownloaded !== "") {
+        baseWhere.push('isDownloaded = ?');
+        params.push(Number(req.query.isDownloaded));
+    }
+    if (req.query.modelVersionId) {
+        baseWhere.push('modelVersionId = ?');
+        params.push(req.query.modelVersionId);
+    }
+
+    let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
+
     let query = `
         SELECT
             modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
@@ -26,22 +44,15 @@ app.get('/api/models', (req, res) => {
             basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
             fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
         FROM ALLCivitData
+        ${whereClause}
     `;
 
-    const params = [];
-
-    if (req.query.modelVersionId) {
-        query += ' WHERE modelVersionId = ?';
-        params.push(req.query.modelVersionId);
-    }
-
-    // First, get the total count
-    db.get('SELECT COUNT(*) as total FROM ALLCivitData', [], (err, count) => {
+    // First, get the total count with filters
+    db.get(`SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params, (err, count) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
         }
-
         // Then get the paginated data
         db.all(query + ' LIMIT ? OFFSET ?', [...params, limit, offset], (err, rows) => {
             if (err) {
@@ -417,6 +428,17 @@ app.post('/api/mark-downloaded', (req, res) => {
         );
     }
     updateNext();
+});
+
+app.get('/api/basemodels', (req, res) => {
+    db.all('SELECT DISTINCT basemodel FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" ORDER BY basemodel ASC', [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        // Return as array of strings
+        const baseModels = rows.map(r => r.basemodel);
+        res.json({ baseModels });
+    });
 });
 
 const PORT = 3000;
