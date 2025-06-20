@@ -107,7 +107,7 @@ export default {
       loading: false,
       error: null,
       currentPage: 1,
-      itemsPerPage: 20,
+      itemsPerPage: 50,
       totalItems: 0,
       selectedBaseModel: '',
       selectedDownloaded: '',
@@ -214,7 +214,7 @@ h1 {
 
 .table-wrapper {
   width: 100%;
-  overflow-x: auto;
+  /* overflow-x: auto; */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
 }
@@ -222,7 +222,7 @@ h1 {
 table {
   width: 100%;
   border-collapse: collapse;
-  white-space: nowrap;
+  /* white-space: nowrap; */
   background: #fff;
 }
 
