@@ -236,18 +236,6 @@ app.post('/api/start-scan', (req, res) => {
     });
 });
 
-// Endpoint to get all file names from the database (for FileScanner presence check)
-app.get('/api/all-filenames', (req, res) => {
-    db.all('SELECT fileName FROM ALLCivitData', [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        // Return as array of strings (file names)
-        const fileNames = rows.map(r => r.fileName);
-        res.json({ fileNames });
-    });
-});
-
 // Endpoint to check if files are present or similar in the DB
 app.post('/api/check-files-in-db', (req, res) => {
     const files = req.body.files; // [{ fullPath, baseName }]
