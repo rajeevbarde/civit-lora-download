@@ -27,6 +27,13 @@
     >
       Mark Downloaded in DB
     </button>
+    <button 
+      @click="validateDownloadedFiles" 
+      :disabled="validatingFiles"
+      class="validate-btn"
+    >
+      Validate Downloaded Files
+    </button>
     <p v-if="message">{{ message }}</p>
     
     <!-- Tabbed Results Display -->
@@ -91,6 +98,69 @@
       
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
+    
+    <!-- Validation Results Display -->
+    <div v-if="validationResults" class="validation-results-container">
+      <h2>Validation Results</h2>
+      
+      <div class="validation-summary">
+        <p><strong>Total files checked:</strong> {{ validationResults.total }}</p>
+        <p><strong>Files validated successfully:</strong> {{ validationResults.validated }}</p>
+        <p><strong>Files with mismatches:</strong> {{ validationResults.mismatches ? validationResults.mismatches.length : 0 }}</p>
+        <p><strong>Errors encountered:</strong> {{ validationResults.errors ? validationResults.errors.length : 0 }}</p>
+      </div>
+      
+      <!-- Mismatches Table -->
+      <div v-if="validationResults.mismatches && validationResults.mismatches.length > 0" class="mismatches-section">
+        <h3>Mismatches Found</h3>
+        <table class="validation-table">
+          <thead>
+            <tr>
+              <th>Database Filename</th>
+              <th>Model Version ID</th>
+              <th>Database File Path</th>
+              <th>Actual Filename</th>
+              <th>Issue</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(mismatch, idx) in validationResults.mismatches" :key="idx">
+              <td>{{ mismatch.fileName }}</td>
+              <td>{{ mismatch.modelVersionId }}</td>
+              <td>{{ mismatch.file_path }}</td>
+              <td>{{ mismatch.actualFileName || 'N/A' }}</td>
+              <td>
+                <span class="issue-badge">{{ mismatch.issue }}</span>
+                <div v-if="mismatch.expectedFileName" class="expected-info">
+                  Expected: {{ mismatch.expectedFileName }}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Errors Table -->
+      <div v-if="validationResults.errors && validationResults.errors.length > 0" class="errors-section">
+        <h3>Errors Encountered</h3>
+        <table class="validation-table">
+          <thead>
+            <tr>
+              <th>Database Filename</th>
+              <th>Model Version ID</th>
+              <th>Error Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(error, idx) in validationResults.errors" :key="idx">
+              <td>{{ error.fileName }}</td>
+              <td>{{ error.modelVersionId }}</td>
+              <td class="error-message">{{ error.error }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -112,7 +182,9 @@ export default {
         { key: 'similar', label: 'Similar' },
         { key: 'not-present', label: 'Not Present' }
       ],
-      fixingFiles: []
+      fixingFiles: [],
+      validatingFiles: false,
+      validationResults: null
     };
   },
   methods: {
@@ -308,6 +380,34 @@ export default {
         this.fixingFiles = this.fixingFiles.filter(f => f !== file.fullPath);
       }
     },
+    async validateDownloadedFiles() {
+      this.validatingFiles = true;
+      this.markDownloadedMsg = '';
+      this.validationResults = null; // Clear previous results
+      try {
+        const response = await fetch('http://localhost:3000/api/validate-downloaded-files', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
+          if (data.mismatches && data.mismatches.length > 0) {
+            this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
+          }
+          if (data.errors && data.errors.length > 0) {
+            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+          }
+          this.validationResults = data; // Store the full validation results
+        } else {
+          this.markDownloadedMsg = data.error || 'Failed to validate files.';
+        }
+      } catch (error) {
+        this.markDownloadedMsg = 'Error: ' + error.message;
+      } finally {
+        this.validatingFiles = false;
+      }
+    },
   },
   mounted() {
     this.fetchSavedPaths();
@@ -468,5 +568,62 @@ progress {
 .fix-btn:disabled {
   background: #b2d8b2;
   cursor: not-allowed;
+}
+.validate-btn {
+  background: #337ab7;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 1rem;
+}
+.validate-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.validation-results-container {
+  margin-top: 2rem;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 5px;
+}
+.validation-summary {
+  margin-bottom: 1rem;
+  color: #333;
+}
+.mismatches-section {
+  margin-bottom: 1rem;
+}
+.validation-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.validation-table th, .validation-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.validation-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.issue-badge {
+  background: #f0ad4e;
+  color: #fff;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+}
+.expected-info {
+  font-size: 0.8rem;
+  color: #666;
+}
+.errors-section {
+  margin-top: 1rem;
+}
+.error-message {
+  color: #d9534f;
+  font-weight: bold;
 }
 </style> 

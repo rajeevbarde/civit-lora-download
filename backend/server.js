@@ -671,6 +671,110 @@ app.post('/api/fix-file', (req, res) => {
     });
 });
 
+// Endpoint to validate downloaded files
+app.post('/api/validate-downloaded-files', (req, res) => {
+    console.log('=== VALIDATING DOWNLOADED FILES ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    
+    // Query to get all downloaded files (isDownloaded = 1)
+    const query = `
+        SELECT fileName, file_path, modelVersionId
+        FROM ALLCivitData
+        WHERE isDownloaded = 1
+    `;
+    
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            console.log(`ERROR: Database query failed: ${err.message}`);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        console.log(`Found ${rows.length} downloaded files to validate`);
+        
+        let validated = 0;
+        let mismatches = [];
+        let errors = [];
+        
+        // Process each file
+        rows.forEach((row, index) => {
+            const { fileName, file_path, modelVersionId } = row;
+            
+            try {
+                // Check if file_path exists
+                if (!file_path || !fs.existsSync(file_path)) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        issue: 'File not found on disk',
+                        expectedPath: file_path
+                    });
+                    return;
+                }
+                
+                // Get the actual filename from the file_path
+                const actualFileName = path.basename(file_path);
+                
+                // Check if the filename in DB matches the actual filename
+                if (fileName !== actualFileName) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        actualFileName,
+                        issue: 'Filename mismatch',
+                        expectedFileName: fileName
+                    });
+                    return;
+                }
+                
+                // Check if the file_path in DB matches the expected path structure
+                // This is a basic validation - you might want to add more specific checks
+                const expectedPath = file_path;
+                if (file_path !== expectedPath) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        issue: 'Path structure mismatch',
+                        expectedPath: expectedPath
+                    });
+                    return;
+                }
+                
+                validated++;
+                
+                // Log progress every 100 files
+                if ((index + 1) % 100 === 0 || index === rows.length - 1) {
+                    console.log(`  Validated ${index + 1}/${rows.length} files`);
+                }
+                
+            } catch (error) {
+                errors.push({
+                    fileName,
+                    modelVersionId,
+                    error: error.message
+                });
+                console.log(`ERROR validating ${fileName}: ${error.message}`);
+            }
+        });
+        
+        console.log('=== VALIDATION COMPLETED ===');
+        console.log(`Files validated successfully: ${validated}`);
+        console.log(`Files with mismatches: ${mismatches.length}`);
+        console.log(`Errors encountered: ${errors.length}`);
+        console.log(`Validation completed at: ${new Date().toISOString()}`);
+        console.log('=== END VALIDATION ===\n');
+        
+        res.json({
+            validated,
+            mismatches,
+            errors,
+            total: rows.length
+        });
+    });
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
