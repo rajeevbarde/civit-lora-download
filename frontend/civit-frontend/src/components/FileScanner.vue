@@ -18,7 +18,6 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button @click="scanAllPaths">Scan All Saved Paths (Old)</button>
     <button @click="startScan">Scan All Saved Paths (with Progress)</button>
     <p v-if="message">{{ message }}</p>
     <div v-if="scanStatus === 'in_progress'">
@@ -54,16 +53,6 @@
       </button>
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
-    <div v-if="scanStatus === '' && scanResults.length">
-      <h2>Scan Results</h2>
-      <div v-for="result in scanResults" :key="result.path" class="scan-result-block">
-        <strong>{{ result.path }}</strong>
-        <div v-if="result.error" class="error">Error: {{ result.error }}</div>
-        <ul v-else>
-          <li v-for="(file, idx) in result.files" :key="idx">{{ file }}</li>
-        </ul>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -75,7 +64,6 @@ export default {
       directoryPath: '',
       message: '',
       savedPaths: [],
-      scanResults: [],
       scanId: null,
       scanProgress: 0,
       scanTotal: 0,
@@ -145,27 +133,8 @@ export default {
         this.message = 'Error: ' + error.message;
       }
     },
-    async scanAllPaths() {
-      this.message = '';
-      this.scanResults = [];
-      try {
-        const response = await fetch('http://localhost:3000/api/scan-all-paths');
-        const data = await response.json();
-        if (Array.isArray(data.results)) {
-          this.scanResults = data.results;
-          if (!data.results.length) {
-            this.message = 'No saved paths to scan.';
-          }
-        } else {
-          this.message = 'Unexpected response from server.';
-        }
-      } catch (error) {
-        this.message = 'Error: ' + error.message;
-      }
-    },
     async startScan() {
       this.message = '';
-      this.scanResults = [];
       this.checkedFiles = [];
       this.scanProgress = 0;
       this.scanTotal = 0;
@@ -196,9 +165,8 @@ export default {
           this.scanTotal = data.total;
           this.scanStatus = data.status;
           if (data.status === 'done') {
-            this.scanResults = data.results;
             clearInterval(this.pollingInterval);
-            await this.checkFilesInDb();
+            await this.checkFilesInDb(data.results);
           }
         } catch (error) {
           clearInterval(this.pollingInterval);
@@ -206,17 +174,20 @@ export default {
         }
       }, 1000);
     },
-    async checkFilesInDb() {
-      // Flatten all files from all scanResults
+    async checkFilesInDb(scanResults) {
+      // Get files from the scan results
       let files = [];
-      for (const result of this.scanResults) {
-        if (result && Array.isArray(result.files)) {
-          files = files.concat(result.files.map(f => ({
-            fullPath: f,
-            baseName: f.split(/\\|\//).pop() || f
-          })));
+      if (scanResults && Array.isArray(scanResults)) {
+        for (const result of scanResults) {
+          if (result && Array.isArray(result.files)) {
+            files = files.concat(result.files.map(f => ({
+              fullPath: f,
+              baseName: f.split(/\\|\//).pop() || f
+            })));
+          }
         }
       }
+      
       if (!files.length) {
         this.checkedFiles = [];
         return;
@@ -268,20 +239,6 @@ export default {
   beforeDestroy() {
     if (this.pollingInterval) clearInterval(this.pollingInterval);
   },
-  computed: {
-    allScannedFiles() {
-      let files = [];
-      for (const result of this.scanResults) {
-        if (result && Array.isArray(result.files)) {
-          files = files.concat(result.files.map(f => ({
-            fullPath: f,
-            baseName: f.split(/\\|\//).pop() || f
-          })));
-        }
-      }
-      return files;
-    }
-  }
 };
 </script>
 

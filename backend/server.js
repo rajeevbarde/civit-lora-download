@@ -173,60 +173,6 @@ app.delete('/api/saved-path', (req, res) => {
     });
 });
 
-// Endpoint to scan all saved paths and return all file names recursively
-app.get('/api/scan-all-paths', (req, res) => {
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        let paths = [];
-        if (!err) {
-            try {
-                const json = JSON.parse(data);
-                if (Array.isArray(json.paths)) {
-                    paths = json.paths;
-                }
-            } catch (e) {}
-        }
-        if (!paths.length) {
-            return res.json({ results: [] });
-        }
-        // Helper to recursively get all files in a directory
-        function getAllFiles(dirPath, arrayOfFiles = []) {
-            try {
-                const files = fs.readdirSync(dirPath);
-                files.forEach(file => {
-                    const fullPath = path.join(dirPath, file);
-                    if (fs.statSync(fullPath).isDirectory()) {
-                        getAllFiles(fullPath, arrayOfFiles);
-                    } else {
-                        arrayOfFiles.push(fullPath);
-                    }
-                });
-            } catch (e) {
-                // If error, just return what we have so far
-            }
-            return arrayOfFiles;
-        }
-        // Scan each path
-        const results = paths.map(p => {
-            // Validate Windows full path format (basic check)
-            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
-            if (!isValidWinPath) {
-                return { path: p, error: 'Invalid full path format (should be like C:\\folder\\...)', files: [] };
-            }
-            if (!fs.existsSync(p)) {
-                return { path: p, error: 'Directory does not exist', files: [] };
-            }
-            if (!fs.statSync(p).isDirectory()) {
-                return { path: p, error: 'Path is not a directory', files: [] };
-            }
-            // Scan recursively
-            const files = getAllFiles(p, []);
-            return { path: p, files };
-        });
-        res.json({ results });
-    });
-});
-
 // Start scan endpoint
 app.post('/api/start-scan', (req, res) => {
     const saveFilePath = path.join(__dirname, 'saved_path.json');
