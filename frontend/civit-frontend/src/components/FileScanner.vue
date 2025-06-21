@@ -28,24 +28,51 @@
       Mark Downloaded in DB
     </button>
     <p v-if="message">{{ message }}</p>
-    <div v-if="scanStatus === 'done' && checkedFiles.length">
+    
+    <!-- Tabbed Results Display -->
+    <div v-if="scanStatus === 'done' && checkedFiles.length" class="scan-results-container">
       <h2>Scan Results</h2>
-      <table class="scan-table">
-        <thead>
-          <tr>
-            <th>Full Path</th>
-            <th>Present in db</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(file, idx) in checkedFiles" :key="file.fullPath + idx">
-            <td>{{ file.fullPath }}</td>
-            <td>
-              <span>{{ file.status }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      
+      <!-- Tab Navigation -->
+      <div class="tab-navigation">
+        <button 
+          v-for="tab in tabs" 
+          :key="tab.key"
+          @click="activeTab = tab.key"
+          :class="['tab-button', { active: activeTab === tab.key }]"
+        >
+          {{ tab.label }} ({{ getTabCount(tab.key) }})
+        </button>
+      </div>
+      
+      <!-- Tab Content -->
+      <div class="tab-content">
+        <div v-for="tab in tabs" :key="tab.key" v-show="activeTab === tab.key" class="tab-panel">
+          <h3>{{ tab.label }} Files</h3>
+          <div v-if="getTabFiles(tab.key).length === 0" class="no-files">
+            No {{ tab.label.toLowerCase() }} files found.
+          </div>
+          <table v-else class="scan-table">
+            <thead>
+              <tr>
+                <th>Full Path</th>
+                <th>Status</th>
+                <th>Base Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(file, idx) in getTabFiles(tab.key)" :key="file.fullPath + idx">
+                <td>{{ file.fullPath }}</td>
+                <td>
+                  <span :class="getStatusClass(file.status)">{{ file.status }}</span>
+                </td>
+                <td>{{ file.baseName }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
   </div>
@@ -63,9 +90,46 @@ export default {
       checkedFiles: [], // [{ fullPath, baseName, status }]
       markingDownloaded: false,
       markDownloadedMsg: '',
+      activeTab: 'present', // Default active tab
+      tabs: [
+        { key: 'present', label: 'Present' },
+        { key: 'similar', label: 'Similar' },
+        { key: 'not-present', label: 'Not Present' }
+      ]
     };
   },
   methods: {
+    // New methods for tab functionality
+    getTabFiles(tabKey) {
+      return this.checkedFiles.filter(file => {
+        switch (tabKey) {
+          case 'present':
+            return file.status === 'Present';
+          case 'similar':
+            return file.status && file.status.startsWith('Similar');
+          case 'not-present':
+            return !file.status || file.status === '';
+          default:
+            return false;
+        }
+      });
+    },
+    
+    getTabCount(tabKey) {
+      return this.getTabFiles(tabKey).length;
+    },
+    
+    getStatusClass(status) {
+      if (status === 'Present') {
+        return 'status-present';
+      } else if (status && status.startsWith('Similar')) {
+        return 'status-similar';
+      } else if (!status || status === '') {
+        return 'status-not-present';
+      }
+      return '';
+    },
+    
     async savePath() {
       if (!this.directoryPath) {
         this.message = 'Please enter a directory path.';
@@ -128,6 +192,7 @@ export default {
       this.message = '';
       this.checkedFiles = [];
       this.scanStatus = '';
+      this.activeTab = 'present'; // Reset to first tab
       try {
         const response = await fetch('http://localhost:3000/api/start-scan', { method: 'POST' });
         const data = await response.json();
@@ -231,14 +296,77 @@ button {
   padding: 0.2rem 0.7rem;
   cursor: pointer;
 }
-.scan-results {
+.scan-results-container {
   margin-top: 2rem;
   background: #f9f9f9;
   padding: 1rem;
   border-radius: 5px;
 }
-.scan-result-block {
-  margin-bottom: 1.5rem;
+.tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+  margin-bottom: 1rem;
+}
+.tab-button {
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  padding: 0.75rem 1.5rem;
+  margin-right: 0.25rem;
+  cursor: pointer;
+  border-radius: 5px 5px 0 0;
+  font-weight: 500;
+}
+.tab-button.active {
+  background: #fff;
+  border-bottom: 2px solid #fff;
+  margin-bottom: -2px;
+  font-weight: bold;
+}
+.tab-button:hover:not(.active) {
+  background: #e9e9e9;
+}
+.tab-content {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0 0 5px 5px;
+}
+.tab-panel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #333;
+}
+.no-files {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
+}
+.scan-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.scan-table th, .scan-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.scan-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.status-present {
+  color: #5cb85c;
+  font-weight: bold;
+}
+.status-similar {
+  color: #f0ad4e;
+  font-weight: bold;
+}
+.status-not-present {
+  color: #d9534f;
+  font-weight: bold;
 }
 .error {
   color: #d9534f;
@@ -249,18 +377,6 @@ progress {
   width: 300px;
   height: 20px;
   margin-right: 1rem;
-}
-.scan-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 1rem;
-}
-.scan-table th, .scan-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-}
-.scan-table th {
-  background: #f8f8f8;
 }
 .mark-btn {
   background: #5cb85c;
