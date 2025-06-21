@@ -189,77 +189,50 @@ app.post('/api/start-scan', (req, res) => {
         if (!paths.length) {
             return res.status(400).json({ error: 'No saved paths to scan.' });
         }
-        const scanId = uuidv4();
-        scanJobs[scanId] = {
-            status: 'in_progress',
-            progress: 0,
-            total: paths.length,
-            results: [],
-        };
-        // Start scan in background
-        setImmediate(() => {
-            let completed = 0;
-            // Deduplicated, case-insensitive allowed extensions
-            const allowedExts = [
-                 'safetensors'
-            ];
-            function hasAllowedExt(filename) {
-                const ext = path.extname(filename).replace('.', '');
-                return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
-            }
-            paths.forEach((p, idx) => {
-                let result = { path: p, files: [], error: null };
-                const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
-                if (!isValidWinPath) {
-                    result.error = 'Invalid full path format (should be like C:\\folder\\...)';
-                } else if (!fs.existsSync(p)) {
-                    result.error = 'Directory does not exist';
-                } else if (!fs.statSync(p).isDirectory()) {
-                    result.error = 'Path is not a directory';
-                } else {
-                    // Recursively get files
-                    function getAllFiles(dirPath, arrayOfFiles = []) {
-                        try {
-                            const files = fs.readdirSync(dirPath);
-                            files.forEach(file => {
-                                const fullPath = path.join(dirPath, file);
-                                if (fs.statSync(fullPath).isDirectory()) {
-                                    getAllFiles(fullPath, arrayOfFiles);
-                                } else {
-                                    if (hasAllowedExt(fullPath)) {
-                                        arrayOfFiles.push(fullPath);
-                                    }
+        
+        // Deduplicated, case-insensitive allowed extensions
+        const allowedExts = [
+             'safetensors'
+        ];
+        function hasAllowedExt(filename) {
+            const ext = path.extname(filename).replace('.', '');
+            return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
+        }
+        
+        // Scan each path
+        const results = paths.map(p => {
+            let result = { path: p, files: [], error: null };
+            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
+            if (!isValidWinPath) {
+                result.error = 'Invalid full path format (should be like C:\\folder\\...)';
+            } else if (!fs.existsSync(p)) {
+                result.error = 'Directory does not exist';
+            } else if (!fs.statSync(p).isDirectory()) {
+                result.error = 'Path is not a directory';
+            } else {
+                // Recursively get files
+                function getAllFiles(dirPath, arrayOfFiles = []) {
+                    try {
+                        const files = fs.readdirSync(dirPath);
+                        files.forEach(file => {
+                            const fullPath = path.join(dirPath, file);
+                            if (fs.statSync(fullPath).isDirectory()) {
+                                getAllFiles(fullPath, arrayOfFiles);
+                            } else {
+                                if (hasAllowedExt(fullPath)) {
+                                    arrayOfFiles.push(fullPath);
                                 }
-                            });
-                        } catch (e) {}
-                        return arrayOfFiles;
-                    }
-                    result.files = getAllFiles(p, []);
+                            }
+                        });
+                    } catch (e) {}
+                    return arrayOfFiles;
                 }
-                scanJobs[scanId].results[idx] = result;
-                completed++;
-                scanJobs[scanId].progress = completed;
-                if (completed === paths.length) {
-                    scanJobs[scanId].status = 'done';
-                }
-            });
+                result.files = getAllFiles(p, []);
+            }
+            return result;
         });
-        res.json({ scanId });
-    });
-});
-
-// Progress endpoint
-app.get('/api/scan-progress/:id', (req, res) => {
-    const scanId = req.params.id;
-    const job = scanJobs[scanId];
-    if (!job) {
-        return res.status(404).json({ error: 'Scan not found' });
-    }
-    res.json({
-        status: job.status,
-        progress: job.progress,
-        total: job.total,
-        results: job.status === 'done' ? job.results : undefined,
+        
+        res.json({ results });
     });
 });
 

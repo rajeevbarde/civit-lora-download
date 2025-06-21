@@ -18,12 +18,8 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button @click="startScan">Scan All Saved Paths (with Progress)</button>
+    <button @click="startScan">Scan All Saved Paths</button>
     <p v-if="message">{{ message }}</p>
-    <div v-if="scanStatus === 'in_progress'">
-      <progress :value="scanProgress" :max="scanTotal"></progress>
-      <span>{{ scanProgress }} / {{ scanTotal }} scanned...</span>
-    </div>
     <div v-if="scanStatus === 'done' && checkedFiles.length">
       <h2>Scan Results</h2>
       <table class="scan-table">
@@ -64,11 +60,7 @@ export default {
       directoryPath: '',
       message: '',
       savedPaths: [],
-      scanId: null,
-      scanProgress: 0,
-      scanTotal: 0,
       scanStatus: '',
-      pollingInterval: null,
       checkedFiles: [], // [{ fullPath, baseName, status }]
       markingDownloaded: false,
       markDownloadedMsg: '',
@@ -136,43 +128,19 @@ export default {
     async startScan() {
       this.message = '';
       this.checkedFiles = [];
-      this.scanProgress = 0;
-      this.scanTotal = 0;
       this.scanStatus = '';
-      this.scanId = null;
-      if (this.pollingInterval) clearInterval(this.pollingInterval);
       try {
         const response = await fetch('http://localhost:3000/api/start-scan', { method: 'POST' });
         const data = await response.json();
-        if (data.scanId) {
-          this.scanId = data.scanId;
-          this.scanStatus = 'in_progress';
-          this.pollScanProgress();
+        if (data.results) {
+          this.scanStatus = 'done';
+          await this.checkFilesInDb(data.results);
         } else {
           this.message = data.error || 'Failed to start scan.';
         }
       } catch (error) {
         this.message = 'Error: ' + error.message;
       }
-    },
-    async pollScanProgress() {
-      if (!this.scanId) return;
-      this.pollingInterval = setInterval(async () => {
-        try {
-          const response = await fetch(`http://localhost:3000/api/scan-progress/${this.scanId}`);
-          const data = await response.json();
-          this.scanProgress = data.progress;
-          this.scanTotal = data.total;
-          this.scanStatus = data.status;
-          if (data.status === 'done') {
-            clearInterval(this.pollingInterval);
-            await this.checkFilesInDb(data.results);
-          }
-        } catch (error) {
-          clearInterval(this.pollingInterval);
-          this.message = 'Error: ' + error.message;
-        }
-      }, 1000);
     },
     async checkFilesInDb(scanResults) {
       // Get files from the scan results
@@ -235,9 +203,6 @@ export default {
   },
   mounted() {
     this.fetchSavedPaths();
-  },
-  beforeDestroy() {
-    if (this.pollingInterval) clearInterval(this.pollingInterval);
   },
 };
 </script>
