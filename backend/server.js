@@ -175,6 +175,10 @@ app.delete('/api/saved-path', (req, res) => {
 
 // Start scan endpoint
 app.post('/api/start-scan', (req, res) => {
+    console.log('=== SCAN REQUEST RECEIVED ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log('User pressed scan button - starting file scan process...');
+    
     const saveFilePath = path.join(__dirname, 'saved_path.json');
     fs.readFile(saveFilePath, 'utf8', (err, data) => {
         let paths = [];
@@ -184,9 +188,18 @@ app.post('/api/start-scan', (req, res) => {
                 if (Array.isArray(json.paths)) {
                     paths = json.paths;
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.log('Error parsing saved_path.json:', e.message);
+            }
         }
+        
+        console.log(`Found ${paths.length} saved paths to scan:`);
+        paths.forEach((p, index) => {
+            console.log(`  ${index + 1}. ${p}`);
+        });
+        
         if (!paths.length) {
+            console.log('ERROR: No saved paths to scan');
             return res.status(400).json({ error: 'No saved paths to scan.' });
         }
         
@@ -194,22 +207,30 @@ app.post('/api/start-scan', (req, res) => {
         const allowedExts = [
              'safetensors'
         ];
+        console.log(`Scanning for files with extensions: ${allowedExts.join(', ')}`);
+        
         function hasAllowedExt(filename) {
             const ext = path.extname(filename).replace('.', '');
             return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
         }
         
         // Scan each path
-        const results = paths.map(p => {
+        console.log('Starting file scan for each path...');
+        const results = paths.map((p, pathIndex) => {
+            console.log(`\n--- Scanning path ${pathIndex + 1}/${paths.length}: ${p} ---`);
             let result = { path: p, files: [], error: null };
             const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
             if (!isValidWinPath) {
                 result.error = 'Invalid full path format (should be like C:\\folder\\...)';
+                console.log(`  ERROR: ${result.error}`);
             } else if (!fs.existsSync(p)) {
                 result.error = 'Directory does not exist';
+                console.log(`  ERROR: ${result.error}`);
             } else if (!fs.statSync(p).isDirectory()) {
                 result.error = 'Path is not a directory';
+                console.log(`  ERROR: ${result.error}`);
             } else {
+                console.log(`  Path is valid, scanning for files...`);
                 // Recursively get files
                 function getAllFiles(dirPath, arrayOfFiles = []) {
                     try {
@@ -224,13 +245,37 @@ app.post('/api/start-scan', (req, res) => {
                                 }
                             }
                         });
-                    } catch (e) {}
+                    } catch (e) {
+                        console.log(`    Error reading directory ${dirPath}: ${e.message}`);
+                    }
                     return arrayOfFiles;
                 }
                 result.files = getAllFiles(p, []);
+                console.log(`  Found ${result.files.length} matching files in this path`);
+                if (result.files.length > 0) {
+                    console.log(`  Sample files found:`);
+                    result.files.slice(0, 3).forEach((file, idx) => {
+                        console.log(`    ${idx + 1}. ${path.basename(file)}`);
+                    });
+                    if (result.files.length > 3) {
+                        console.log(`    ... and ${result.files.length - 3} more files`);
+                    }
+                }
             }
             return result;
         });
+        
+        const totalFilesFound = results.reduce((sum, result) => sum + (result.files ? result.files.length : 0), 0);
+        const successfulPaths = results.filter(r => !r.error).length;
+        const failedPaths = results.filter(r => r.error).length;
+        
+        console.log('\n=== SCAN COMPLETED ===');
+        console.log(`Total paths processed: ${paths.length}`);
+        console.log(`Successful paths: ${successfulPaths}`);
+        console.log(`Failed paths: ${failedPaths}`);
+        console.log(`Total files found: ${totalFilesFound}`);
+        console.log(`Scan completed at: ${new Date().toISOString()}`);
+        console.log('=== END SCAN ===\n');
         
         res.json({ results });
     });
@@ -242,10 +287,18 @@ app.post('/api/check-files-in-db', (req, res) => {
     if (!Array.isArray(files)) {
         return res.status(400).json({ error: 'files must be an array' });
     }
+    
+    console.log('=== CHECKING FILES IN DATABASE ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log(`Checking ${files.length} files against database...`);
+    
     db.all('SELECT fileName FROM ALLCivitData', [], (err, rows) => {
         if (err) {
+            console.log(`ERROR: Database query failed: ${err.message}`);
             return res.status(500).json({ error: err.message });
         }
+        
+        console.log(`Database contains ${rows.length} file records`);
         const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
         const dbFileNameMap = rows.reduce((acc, r) => {
             if (r.fileName) acc[r.fileName.toLowerCase()] = r.fileName;
@@ -261,7 +314,10 @@ app.post('/api/check-files-in-db', (req, res) => {
         for (const dbName of dbFileNames) {
             normalizedDbMap[normalizeName(dbName)] = dbFileNameMap[dbName];
         }
-        const results = files.map(f => {            const lowerBase = (f.baseName || '').toLowerCase();
+        
+        console.log('Processing scanned files...');
+        const results = files.map((f, index) => {            
+            const lowerBase = (f.baseName || '').toLowerCase();
             let status = '';
             if (dbFileNames.includes(lowerBase)) {
                 status = 'Present';
@@ -272,12 +328,30 @@ app.post('/api/check-files-in-db', (req, res) => {
                     status = `Similar (${normalizedDbMap[normScanned]})`;
                 }
             }
+            
+            // Log progress every 100 files
+            if ((index + 1) % 100 === 0 || index === files.length - 1) {
+                console.log(`  Processed ${index + 1}/${files.length} files`);
+            }
+            
             return {
                 fullPath: f.fullPath,
                 baseName: f.baseName,
                 status
             };
         });
+        
+        const presentCount = results.filter(r => r.status === 'Present').length;
+        const similarCount = results.filter(r => r.status.startsWith('Similar')).length;
+        const notFoundCount = results.filter(r => !r.status || r.status === '').length;
+        
+        console.log('=== DATABASE CHECK COMPLETED ===');
+        console.log(`Files present in DB: ${presentCount}`);
+        console.log(`Files similar to DB entries: ${similarCount}`);
+        console.log(`Files not found in DB: ${notFoundCount}`);
+        console.log(`Check completed at: ${new Date().toISOString()}`);
+        console.log('=== END DATABASE CHECK ===\n');
+        
         res.json({ results });
     });
 });
@@ -288,6 +362,11 @@ app.post('/api/mark-downloaded', (req, res) => {
     if (!Array.isArray(files)) {
         return res.status(400).json({ error: 'files must be an array' });
     }
+    
+    console.log('=== MARKING FILES AS DOWNLOADED ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log(`Processing ${files.length} files for database update...`);
+    
     let updated = 0;
     let errors = [];
     const dbFileNamesToUpdate = [];
@@ -307,28 +386,45 @@ app.post('/api/mark-downloaded', (req, res) => {
             dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
         }
     });
-    if (!dbFileNamesToUpdate.length) {
+    
+    console.log(`Files to update in database: ${dbFileNamesToUpdate.length}`);
+    if (dbFileNamesToUpdate.length === 0) {
+        console.log('No files to update - all files already marked or not found in DB');
+        console.log('=== END MARK DOWNLOADED ===\n');
         return res.json({ updated: 0, errors: [] });
     }
+    
     const sqlite = require('sqlite3').verbose();
     const dbConn = new sqlite.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
     let processed = 0;
     function updateNext() {
         if (processed >= dbFileNamesToUpdate.length) {
+            console.log('=== DATABASE UPDATE COMPLETED ===');
+            console.log(`Successfully updated: ${updated} files`);
+            console.log(`Errors encountered: ${errors.length}`);
+            if (errors.length > 0) {
+                console.log('Error details:');
+                errors.forEach((error, idx) => {
+                    console.log(`  ${idx + 1}. ${error.fileName}: ${error.error}`);
+                });
+            }
+            console.log(`Update completed at: ${new Date().toISOString()}`);
+            console.log('=== END MARK DOWNLOADED ===\n');
             dbConn.close();
             return res.json({ updated, errors });
         }
         const item = dbFileNamesToUpdate[processed];
+        console.log(`Updating ${processed + 1}/${dbFileNamesToUpdate.length}: ${item.dbFileName} (isDownloaded=${item.isDownloaded})`);
         dbConn.run(
             'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?',
             [item.isDownloaded, item.fullPath, item.dbFileName],
             function (err) {
                 if (err) {
                     errors.push({ fileName: item.dbFileName, error: err.message });
-                    console.log(`Error updating ${item.dbFileName}: ${err.message}`);
+                    console.log(`  ERROR updating ${item.dbFileName}: ${err.message}`);
                 } else {
                     updated++;
-                    console.log(`Updated ${item.dbFileName}: isDownloaded=${item.isDownloaded}, file_path=${item.fullPath}`);
+                    console.log(`  SUCCESS: Updated ${item.dbFileName} (isDownloaded=${item.isDownloaded}, file_path=${item.fullPath})`);
                 }
                 processed++;
                 updateNext();
