@@ -51,9 +51,21 @@
             <div class="file-info">
               <div class="file-name">{{ file.fileName }}</div>
               <div class="file-path">{{ file.directory }}</div>
+              <div v-if="file.status" class="file-status" :class="file.status">
+                {{ file.status === 'processing' ? 'Processing...' : 
+                   file.status === 'success' ? '✅ Fixed' : 
+                   file.status === 'error' ? '❌ Error' : '' }}
+              </div>
             </div>
             <div class="file-actions">
-              <button @click="copyPath(file.fullPath)" class="copy-btn">Copy Path</button>
+              <button 
+                @click="fixFile(file)" 
+                :disabled="file.status === 'processing'"
+                class="fix-btn"
+                :class="{ 'processing': file.status === 'processing' }"
+              >
+                {{ file.status === 'processing' ? 'Processing...' : 'Fix File' }}
+              </button>
             </div>
           </div>
         </div>
@@ -103,13 +115,99 @@ export default {
       }
     },
     
-    copyPath(filePath) {
-      navigator.clipboard.writeText(filePath).then(() => {
-        // You could add a toast notification here
-        console.log('Path copied to clipboard:', filePath);
-      }).catch(err => {
-        console.error('Failed to copy path:', err);
-      });
+    async fixFile(file) {
+      // Set processing status
+      file.status = 'processing';
+      
+      try {
+        // Step 1: Compute SHA256 hash of the file
+        const hash = await this.computeFileHash(file.fullPath);
+        console.log(`Hash for ${file.fileName}: ${hash}`);
+        
+        // Step 2: Fetch model version ID from CivitAI
+        const modelVersionId = await this.fetchModelVersionId(hash);
+        console.log(`Model Version ID for ${file.fileName}: ${modelVersionId}`);
+        
+        // Step 3: Call the fix-file API
+        const response = await fetch('http://localhost:3000/api/fix-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            modelVersionId: modelVersionId,
+            filePath: file.fullPath
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('File fixed successfully:', result);
+        
+        // Set success status
+        file.status = 'success';
+        
+      } catch (error) {
+        console.error('Error fixing file:', error);
+        file.status = 'error';
+        file.errorMessage = error.message;
+        alert(`Error fixing file ${file.fileName}: ${error.message}`);
+      }
+    },
+    
+    async computeFileHash(filePath) {
+      try {
+        // Use backend endpoint to compute hash
+        const response = await fetch('http://localhost:3000/api/compute-file-hash', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ filePath })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data.hash;
+        
+      } catch (error) {
+        console.error('Error computing hash:', error);
+        throw new Error(`Failed to compute file hash: ${error.message}`);
+      }
+    },
+    
+    async fetchModelVersionId(hash) {
+      try {
+        const url = `https://civitai.com/api/v1/model-versions/by-hash/${hash}`;
+        console.log(`Fetching metadata from: ${url}`);
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`CivitAI API error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const modelVersionId = data.id;
+        
+        if (!modelVersionId) {
+          throw new Error("Model version ID not found in CivitAI response");
+        }
+        
+        console.log(`✅ CivitAI data retrieved. Model Version ID: ${modelVersionId}`);
+        return modelVersionId;
+        
+      } catch (error) {
+        console.error('Error fetching model version ID:', error);
+        throw new Error(`Failed to fetch model version ID: ${error.message}`);
+      }
     }
   }
 }
@@ -263,25 +361,53 @@ export default {
   color: #666;
   font-size: 0.9rem;
   word-break: break-all;
+  margin-bottom: 0.25rem;
+}
+
+.file-status {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.file-status.processing {
+  color: #007bff;
+}
+
+.file-status.success {
+  color: #28a745;
+}
+
+.file-status.error {
+  color: #dc3545;
 }
 
 .file-actions {
   margin-left: 1rem;
 }
 
-.copy-btn {
+.fix-btn {
   background: #28a745;
   color: white;
   border: none;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  min-width: 100px;
 }
 
-.copy-btn:hover {
+.fix-btn:hover:not(:disabled) {
   background: #218838;
+}
+
+.fix-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.fix-btn.processing {
+  background: #007bff;
 }
 
 .no-missing {

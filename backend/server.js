@@ -893,6 +893,44 @@ app.post('/api/find-missing-files', (req, res) => {
     });
 });
 
+// Endpoint to compute SHA256 hash of a file
+app.post('/api/compute-file-hash', (req, res) => {
+    const { filePath } = req.body;
+    
+    if (!filePath) {
+        return res.status(400).json({ error: 'filePath is required' });
+    }
+    
+    console.log('=== COMPUTING FILE HASH ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log(`File path: ${filePath}`);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+        console.log(`ERROR: File does not exist: ${filePath}`);
+        return res.status(404).json({ error: 'File not found' });
+    }
+    
+    try {
+        // Read file and compute SHA256 hash
+        const crypto = require('crypto');
+        const fileBuffer = fs.readFileSync(filePath);
+        const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+        
+        console.log(`SUCCESS: Hash computed for ${path.basename(filePath)}`);
+        console.log(`Hash: ${hash}`);
+        console.log(`=== HASH COMPUTATION COMPLETED ===`);
+        console.log(`Hash computation completed at: ${new Date().toISOString()}`);
+        console.log(`=== END HASH COMPUTATION ===\n`);
+        
+        res.json({ hash });
+        
+    } catch (error) {
+        console.log(`ERROR: Hash computation failed: ${error.message}`);
+        return res.status(500).json({ error: 'Hash computation failed: ' + error.message });
+    }
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
