@@ -17,6 +17,7 @@
           <option value="0">0</option>
           <option value="1">1</option>
           <option value="2">2</option>
+          <option value="3">3</option>
         </select>
       </div>
     </div>
@@ -72,8 +73,9 @@
             <td>{{ model.fileName }}</td>
             <td>{{ model.fileType }}</td>
             <td>
-              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1" @click="downloadModelFile(model)">Download</button>
-              <span v-else-if="model.isDownloaded === 1">Downloaded</span>
+              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" @click="downloadModelFile(model)">Download</button>
+              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" @click="downloadModelFile(model)">Retry</button>
+              <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2">Downloaded</span>
               <span v-else>-</span>
             </td>
             <td>{{ model.size_in_gb }}</td>
@@ -173,9 +175,11 @@ export default {
           this.fetchModels(); // Refresh table
         } else {
           alert(response.data.error || 'Download failed.');
+          this.fetchModels(); // Refresh table even on failure
         }
       } catch (err) {
         alert('Download failed: ' + (err.response?.data?.error || err.message));
+        this.fetchModels(); // Refresh table even on error
       } finally {
         this.loading = false;
       }

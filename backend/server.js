@@ -504,7 +504,17 @@ app.post('/api/download-model-file', async (req, res) => {
       }
     );
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    // Update DB to mark as failed (status 3)
+    db.run(
+      'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?',
+      [modelVersionId],
+      function (dbErr) {
+        if (dbErr) {
+          console.error('Failed to update DB with error status:', dbErr.message);
+        }
+        return res.status(500).json({ error: err.message });
+      }
+    );
   }
 });
 
