@@ -19,6 +19,14 @@
     />
     <button @click="savePath">Save Path</button>
     <button @click="startScan">Scan All Saved Paths</button>
+    <button 
+      v-if="checkedFiles.length" 
+      @click="markDownloaded" 
+      :disabled="markingDownloaded"
+      class="mark-btn"
+    >
+      Mark Downloaded in DB
+    </button>
     <p v-if="message">{{ message }}</p>
     <div v-if="scanStatus === 'done' && checkedFiles.length">
       <h2>Scan Results</h2>
@@ -38,15 +46,6 @@
           </tr>
         </tbody>
       </table>
-      <button 
-        v-if="checkedFiles.length" 
-        @click="markDownloaded" 
-        :disabled="markingDownloaded"
-        class="mark-btn"
-        style="margin-top: 1rem;"
-      >
-        Mark Downloaded in DB
-      </button>
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
   </div>
