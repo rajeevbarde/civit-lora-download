@@ -6,7 +6,7 @@
     <div v-else>
       <!-- Downloaded Matrix -->
       <table v-if="matrixDownloaded.length" class="summary-matrix">
-        <caption style="caption-side:top;text-align:left;font-weight:bold;margin-bottom:0.5rem;">Downloaded Matrix (isDownloaded: (1, 2))</caption>
+        <caption style="caption-side:top;text-align:left;font-weight:bold;margin-bottom:0.5rem;">Downloaded Matrix (isDownloaded: 1)</caption>
         <thead>
           <tr>
             <th>NSFW Level \\ Base Model</th>
@@ -19,16 +19,13 @@
             <td v-for="bm in baseModelsDownloaded" :key="bm"
                 :class="getDownloadedCellClass(row[bm])"
                 :style="getDownloadedCellStyle(row[bm])">
-              ({{ row[bm]?.d1 || 0 }}, {{ row[bm]?.d2 || 0 }})
+              {{ row[bm] || 0 }}
             </td>
           </tr>
           <tr style="font-weight:bold;background:#f3f4f6;">
             <td>Total</td>
             <td v-for="bm in baseModelsDownloaded" :key="bm">
-              (
-                {{ getDownloadedTotal(bm, 'd1') }},
-                {{ getDownloadedTotal(bm, 'd2') }}
-              )
+              {{ getDownloadedTotal(bm) }}
             </td>
           </tr>
         </tbody>
@@ -116,9 +113,8 @@ export default {
       }
     },
     getDownloadedCellClass(cell) {
-      const d1 = cell?.d1 || 0;
-      const d2 = cell?.d2 || 0;
-      if (d1 === 0 && d2 === 0) {
+      const val = cell || 0;
+      if (val === 0) {
         return 'cell-neutral';
       } else {
         return 'cell-highlight';
@@ -132,8 +128,7 @@ export default {
       }
     },
     getDownloadedCellStyle(cell) {
-      // Use d1+d2 as value, find global max for the table
-      const val = (cell?.d1 || 0) + (cell?.d2 || 0);
+      const val = cell || 0;
       const max = this.getDownloadedGlobalMax();
       return this.getGreenGradientStyle(val, max);
     },
@@ -178,10 +173,10 @@ export default {
       const rgb = rgbA.map((v, i) => Math.round(v + (rgbB[i] - v) * t));
       return rgbToHex(rgb);
     },
-    getDownloadedTotal(bm, type) {
+    getDownloadedTotal(bm) {
       let sum = 0;
       for (const row of this.matrixDownloaded) {
-        sum += row[bm]?.[type] || 0;
+        sum += row[bm] || 0;
       }
       return sum;
     },
@@ -196,7 +191,7 @@ export default {
       let max = 0;
       for (const bm of this.baseModelsDownloaded) {
         for (const row of this.matrixDownloaded) {
-          const v = (row[bm]?.d1 || 0) + (row[bm]?.d2 || 0);
+          const v = row[bm] || 0;
           if (v > max) max = v;
         }
       }

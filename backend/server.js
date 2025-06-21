@@ -281,7 +281,7 @@ app.post('/api/start-scan', (req, res) => {
     });
 });
 
-// Endpoint to check if files are present or similar in the DB
+// Endpoint to check if files are present in the DB
 app.post('/api/check-files-in-db', (req, res) => {
     const files = req.body.files; // [{ fullPath, baseName }]
     if (!Array.isArray(files)) {
@@ -300,20 +300,6 @@ app.post('/api/check-files-in-db', (req, res) => {
         
         console.log(`Database contains ${rows.length} file records`);
         const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
-        const dbFileNameMap = rows.reduce((acc, r) => {
-            if (r.fileName) acc[r.fileName.toLowerCase()] = r.fileName;
-            return acc;
-        }, {});
-        // Normalization: remove trailing .[alphanumeric], underscores, dashes, spaces, lowercase
-        function normalizeName(name) {
-            name = name.replace(/\.[a-zA-Z0-9]+(?=\.[^.]+$)/, '');
-            return name.replace(/[_\-\s]/g, '').toLowerCase();
-        }
-        // Build a map of normalized DB names to original DB file name
-        const normalizedDbMap = {};
-        for (const dbName of dbFileNames) {
-            normalizedDbMap[normalizeName(dbName)] = dbFileNameMap[dbName];
-        }
         
         console.log('Processing scanned files...');
         const results = files.map((f, index) => {            
@@ -321,12 +307,6 @@ app.post('/api/check-files-in-db', (req, res) => {
             let status = '';
             if (dbFileNames.includes(lowerBase)) {
                 status = 'Present';
-            } else {
-                // Similarity: normalization
-                const normScanned = normalizeName(lowerBase);
-                if (normalizedDbMap[normScanned]) {
-                    status = `Similar (${normalizedDbMap[normScanned]})`;
-                }
             }
             
             // Log progress every 100 files
@@ -342,12 +322,10 @@ app.post('/api/check-files-in-db', (req, res) => {
         });
         
         const presentCount = results.filter(r => r.status === 'Present').length;
-        const similarCount = results.filter(r => r.status.startsWith('Similar')).length;
         const notFoundCount = results.filter(r => !r.status || r.status === '').length;
         
         console.log('=== DATABASE CHECK COMPLETED ===');
         console.log(`Files present in DB: ${presentCount}`);
-        console.log(`Files similar to DB entries: ${similarCount}`);
         console.log(`Files not found in DB: ${notFoundCount}`);
         console.log(`Check completed at: ${new Date().toISOString()}`);
         console.log('=== END DATABASE CHECK ===\n');
@@ -376,11 +354,6 @@ app.post('/api/mark-downloaded', (req, res) => {
         if (f.status === 'Present') {
             isDownloaded = 1;
             dbFileName = f.baseName;
-        } else if (f.status.startsWith('Similar (')) {
-            isDownloaded = 2;
-            // Extract filename from status: Similar (filename)
-            const match = f.status.match(/Similar \((.+)\)/);
-            if (match) dbFileName = match[1];
         }
         if (isDownloaded && dbFileName) {
             dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
@@ -554,7 +527,7 @@ app.get('/api/summary-matrix-downloaded', (req, res) => {
         SELECT basemodel, modelVersionNsfwLevel, isDownloaded, COUNT(*) as count
         FROM ALLCivitData
         WHERE basemodel IS NOT NULL AND basemodel != '' AND modelVersionNsfwLevel IS NOT NULL AND modelVersionNsfwLevel != ''
-              AND (isDownloaded = 1 OR isDownloaded = 2)
+              AND isDownloaded = 1
         GROUP BY basemodel, modelVersionNsfwLevel, isDownloaded
     `;
     db.all(query, [], (err, rows) => {
@@ -564,16 +537,12 @@ app.get('/api/summary-matrix-downloaded', (req, res) => {
         // Build unique lists for columns and rows
         const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
         const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
-        // Build matrix: { row: nsfwLevel, columns: { basemodel: { d1: count, d2: count }, ... } }
+        // Build matrix: { row: nsfwLevel, columns: { basemodel: count, ... } }
         const matrix = nsfwLevels.map(nsfw => {
             const row = { modelVersionNsfwLevel: nsfw };
             baseModels.forEach(bm => {
-                const d1 = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
-                const d2 = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 2);
-                row[bm] = {
-                    d1: d1 ? d1.count : 0,
-                    d2: d2 ? d2.count : 0
-                };
+                const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
+                row[bm] = found ? found.count : 0;
             });
             return row;
         });

@@ -65,7 +65,6 @@
                 <th>Full Path</th>
                 <th>Status</th>
                 <th>Base Name</th>
-                <th v-if="activeTab === 'similar'">Fix It</th>
               </tr>
             </thead>
             <tbody>
@@ -75,21 +74,6 @@
                   <span :class="getStatusClass(file.status)">{{ file.status }}</span>
                 </td>
                 <td>{{ file.baseName }}</td>
-                <td v-if="activeTab === 'similar'" class="fix-it-cell">
-                  <input 
-                    v-model="file.modelVersionId" 
-                    type="text" 
-                    placeholder="Model Version ID"
-                    class="model-version-input"
-                  />
-                  <button 
-                    @click="fixFile(file)"
-                    :disabled="!file.modelVersionId || fixingFiles.includes(file.fullPath)"
-                    class="fix-btn"
-                  >
-                    {{ fixingFiles.includes(file.fullPath) ? 'Fixing...' : 'Fix' }}
-                  </button>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -179,10 +163,8 @@ export default {
       activeTab: 'present', // Default active tab
       tabs: [
         { key: 'present', label: 'Present' },
-        { key: 'similar', label: 'Similar' },
         { key: 'not-present', label: 'Not Present' }
       ],
-      fixingFiles: [],
       validatingFiles: false,
       validationResults: null
     };
@@ -194,8 +176,6 @@ export default {
         switch (tabKey) {
           case 'present':
             return file.status === 'Present';
-          case 'similar':
-            return file.status && file.status.startsWith('Similar');
           case 'not-present':
             return !file.status || file.status === '';
           default:
@@ -211,8 +191,6 @@ export default {
     getStatusClass(status) {
       if (status === 'Present') {
         return 'status-present';
-      } else if (status && status.startsWith('Similar')) {
-        return 'status-similar';
       } else if (!status || status === '') {
         return 'status-not-present';
       }
@@ -353,33 +331,6 @@ export default {
         this.markingDownloaded = false;
       }
     },
-    async fixFile(file) {
-      this.fixingFiles.push(file.fullPath);
-      try {
-        const response = await fetch('http://localhost:3000/api/fix-file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            modelVersionId: file.modelVersionId,
-            filePath: file.fullPath
-          })
-        });
-        const data = await response.json();
-        if (response.ok && data.success) {
-          this.markDownloadedMsg = `File fixed successfully: ${data.message}`;
-          // Update the file status to reflect the change
-          file.status = 'Present';
-          // Clear the modelVersionId input
-          file.modelVersionId = '';
-        } else {
-          this.markDownloadedMsg = data.error || 'Failed to fix file.';
-        }
-      } catch (error) {
-        this.markDownloadedMsg = 'Error: ' + error.message;
-      } finally {
-        this.fixingFiles = this.fixingFiles.filter(f => f !== file.fullPath);
-      }
-    },
     async validateDownloadedFiles() {
       this.validatingFiles = true;
       this.markDownloadedMsg = '';
@@ -504,10 +455,6 @@ button {
   color: #5cb85c;
   font-weight: bold;
 }
-.status-similar {
-  color: #f0ad4e;
-  font-weight: bold;
-}
 .status-not-present {
   color: #d9534f;
   font-weight: bold;
@@ -539,35 +486,6 @@ progress {
   margin-top: 0.7rem;
   color: #31708f;
   font-weight: bold;
-}
-.fix-it-cell {
-  text-align: center;
-  vertical-align: middle;
-}
-.model-version-input {
-  margin-right: 0.5rem;
-  padding: 0.3rem;
-  width: 120px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-  font-size: 0.9rem;
-}
-.fix-btn {
-  background: #5cb85c;
-  color: #fff;
-  border: none;
-  border-radius: 3px;
-  padding: 0.3rem 0.8rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-.fix-btn:hover:not(:disabled) {
-  background: #4cae4c;
-}
-.fix-btn:disabled {
-  background: #b2d8b2;
-  cursor: not-allowed;
 }
 .validate-btn {
   background: #337ab7;
