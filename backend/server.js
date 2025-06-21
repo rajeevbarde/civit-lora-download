@@ -744,6 +744,155 @@ app.post('/api/validate-downloaded-files', (req, res) => {
     });
 });
 
+// Endpoint to find files not in database
+app.post('/api/find-missing-files', (req, res) => {
+    console.log('=== FINDING MISSING FILES ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    
+    const saveFilePath = path.join(__dirname, 'saved_path.json');
+    fs.readFile(saveFilePath, 'utf8', (err, data) => {
+        let paths = [];
+        if (!err) {
+            try {
+                const json = JSON.parse(data);
+                if (Array.isArray(json.paths)) {
+                    paths = json.paths;
+                }
+            } catch (e) {
+                console.log('Error parsing saved_path.json:', e.message);
+            }
+        }
+        
+        if (!paths.length) {
+            console.log('ERROR: No saved paths to scan');
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        
+        // Deduplicated, case-insensitive allowed extensions
+        const allowedExts = ['safetensors'];
+        console.log(`Scanning for files with extensions: ${allowedExts.join(', ')}`);
+        
+        function hasAllowedExt(filename) {
+            const ext = path.extname(filename).replace('.', '');
+            return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
+        }
+        
+        // Get all files from the scanned paths
+        const allFiles = [];
+        const scanErrors = [];
+        
+        paths.forEach((p, pathIndex) => {
+            console.log(`\n--- Scanning path ${pathIndex + 1}/${paths.length}: ${p} ---`);
+            
+            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
+            if (!isValidWinPath) {
+                scanErrors.push({ path: p, error: 'Invalid full path format (should be like C:\\folder\\...)' });
+                console.log(`  ERROR: Invalid path format`);
+                return;
+            }
+            
+            if (!fs.existsSync(p)) {
+                scanErrors.push({ path: p, error: 'Directory does not exist' });
+                console.log(`  ERROR: Directory does not exist`);
+                return;
+            }
+            
+            if (!fs.statSync(p).isDirectory()) {
+                scanErrors.push({ path: p, error: 'Path is not a directory' });
+                console.log(`  ERROR: Path is not a directory`);
+                return;
+            }
+            
+            console.log(`  Path is valid, scanning for files...`);
+            
+            // Recursively get files
+            function getAllFiles(dirPath, arrayOfFiles = []) {
+                try {
+                    const files = fs.readdirSync(dirPath);
+                    files.forEach(file => {
+                        const fullPath = path.join(dirPath, file);
+                        if (fs.statSync(fullPath).isDirectory()) {
+                            getAllFiles(fullPath, arrayOfFiles);
+                        } else {
+                            if (hasAllowedExt(fullPath)) {
+                                arrayOfFiles.push(fullPath);
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.log(`    Error reading directory ${dirPath}: ${e.message}`);
+                    scanErrors.push({ path: dirPath, error: e.message });
+                }
+                return arrayOfFiles;
+            }
+            
+            const pathFiles = getAllFiles(p, []);
+            allFiles.push(...pathFiles);
+            console.log(`  Found ${pathFiles.length} matching files in this path`);
+        });
+        
+        console.log(`\nTotal files found: ${allFiles.length}`);
+        
+        if (allFiles.length === 0) {
+            console.log('No files found to check against database');
+            console.log('=== END FINDING MISSING FILES ===\n');
+            return res.json({ 
+                missingFiles: [], 
+                scanErrors, 
+                totalScanned: 0,
+                totalMissing: 0 
+            });
+        }
+        
+        // Get all filenames from database
+        db.all('SELECT fileName FROM ALLCivitData WHERE fileName IS NOT NULL AND fileName != ""', [], (err, rows) => {
+            if (err) {
+                console.log(`ERROR: Database query failed: ${err.message}`);
+                return res.status(500).json({ error: err.message });
+            }
+            
+            console.log(`Database contains ${rows.length} file records`);
+            const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
+            
+            // Find files that are not in the database
+            const missingFiles = [];
+            allFiles.forEach((filePath, index) => {
+                const fileName = path.basename(filePath);
+                const lowerFileName = fileName.toLowerCase();
+                
+                if (!dbFileNames.includes(lowerFileName)) {
+                    missingFiles.push({
+                        fullPath: filePath,
+                        fileName: fileName,
+                        directory: path.dirname(filePath)
+                    });
+                }
+                
+                // Log progress every 100 files
+                if ((index + 1) % 100 === 0 || index === allFiles.length - 1) {
+                    console.log(`  Processed ${index + 1}/${allFiles.length} files`);
+                }
+            });
+            
+            console.log('=== MISSING FILES CHECK COMPLETED ===');
+            console.log(`Files scanned: ${allFiles.length}`);
+            console.log(`Files in database: ${rows.length}`);
+            console.log(`Missing files found: ${missingFiles.length}`);
+            console.log(`Scan errors: ${scanErrors.length}`);
+            console.log(`Check completed at: ${new Date().toISOString()}`);
+            console.log('=== END FINDING MISSING FILES ===\n');
+            
+            res.json({
+                missingFiles,
+                scanErrors,
+                totalScanned: allFiles.length,
+                totalMissing: missingFiles.length,
+                totalInDatabase: rows.length
+            });
+        });
+    });
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);

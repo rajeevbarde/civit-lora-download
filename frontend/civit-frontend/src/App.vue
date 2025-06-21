@@ -3,6 +3,7 @@
     <nav>
       <router-link to="/summary">Summary</router-link> |
       <router-link to="/file-scanner">File Scanner</router-link> |
+      <router-link to="/civit-data-fetcher">Civit Data Fetcher</router-link> |
       <router-link to="/">Model Table</router-link>
     </nav>
     <router-view />

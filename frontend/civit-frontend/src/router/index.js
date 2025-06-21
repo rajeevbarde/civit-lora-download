@@ -3,6 +3,7 @@ import ModelTable from '../components/ModelTable.vue';
 import ModelDetail from '../components/ModelDetail.vue';
 import Summary from '../components/Summary.vue';
 import FileScanner from '../components/FileScanner.vue';
+import CivitDataFetcher from '../components/CivitDataFetcher.vue';
 
 const routes = [
   {
@@ -24,6 +25,11 @@ const routes = [
     path: '/file-scanner',
     name: 'FileScanner',
     component: FileScanner,
+  },
+  {
+    path: '/civit-data-fetcher',
+    name: 'CivitDataFetcher',
+    component: CivitDataFetcher,
   }
 ];
 
