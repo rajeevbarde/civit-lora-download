@@ -581,6 +581,96 @@ app.get('/api/summary-matrix-downloaded', (req, res) => {
     });
 });
 
+// Endpoint to fix file by modelVersionId - rename file and update DB
+app.post('/api/fix-file', (req, res) => {
+    const { modelVersionId, filePath } = req.body;
+    
+    if (!modelVersionId || !filePath) {
+        return res.status(400).json({ error: 'modelVersionId and filePath are required' });
+    }
+    
+    console.log('=== FIXING FILE ===');
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log(`ModelVersionId: ${modelVersionId}`);
+    console.log(`File path: ${filePath}`);
+    
+    // First, get the DB filename for this modelVersionId
+    db.get('SELECT fileName FROM ALLCivitData WHERE modelVersionId = ?', [modelVersionId], (err, row) => {
+        if (err) {
+            console.log(`ERROR: Database query failed: ${err.message}`);
+            return res.status(500).json({ error: err.message });
+        }
+        
+        if (!row || !row.fileName) {
+            console.log(`ERROR: No record found for modelVersionId: ${modelVersionId}`);
+            return res.status(404).json({ error: 'Model not found in database' });
+        }
+        
+        const dbFileName = row.fileName;
+        console.log(`DB filename: ${dbFileName}`);
+        
+        // Check if the file exists
+        if (!fs.existsSync(filePath)) {
+            console.log(`ERROR: File does not exist: ${filePath}`);
+            return res.status(404).json({ error: 'File not found on disk' });
+        }
+        
+        // Get directory and extension from the original file
+        const dir = path.dirname(filePath);
+        const ext = path.extname(filePath);
+        
+        // Construct new file path with DB filename
+        const newFilePath = path.join(dir, dbFileName);
+        
+        // Check if target file already exists
+        if (fs.existsSync(newFilePath)) {
+            console.log(`ERROR: Target file already exists: ${newFilePath}`);
+            return res.status(409).json({ error: 'Target file already exists' });
+        }
+        
+        try {
+            // Rename the file
+            fs.renameSync(filePath, newFilePath);
+            console.log(`SUCCESS: Renamed file from ${filePath} to ${newFilePath}`);
+            
+            // Update the database
+            db.run(
+                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
+                [newFilePath, modelVersionId],
+                function (err) {
+                    if (err) {
+                        console.log(`ERROR: Database update failed: ${err.message}`);
+                        // Try to revert the file rename
+                        try {
+                            fs.renameSync(newFilePath, filePath);
+                            console.log(`Reverted file rename due to DB update failure`);
+                        } catch (revertErr) {
+                            console.log(`ERROR: Failed to revert file rename: ${revertErr.message}`);
+                        }
+                        return res.status(500).json({ error: 'File renamed but database update failed: ' + err.message });
+                    }
+                    
+                    console.log(`SUCCESS: Updated database for modelVersionId: ${modelVersionId}`);
+                    console.log(`=== FIX COMPLETED ===`);
+                    console.log(`Fix completed at: ${new Date().toISOString()}`);
+                    console.log(`=== END FIX ===\n`);
+                    
+                    res.json({ 
+                        success: true, 
+                        message: 'File renamed and database updated successfully',
+                        oldPath: filePath,
+                        newPath: newFilePath,
+                        dbFileName: dbFileName
+                    });
+                }
+            );
+        } catch (renameErr) {
+            console.log(`ERROR: File rename failed: ${renameErr.message}`);
+            return res.status(500).json({ error: 'File rename failed: ' + renameErr.message });
+        }
+    });
+});
+
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
