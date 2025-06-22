@@ -186,6 +186,9 @@ export default {
       isBulkDownloading: false, // Track bulk download state
       notifications: [], // Track notifications for download status
       isStatusVisible: false, // Track if status is currently shown
+      // Interval tracking for proper cleanup
+      cleanupInterval: null,
+      statusPollingIntervals: new Map(), // Track individual polling intervals
     }
   },
   computed: {
@@ -217,10 +220,18 @@ export default {
     // Start periodic cleanup to check for stuck downloads
     this.startPeriodicCleanup();
   },
-  beforeDestroy() {
-    // Clean up intervals when component is destroyed
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
+  beforeUnmount() {
+    // Clean up all intervals when component is destroyed
+    this.cleanupAllIntervals();
+  },
+  deactivated() {
+    // Clean up intervals when component is deactivated (route change)
+    this.cleanupAllIntervals();
+  },
+  activated() {
+    // Restart periodic cleanup if component is reactivated
+    if (!this.cleanupInterval) {
+      this.startPeriodicCleanup();
     }
   },
   methods: {
@@ -388,7 +399,7 @@ export default {
           
           // Check if model is still in downloading state
           if (!this.downloadingModels.some(item => item.modelVersionId === modelVersionId)) {
-            clearInterval(pollInterval);
+            this.stopStatusPolling(modelVersionId);
             return;
           }
           
@@ -405,7 +416,7 @@ export default {
             if (response.isDownloaded === 1 || response.isDownloaded === 3) {
               // Download completed (success or failed)
               this.removeFromDownloadingListByVersionId(modelVersionId);
-              clearInterval(pollInterval);
+              this.stopStatusPolling(modelVersionId);
               
               if (response.isDownloaded === 1) {
                 console.log(`Download completed successfully for model: ${modelVersionId}`);
@@ -424,7 +435,7 @@ export default {
             // Don't immediately fail, wait a bit more as the download might still be processing
             if (pollCount > 10) { // Wait at least 20 seconds before giving up
               this.removeFromDownloadingListByVersionId(modelVersionId);
-              clearInterval(pollInterval);
+              this.stopStatusPolling(modelVersionId);
               this.showNotification(`❌ Download failed: Model not found in database`, 'error');
             }
           } else if (error.response && error.response.status >= 500) {
@@ -438,12 +449,23 @@ export default {
         
         // Stop polling after max attempts
         if (pollCount >= maxPolls) {
-          clearInterval(pollInterval);
-          this.removeFromDownloadingListByVersionId(modelVersionId);
+          this.stopStatusPolling(modelVersionId);
           console.log(`Stopped polling for model: ${modelVersionId} (max attempts reached)`);
           this.showNotification(`⏰ Download timeout: Check status manually`, 'warning');
         }
       }, 2000);
+      
+      // Store the interval for proper cleanup
+      this.statusPollingIntervals.set(modelVersionId, pollInterval);
+      console.log(`Started polling for model: ${modelVersionId}`);
+    },
+    stopStatusPolling(modelVersionId) {
+      const interval = this.statusPollingIntervals.get(modelVersionId);
+      if (interval) {
+        clearInterval(interval);
+        this.statusPollingIntervals.delete(modelVersionId);
+        console.log(`Stopped polling for model: ${modelVersionId}`);
+      }
     },
     removeFromDownloadingListByVersionId(modelVersionId) {
       const index = this.downloadingModels.findIndex(item => item.modelVersionId === modelVersionId);
@@ -526,6 +548,12 @@ export default {
       }
     },
     startPeriodicCleanup() {
+      // Don't start if already running
+      if (this.cleanupInterval) {
+        console.log('Periodic cleanup already running');
+        return;
+      }
+      
       // Check for stuck downloads every 30 seconds
       this.cleanupInterval = setInterval(async () => {
         if (this.downloadingModels.length > 0) {
@@ -560,9 +588,12 @@ export default {
             }
           } catch (error) {
             console.error('Error during periodic cleanup:', error);
+            // Don't stop the interval on error, just log it
           }
         }
       }, 30000); // 30 seconds
+      
+      console.log('Periodic cleanup started');
     },
     formatDate(timestamp) {
       if (!timestamp) return '-';
@@ -590,6 +621,22 @@ export default {
         console.error('Error formatting date:', error);
         return timestamp; // Return original if formatting fails
       }
+    },
+    cleanupAllIntervals() {
+      // Clean up periodic cleanup interval
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+        this.cleanupInterval = null;
+      }
+      
+      // Clean up all status polling intervals
+      this.statusPollingIntervals.forEach((interval, modelVersionId) => {
+        clearInterval(interval);
+        console.log(`Cleaned up polling interval for model: ${modelVersionId}`);
+      });
+      this.statusPollingIntervals.clear();
+      
+      console.log('All intervals cleaned up');
     },
   }
 }
