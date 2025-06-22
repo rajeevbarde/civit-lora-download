@@ -21,6 +21,18 @@
         </select>
       </div>
     </div>
+    
+    <!-- Bulk Download Controls -->
+    <div v-if="selectedModels.length > 0" class="bulk-actions">
+      <div class="bulk-info">
+        <span>{{ selectedModels.length }} model(s) selected</span>
+        <button @click="downloadSelectedModels" class="btn-bulk-download" :disabled="isBulkDownloading">
+          {{ isBulkDownloading ? 'Downloading...' : `Download ${selectedModels.length} Models` }}
+        </button>
+        <button @click="clearSelection" class="btn-clear-selection">Clear Selection</button>
+      </div>
+    </div>
+    
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else class="table-wrapper">
@@ -42,6 +54,15 @@
             <th>File Name</th>
             <th>File Type</th>
             <th>File Download URL</th>
+            <th class="checkbox-header">
+              <input 
+                type="checkbox" 
+                :checked="isAllSelected" 
+                :indeterminate="isIndeterminate"
+                @change="toggleSelectAll"
+                class="checkbox-select-all"
+              >
+            </th>
             <th>Size (GB)</th>
             <th>Published At</th>
             <th>Downloaded</th>
@@ -90,6 +111,15 @@
               <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
               <span v-else>-</span>
             </td>
+            <td class="checkbox-cell">
+              <input 
+                type="checkbox" 
+                :value="model.modelId"
+                v-model="selectedModels"
+                :disabled="!canSelectModel(model)"
+                class="checkbox-model"
+              >
+            </td>
             <td>{{ model.size_in_gb }}</td>
             <td>{{ model.publishedAt }}</td>
             <td>{{ model.isDownloaded }}</td>
@@ -129,15 +159,29 @@ export default {
       selectedDownloaded: '',
       baseModelOptions: [],
       downloadingModels: [], // Track which models are currently downloading
+      selectedModels: [], // Track selected models for bulk download
+      isBulkDownloading: false, // Track bulk download state
+    }
+  },
+  computed: {
+    isAllSelected() {
+      const selectableModels = this.models.filter(model => this.canSelectModel(model));
+      return selectableModels.length > 0 && this.selectedModels.length === selectableModels.length;
+    },
+    isIndeterminate() {
+      const selectableModels = this.models.filter(model => this.canSelectModel(model));
+      return this.selectedModels.length > 0 && this.selectedModels.length < selectableModels.length;
     }
   },
   watch: {
     selectedBaseModel() {
       this.currentPage = 1;
+      this.selectedModels = []; // Clear selection when filters change
       this.fetchModels();
     },
     selectedDownloaded() {
       this.currentPage = 1;
+      this.selectedModels = []; // Clear selection when filters change
       this.fetchModels();
     }
   },
@@ -146,6 +190,74 @@ export default {
     this.fetchModels();
   },
   methods: {
+    canSelectModel(model) {
+      // Only allow selection of models that can be downloaded
+      return model.fileDownloadUrl && 
+             model.isDownloaded !== 1 && 
+             model.isDownloaded !== 2;
+    },
+    toggleSelectAll() {
+      const selectableModels = this.models.filter(model => this.canSelectModel(model));
+      if (this.isAllSelected) {
+        this.selectedModels = [];
+      } else {
+        this.selectedModels = selectableModels.map(model => model.modelId);
+      }
+    },
+    clearSelection() {
+      this.selectedModels = [];
+    },
+    async downloadSelectedModels() {
+      if (this.selectedModels.length === 0) return;
+      
+      this.isBulkDownloading = true;
+      const selectedModelObjects = this.models.filter(model => 
+        this.selectedModels.includes(model.modelId)
+      );
+      
+      try {
+        // Download models in parallel
+        const downloadPromises = selectedModelObjects.map(async model => {
+          if (this.downloadingModels.includes(model.modelId)) return;
+          
+          this.downloadingModels.push(model.modelId);
+          
+          try {
+            const response = await axios.post('http://localhost:3000/api/download-model-file', {
+              url: model.fileDownloadUrl,
+              fileName: model.fileName,
+              baseModel: model.basemodel,
+              modelVersionId: model.modelVersionId
+            });
+            
+            if (response.data && response.data.success) {
+              console.log(`Download started for: ${model.fileName}`);
+            } else {
+              console.error(`Download failed for: ${model.fileName}`, response.data.error);
+            }
+          } catch (err) {
+            console.error(`Download failed for: ${model.fileName}`, err.message);
+          } finally {
+            const index = this.downloadingModels.indexOf(model.modelId);
+            if (index > -1) {
+              this.downloadingModels.splice(index, 1);
+            }
+          }
+        });
+        
+        // Wait for all downloads to complete
+        await Promise.all(downloadPromises);
+        
+        // Refresh the table after all downloads are initiated
+        this.fetchModels();
+        this.selectedModels = []; // Clear selection after bulk download
+        
+      } catch (error) {
+        console.error('Bulk download error:', error);
+      } finally {
+        this.isBulkDownloading = false;
+      }
+    },
     async fetchBaseModels() {
       try {
         const response = await axios.get('http://localhost:3000/api/basemodels');
@@ -175,6 +287,7 @@ export default {
     },
     async changePage(newPage) {
       this.currentPage = newPage
+      this.selectedModels = []; // Clear selection when changing pages
       await this.fetchModels()
     },
     async downloadModelFile(model) {
@@ -274,6 +387,61 @@ h1 {
   box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 }
 
+.bulk-actions {
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+  border-radius: 8px;
+}
+
+.bulk-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bulk-info span {
+  font-weight: 500;
+  color: #2b6cb0;
+}
+
+.btn-bulk-download {
+  padding: 8px 16px;
+  background: #48bb78;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-bulk-download:hover:not(:disabled) {
+  background: #38a169;
+}
+
+.btn-bulk-download:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-clear-selection {
+  padding: 8px 16px;
+  background: #e2e8f0;
+  color: #4a5568;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-clear-selection:hover {
+  background: #cbd5e0;
+}
+
 .table-wrapper {
   width: 100%;
   background: white;
@@ -298,6 +466,29 @@ th {
   border-bottom: 1px solid #e2e8f0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.checkbox-header {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox-cell {
+  width: 40px;
+  text-align: center;
+  padding: 12px 8px;
+}
+
+.checkbox-select-all, .checkbox-model {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #3182ce;
+}
+
+.checkbox-model:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 td {
