@@ -2,15 +2,15 @@
   <div class="app-container">
     <h1>Model Database</h1>
     <!-- Filter Controls -->
-    <div class="filters" style="margin-bottom: 16px; display: flex; gap: 16px; align-items: center;">
-      <div>
+    <div class="filters">
+      <div class="filter-group">
         <label for="baseModelSelect">Base Model:</label>
         <select id="baseModelSelect" v-model="selectedBaseModel">
           <option value="">All</option>
           <option v-for="bm in baseModelOptions" :key="bm" :value="bm">{{ bm }}</option>
         </select>
       </div>
-      <div>
+      <div class="filter-group">
         <label for="downloadedSelect">Downloaded:</label>
         <select id="downloadedSelect" v-model="selectedDownloaded">
           <option value="">All</option>
@@ -73,9 +73,9 @@
             <td>{{ model.fileName }}</td>
             <td>{{ model.fileType }}</td>
             <td>
-              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" @click="downloadModelFile(model)">Download</button>
-              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" @click="downloadModelFile(model)">Retry</button>
-              <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2">Downloaded</span>
+              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" @click="downloadModelFile(model)" class="btn-download">Download</button>
+              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" @click="downloadModelFile(model)" class="btn-retry">Retry</button>
+              <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
               <span v-else>-</span>
             </td>
             <td>{{ model.size_in_gb }}</td>
@@ -89,10 +89,12 @@
         <button 
           :disabled="currentPage === 1"
           @click="changePage(currentPage - 1)"
+          class="btn-pagination"
         >Previous</button>
-        <span>Page {{ currentPage }}</span>
+        <span class="page-info">Page {{ currentPage }}</span>
         <button 
           @click="changePage(currentPage + 1)"
+          class="btn-pagination"
         >Next</button>
       </div>
     </div>
@@ -197,111 +199,228 @@ export default {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
-  color: #333;
-  background: #fff;
+  color: #2c3e50;
+  background: #f8fafc;
 }
 
 .app-container {
   max-width: 100%;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
 }
 
 h1 {
-  font-size: 24px;
+  font-size: 28px;
+  font-weight: 300;
+  margin-bottom: 32px;
+  color: #1a202c;
+  letter-spacing: -0.5px;
+}
+
+.filters {
+  margin-bottom: 24px;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-group label {
+  font-size: 14px;
   font-weight: 500;
-  margin-bottom: 20px;
-  color: #000;
+  color: #4a5568;
+}
+
+.filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  font-size: 14px;
+  color: #2d3748;
+  transition: border-color 0.2s ease;
+}
+
+.filter-group select:focus {
+  outline: none;
+  border-color: #3182ce;
+  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 }
 
 .table-wrapper {
   width: 100%;
-  /* overflow-x: auto; */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  /* white-space: nowrap; */
-  background: #fff;
+  background: white;
 }
 
 th {
-  background: #f8f8f8;
-  padding: 12px 15px;
+  background: #f7fafc;
+  padding: 16px 12px;
   text-align: left;
-  font-weight: 500;
-  font-size: 14px;
-  color: #000;
-  border-bottom: 1px solid #ddd;
+  font-weight: 600;
+  font-size: 13px;
+  color: #4a5568;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 td {
-  padding: 12px 15px;
+  padding: 12px;
   font-size: 14px;
-  border-bottom: 1px solid #eee;
+  color: #2d3748;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
 }
 
 tr:hover {
-  background-color: #f8f8f8;
+  background-color: #f8fafc;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+a {
+  color: #3182ce;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: #2c5282;
+  text-decoration: underline;
+}
+
+.btn-download, .btn-retry {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-download {
+  background: #48bb78;
+  color: white;
+}
+
+.btn-download:hover {
+  background: #38a169;
+}
+
+.btn-retry {
+  background: #ed8936;
+  color: white;
+}
+
+.btn-retry:hover {
+  background: #dd6b20;
+}
+
+.status-downloaded {
+  color: #48bb78;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #718096;
+  font-size: 16px;
+}
+
+.error {
+  color: #e53e3e;
+  padding: 24px;
+  text-align: center;
+  background: #fed7d7;
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+.pagination {
+  margin-top: 24px;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: #f7fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-pagination {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-pagination:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.btn-pagination:disabled {
+  background: #f7fafc;
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-size: 14px;
+  color: #4a5568;
+  font-weight: 500;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .app-container {
-    padding: 10px;
+    padding: 16px;
   }
   
   h1 {
-    font-size: 20px;
-    margin-bottom: 15px;
+    font-size: 24px;
+    margin-bottom: 24px;
+  }
+  
+  .filters {
+    gap: 16px;
   }
   
   th, td {
-    padding: 8px 10px;
+    padding: 10px 8px;
     font-size: 13px;
   }
-}
-
-/* Loading state (optional) */
-.loading {
-  text-align: center;
-  padding: 20px;
-  color: #666;
-}
-
-/* Error state (optional) */
-.error {
-  color: #dc3545;
-  padding: 20px;
-  text-align: center;
-}
-
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-}
-
-.pagination button {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  background: #fff;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  background: #f8f8f8;
-  cursor: not-allowed;
-}
-
-.pagination button:hover:not(:disabled) {
-  background: #f8f8f8;
+  
+  .pagination {
+    padding: 16px;
+    gap: 12px;
+  }
 }
 </style>
