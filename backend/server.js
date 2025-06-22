@@ -286,6 +286,15 @@ app.get('/api/download-status', (req, res) => {
     }
 });
 
+app.post('/api/download-status/clear-errors', (req, res) => {
+    try {
+        downloadQueue.clearErrors();
+        res.json({ message: 'Download errors cleared successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });

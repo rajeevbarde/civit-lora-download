@@ -6,6 +6,7 @@ class DownloadQueue {
         this.active = 0;
         this.maxConcurrent = DOWNLOAD_CONFIG.maxConcurrent;
         this.queue = [];
+        this.errors = [];
     }
 
     async add(downloadTask) {
@@ -13,6 +14,18 @@ class DownloadQueue {
             this.active++;
             try {
                 await downloadTask();
+            } catch (error) {
+                console.error('Download task failed:', error.message);
+                this.errors.push({
+                    timestamp: new Date().toISOString(),
+                    error: error.message,
+                    stack: error.stack
+                });
+                
+                // Keep only last 10 errors to prevent memory issues
+                if (this.errors.length > 10) {
+                    this.errors = this.errors.slice(-10);
+                }
             } finally {
                 this.active--;
                 this.processNext();
@@ -33,8 +46,13 @@ class DownloadQueue {
         return {
             active: this.active,
             queued: this.queue.length,
-            maxConcurrent: this.maxConcurrent
+            maxConcurrent: this.maxConcurrent,
+            recentErrors: this.errors.slice(-5) // Return last 5 errors
         };
+    }
+
+    clearErrors() {
+        this.errors = [];
     }
 }
 

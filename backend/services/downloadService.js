@@ -9,11 +9,21 @@ class DownloadService {
     // Download model file and update DB
     async downloadModelFile(url, fileName, baseModel, modelVersionId) {
         const targetDir = path.join(DOWNLOAD_CONFIG.baseDir, baseModel);
+        let writer = null;
         
         try {
+            // Validate inputs
+            if (!url || !fileName || !baseModel || !modelVersionId) {
+                throw new Error('Missing required parameters: url, fileName, baseModel, modelVersionId');
+            }
+
             // Ensure directory exists
             if (!fs.existsSync(targetDir)) {
-                fs.mkdirSync(targetDir, { recursive: true });
+                try {
+                    fs.mkdirSync(targetDir, { recursive: true });
+                } catch (dirError) {
+                    throw new Error(`Failed to create directory ${targetDir}: ${dirError.message}`);
+                }
             }
             
             const filePath = path.join(targetDir, fileName);
@@ -46,7 +56,7 @@ class DownloadService {
             let lastLoggedPercent = 0;
             const startTime = Date.now();
             
-            const writer = fs.createWriteStream(filePath);
+            writer = fs.createWriteStream(filePath);
             
             // Set up progress tracking
             response.data.on('data', (chunk) => {
@@ -70,14 +80,14 @@ class DownloadService {
                     error = err;
                     console.error(`Write error for ${fileName}:`, err.message);
                     writer.close();
-                    reject(err);
+                    reject(new Error(`File write error: ${err.message}`));
                 });
                 
                 response.data.on('error', err => {
                     error = err;
                     console.error(`Download error for ${fileName}:`, err.message);
                     writer.close();
-                    reject(err);
+                    reject(new Error(`Download error: ${err.message}`));
                 });
                 
                 writer.on('close', () => {
@@ -99,8 +109,25 @@ class DownloadService {
         } catch (err) {
             console.error(`Download failed for ${fileName}:`, err.message);
             
+            // Clean up partial file if it exists
+            if (writer && fs.existsSync(filePath)) {
+                try {
+                    fs.unlinkSync(filePath);
+                    console.log(`Cleaned up partial file: ${fileName}`);
+                } catch (cleanupError) {
+                    console.error(`Failed to clean up partial file ${fileName}:`, cleanupError.message);
+                }
+            }
+            
             // Update DB to mark as failed (status 3)
-            await databaseService.markModelAsFailed(modelVersionId);
+            try {
+                await databaseService.markModelAsFailed(modelVersionId);
+            } catch (dbError) {
+                console.error(`Failed to mark model as failed in DB:`, dbError.message);
+            }
+            
+            // Re-throw the error for the queue to handle
+            throw err;
         }
     }
 }
