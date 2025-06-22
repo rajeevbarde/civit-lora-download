@@ -73,8 +73,20 @@
             <td>{{ model.fileName }}</td>
             <td>{{ model.fileType }}</td>
             <td>
-              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" @click="downloadModelFile(model)" class="btn-download">Download</button>
-              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" @click="downloadModelFile(model)" class="btn-retry">Retry</button>
+              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
+                      @click="downloadModelFile(model)" 
+                      class="btn-download"
+                      :disabled="downloadingModels.includes(model.modelId)"
+                      :class="{ 'loading': downloadingModels.includes(model.modelId) }">
+                {{ downloadingModels.includes(model.modelId) ? 'Downloading...' : 'Download' }}
+              </button>
+              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
+                      @click="downloadModelFile(model)" 
+                      class="btn-retry"
+                      :disabled="downloadingModels.includes(model.modelId)"
+                      :class="{ 'loading': downloadingModels.includes(model.modelId) }">
+                {{ downloadingModels.includes(model.modelId) ? 'Retrying...' : 'Retry' }}
+              </button>
               <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
               <span v-else>-</span>
             </td>
@@ -116,6 +128,7 @@ export default {
       selectedBaseModel: '',
       selectedDownloaded: '',
       baseModelOptions: [],
+      downloadingModels: [], // Track which models are currently downloading
     }
   },
   watch: {
@@ -166,7 +179,9 @@ export default {
     },
     async downloadModelFile(model) {
       try {
-        this.loading = true;
+        // Add model to downloading list
+        this.downloadingModels.push(model.modelId);
+        
         const response = await axios.post('http://localhost:3000/api/download-model-file', {
           url: model.fileDownloadUrl,
           fileName: model.fileName,
@@ -183,7 +198,11 @@ export default {
         alert('Download failed: ' + (err.response?.data?.error || err.message));
         this.fetchModels(); // Refresh table even on error
       } finally {
-        this.loading = false;
+        // Remove model from downloading list
+        const index = this.downloadingModels.indexOf(model.modelId);
+        if (index > -1) {
+          this.downloadingModels.splice(index, 1);
+        }
       }
     },
   }
@@ -316,6 +335,8 @@ a:hover {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  min-width: 80px;
 }
 
 .btn-download {
@@ -323,7 +344,7 @@ a:hover {
   color: white;
 }
 
-.btn-download:hover {
+.btn-download:hover:not(:disabled) {
   background: #38a169;
 }
 
@@ -332,8 +353,38 @@ a:hover {
   color: white;
 }
 
-.btn-retry:hover {
+.btn-retry:hover:not(:disabled) {
   background: #dd6b20;
+}
+
+.btn-download:disabled, .btn-retry:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-download.loading, .btn-retry.loading {
+  background: #a0aec0;
+  cursor: not-allowed;
+}
+
+.btn-download.loading::after, .btn-retry.loading::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: auto;
+  border: 2px solid transparent;
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+@keyframes spin {
+  0% { transform: translateY(-50%) rotate(0deg); }
+  100% { transform: translateY(-50%) rotate(360deg); }
 }
 
 .status-downloaded {
