@@ -1,4 +1,4 @@
-const db = require('../config/database');
+const { db } = require('../config/database');
 
 class DatabaseService {
     // Get models with pagination and filters

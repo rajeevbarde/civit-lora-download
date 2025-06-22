@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
+const { validateDatabase } = require('./config/database');
 
 // Import services
 const databaseService = require('./services/databaseService');
@@ -290,9 +291,21 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-// Start server
-const PORT = SERVER_CONFIG.port;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log('Refactored server started successfully!');
-}); 
+// Start server with database validation
+async function startServer() {
+    try {
+        // Validate database connection before starting server
+        await validateDatabase();
+        
+        const PORT = SERVER_CONFIG.port;
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            console.log('Refactored server started successfully!');
+        });
+    } catch (error) {
+        console.error('Failed to start server:', error.message);
+        process.exit(1);
+    }
+}
+
+startServer(); 
