@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
-const { validateDatabase, db } = require('./config/database');
+const { validateDatabase, dbPool } = require('./config/database');
 const logger = require('./utils/logger');
 const { timeoutMiddleware } = require('./middleware/timeout');
 const { 
@@ -299,6 +299,16 @@ app.post('/api/download-status/clear-errors', timeoutMiddleware.quick, (req, res
     }
 });
 
+// Database pool statistics endpoint
+app.get('/api/db-stats', timeoutMiddleware.quick, (req, res) => {
+    try {
+        const stats = databaseService.getPoolStats();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Health check endpoint
 app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -311,7 +321,7 @@ function gracefulShutdown(signal) {
     logger.info(`Received ${signal}, starting graceful shutdown`);
     
     if (server) {
-        server.close((err) => {
+        server.close(async (err) => {
             if (err) {
                 logger.error('Error during server shutdown', { error: err.message });
                 process.exit(1);
@@ -319,17 +329,16 @@ function gracefulShutdown(signal) {
             
             logger.info('HTTP server closed');
             
-            // Close database connection
-            db.close((err) => {
-                if (err) {
-                    logger.error('Error closing database connection', { error: err.message });
-                    process.exit(1);
-                }
-                
-                logger.info('Database connection closed');
-                logger.info('Graceful shutdown completed');
-                process.exit(0);
-            });
+            // Close database pool
+            try {
+                await dbPool.close();
+                logger.info('Database pool closed');
+            } catch (dbError) {
+                logger.error('Error closing database pool', { error: dbError.message });
+            }
+            
+            logger.info('Graceful shutdown completed');
+            process.exit(0);
         });
         
         // Force close after 10 seconds

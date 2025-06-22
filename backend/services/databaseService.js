@@ -1,4 +1,4 @@
-const { db } = require('../config/database');
+const { dbPool } = require('../config/database');
 
 class DatabaseService {
     // Get models with pagination and filters
@@ -32,28 +32,27 @@ class DatabaseService {
             ${whereClause}
         `;
 
-        return new Promise((resolve, reject) => {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            
             // First, get the total count with filters
-            db.get(`SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params, (err, count) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                // Then get the paginated data
-                db.all(query + ' LIMIT ? OFFSET ?', [...params, limit, offset], (err, rows) => {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve({
-                        total: count.total,
-                        page: page,
-                        limit: limit,
-                        data: rows
-                    });
-                });
-            });
-        });
+            const countResult = await dbPool.runQuerySingle(connection, `SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params);
+            
+            // Then get the paginated data
+            const rows = await dbPool.runQuery(connection, query + ' LIMIT ? OFFSET ?', [...params, limit, offset]);
+            
+            return {
+                total: countResult.total,
+                page: page,
+                limit: limit,
+                data: rows
+            };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get model detail by modelVersionId
@@ -68,29 +67,30 @@ class DatabaseService {
             WHERE modelVersionId = ?
         `;
 
-        return new Promise((resolve, reject) => {
-            db.get(query, [modelVersionId], (err, row) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(row);
-            });
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuerySingle(connection, query, [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get all base models
     async getBaseModels() {
-        return new Promise((resolve, reject) => {
-            db.all('SELECT DISTINCT basemodel FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" ORDER BY basemodel ASC', [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                const baseModels = rows.map(r => r.basemodel);
-                resolve({ baseModels });
-            });
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const rows = await dbPool.runQuery(connection, 'SELECT DISTINCT basemodel FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" ORDER BY basemodel ASC');
+            const baseModels = rows.map(r => r.basemodel);
+            return { baseModels };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get summary matrix
@@ -102,25 +102,27 @@ class DatabaseService {
             GROUP BY basemodel, modelVersionNsfwLevel
         `;
 
-        return new Promise((resolve, reject) => {
-            db.all(query, [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
-                const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
-                const matrix = nsfwLevels.map(nsfw => {
-                    const row = { modelVersionNsfwLevel: nsfw };
-                    baseModels.forEach(bm => {
-                        const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw);
-                        row[bm] = found ? found.count : 0;
-                    });
-                    return row;
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const rows = await dbPool.runQuery(connection, query);
+            
+            const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
+            const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
+            const matrix = nsfwLevels.map(nsfw => {
+                const row = { modelVersionNsfwLevel: nsfw };
+                baseModels.forEach(bm => {
+                    const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw);
+                    row[bm] = found ? found.count : 0;
                 });
-                resolve({ baseModels, nsfwLevels, matrix });
+                return row;
             });
-        });
+            return { baseModels, nsfwLevels, matrix };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get downloaded summary matrix
@@ -133,38 +135,41 @@ class DatabaseService {
             GROUP BY basemodel, modelVersionNsfwLevel, isDownloaded
         `;
 
-        return new Promise((resolve, reject) => {
-            db.all(query, [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
-                const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
-                const matrix = nsfwLevels.map(nsfw => {
-                    const row = { modelVersionNsfwLevel: nsfw };
-                    baseModels.forEach(bm => {
-                        const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
-                        row[bm] = found ? found.count : 0;
-                    });
-                    return row;
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const rows = await dbPool.runQuery(connection, query);
+            
+            const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
+            const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
+            const matrix = nsfwLevels.map(nsfw => {
+                const row = { modelVersionNsfwLevel: nsfw };
+                baseModels.forEach(bm => {
+                    const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
+                    row[bm] = found ? found.count : 0;
                 });
-                resolve({ baseModels, nsfwLevels, matrix });
+                return row;
             });
-        });
+            return { baseModels, nsfwLevels, matrix };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get all file names from database
     async getAllFileNames() {
-        return new Promise((resolve, reject) => {
-            db.all('SELECT fileName FROM ALLCivitData WHERE fileName IS NOT NULL AND fileName != ""', [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(rows.map(r => r.fileName ? r.fileName.toLowerCase() : ''));
-            });
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const rows = await dbPool.runQuery(connection, 'SELECT fileName FROM ALLCivitData WHERE fileName IS NOT NULL AND fileName != ""');
+            return rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get downloaded files for validation
@@ -175,95 +180,85 @@ class DatabaseService {
             WHERE isDownloaded = 1
         `;
 
-        return new Promise((resolve, reject) => {
-            db.all(query, [], (err, rows) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(rows);
-            });
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Get file name by modelVersionId
     async getFileNameByModelVersionId(modelVersionId) {
-        return new Promise((resolve, reject) => {
-            db.get('SELECT fileName FROM ALLCivitData WHERE modelVersionId = ?', [modelVersionId], (err, row) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(row);
-            });
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuerySingle(connection, 'SELECT fileName FROM ALLCivitData WHERE modelVersionId = ?', [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Update model as downloaded
     async updateModelAsDownloaded(modelVersionId, filePath) {
-        return new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
-                [filePath, modelVersionId],
-                function (err) {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve(this);
-                }
-            );
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?', [filePath, modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Mark model as failed download
     async markModelAsFailed(modelVersionId) {
-        return new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?',
-                [modelVersionId],
-                function (err) {
-                    if (err) {
-                        reject(err);
-                        return;
-                    }
-                    resolve(this);
-                }
-            );
-        });
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?', [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
     }
 
     // Batch update files as downloaded
     async batchUpdateFilesAsDownloaded(files) {
-        return new Promise((resolve, reject) => {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            
             let updated = 0;
             let errors = [];
-            let processed = 0;
 
-            const updateNext = () => {
-                if (processed >= files.length) {
-                    resolve({ updated, errors });
-                    return;
+            for (const item of files) {
+                try {
+                    await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?', [item.isDownloaded, item.fullPath, item.dbFileName]);
+                    updated++;
+                } catch (error) {
+                    errors.push({ fileName: item.dbFileName, error: error.message });
                 }
+            }
 
-                const item = files[processed];
-                db.run(
-                    'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?',
-                    [item.isDownloaded, item.fullPath, item.dbFileName],
-                    function (err) {
-                        if (err) {
-                            errors.push({ fileName: item.dbFileName, error: err.message });
-                        } else {
-                            updated++;
-                        }
-                        processed++;
-                        updateNext();
-                    }
-                );
-            };
+            return { updated, errors };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 
-            updateNext();
-        });
+    // Get database pool statistics
+    getPoolStats() {
+        return dbPool.getStats();
     }
 }
 
