@@ -4,7 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
-const { validateDatabase } = require('./config/database');
+const { validateDatabase, db } = require('./config/database');
 
 // Import services
 const databaseService = require('./services/databaseService');
@@ -291,6 +291,48 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Graceful shutdown handling
+let server;
+
+function gracefulShutdown(signal) {
+    console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+    
+    if (server) {
+        server.close((err) => {
+            if (err) {
+                console.error('Error during server shutdown:', err);
+                process.exit(1);
+            }
+            
+            console.log('HTTP server closed.');
+            
+            // Close database connection
+            db.close((err) => {
+                if (err) {
+                    console.error('Error closing database connection:', err);
+                    process.exit(1);
+                }
+                
+                console.log('Database connection closed.');
+                console.log('Graceful shutdown completed.');
+                process.exit(0);
+            });
+        });
+        
+        // Force close after 10 seconds
+        setTimeout(() => {
+            console.error('Could not close connections in time, forcefully shutting down');
+            process.exit(1);
+        }, 10000);
+    } else {
+        process.exit(0);
+    }
+}
+
+// Handle different termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 // Start server with database validation
 async function startServer() {
     try {
@@ -298,7 +340,7 @@ async function startServer() {
         await validateDatabase();
         
         const PORT = SERVER_CONFIG.port;
-        app.listen(PORT, () => {
+        server = app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log('Refactored server started successfully!');
         });
