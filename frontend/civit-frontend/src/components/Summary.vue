@@ -115,25 +115,31 @@ export default {
     getDownloadedCellClass(cell) {
       const val = cell || 0;
       if (val === 0) {
-        return 'cell-neutral';
+        return 'cell-zero';
       } else {
         return 'cell-highlight';
       }
     },
     getMatrixCellClass(value) {
       if (!value || value === 0) {
-        return 'cell-neutral';
+        return 'cell-zero';
       } else {
         return 'cell-highlight';
       }
     },
     getDownloadedCellStyle(cell) {
       const val = cell || 0;
+      if (val === 0) {
+        return 'background: #fef2f2; color: #dc2626;'; // Mild red for zero values
+      }
       const max = this.getDownloadedGlobalMax();
       return this.getGreenGradientStyle(val, max);
     },
     getMatrixCellStyle(value) {
       const val = value || 0;
+      if (val === 0) {
+        return 'background: #fef2f2; color: #dc2626;'; // Mild red for zero values
+      }
       const max = this.getMatrixGlobalMax();
       return this.getGreenGradientStyle(val, max);
     },
@@ -227,9 +233,10 @@ export default {
 .summary-matrix th {
   background: #f0f0f0;
 }
-.cell-neutral {
-  background: #f9f9f9;
-  color: #888;
+.cell-zero {
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 500;
 }
 .cell-highlight {
   background: #dbeafe;

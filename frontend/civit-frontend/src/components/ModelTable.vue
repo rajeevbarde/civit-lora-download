@@ -304,11 +304,11 @@ export default {
         if (response.data && response.data.success) {
           this.fetchModels(); // Refresh table
         } else {
-          alert(response.data.error || 'Download failed.');
+          console.error('Download failed:', response.data.error || 'Unknown error');
           this.fetchModels(); // Refresh table even on failure
         }
       } catch (err) {
-        alert('Download failed: ' + (err.response?.data?.error || err.message));
+        console.error('Download failed:', err.response?.data?.error || err.message);
         this.fetchModels(); // Refresh table even on error
       } finally {
         // Remove model from downloading list
