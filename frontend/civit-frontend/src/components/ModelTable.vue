@@ -142,7 +142,7 @@
               >
             </td>
             <td>{{ model.size_in_gb }}</td>
-            <td>{{ model.publishedAt }}</td>
+            <td>{{ formatDate(model.publishedAt) }}</td>
             <td>{{ model.isDownloaded }}</td>
             <td>{{ model.file_path }}</td>
           </tr>
@@ -561,6 +561,33 @@ export default {
           }
         }
       }, 30000); // 30 seconds
+    },
+    formatDate(timestamp) {
+      if (!timestamp) return '-';
+      
+      try {
+        const date = new Date(timestamp);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          return timestamp; // Return original if invalid
+        }
+        
+        // Format: "Jan 15, 2024 2:30:45 PM"
+        return date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }) + ' ' + date.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        });
+      } catch (error) {
+        console.error('Error formatting date:', error);
+        return timestamp; // Return original if formatting fails
+      }
     },
   }
 }
