@@ -168,8 +168,13 @@
 
 <script>
 import { apiService } from '@/utils/api.js';
+import { useErrorHandler } from '@/composables/useErrorHandler.js';
 
 export default {
+  setup() {
+    const errorHandler = useErrorHandler();
+    return { errorHandler };
+  },
   data() {
     return {
       models: [],
@@ -327,6 +332,7 @@ export default {
         this.models = response.data
         this.totalItems = response.total
       } catch (error) {
+        this.errorHandler.handleError(error, 'loading models');
         this.error = 'Failed to load models'
       } finally {
         this.loading = false
@@ -361,22 +367,16 @@ export default {
           console.error('Failed to queue download:', response.error || 'Unknown error');
           // Remove from downloading list on failure
           this.removeFromDownloadingList(model.modelId);
-          this.showNotification(`❌ Failed to queue download: ${model.fileName}`, 'error');
+          this.errorHandler.handleError(new Error(response.error || 'Unknown error'), `queuing download for ${model.fileName}`);
         }
       } catch (err) {
         console.error('Download request failed:', err.response?.data?.error || err.message);
         
-        // Check if it's a network error vs server error
-        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-          this.showNotification(`❌ Network error: Cannot connect to server`, 'error');
-        } else if (err.response?.status >= 500) {
-          this.showNotification(`❌ Server error: Please try again later`, 'error');
-        } else {
-          this.showNotification(`❌ Download failed: ${err.response?.data?.error || err.message}`, 'error');
-        }
-        
         // Remove from downloading list on error
         this.removeFromDownloadingList(model.modelId);
+        
+        // Use the new error handler for consistent error messaging
+        this.errorHandler.handleError(err, `downloading ${model.fileName}`);
       }
     },
     removeFromDownloadingList(modelId) {
@@ -420,10 +420,10 @@ export default {
               
               if (response.isDownloaded === 1) {
                 console.log(`Download completed successfully for model: ${modelVersionId}`);
-                this.showNotification(`✅ Download completed: ${fileName}`, 'success');
+                this.errorHandler.handleSuccess(`Download completed: ${fileName}`);
               } else {
                 console.log(`Download failed for model: ${modelVersionId}`);
-                this.showNotification(`❌ Download failed: ${fileName}`, 'error');
+                this.errorHandler.handleError(new Error('Download failed'), `downloading ${fileName}`);
               }
             }
           }
@@ -436,7 +436,7 @@ export default {
             if (pollCount > 10) { // Wait at least 20 seconds before giving up
               this.removeFromDownloadingListByVersionId(modelVersionId);
               this.stopStatusPolling(modelVersionId);
-              this.showNotification(`❌ Download failed: Model not found in database`, 'error');
+              this.errorHandler.handleError(new Error('Model not found in database'), `downloading ${fileName}`);
             }
           } else if (error.response && error.response.status >= 500) {
             // Server error, try again later
@@ -451,7 +451,7 @@ export default {
         if (pollCount >= maxPolls) {
           this.stopStatusPolling(modelVersionId);
           console.log(`Stopped polling for model: ${modelVersionId} (max attempts reached)`);
-          this.showNotification(`⏰ Download timeout: Check status manually`, 'warning');
+          this.errorHandler.handleWarning(`Download timeout: Check status manually for ${fileName}`);
         }
       }, 2000);
       
@@ -544,7 +544,7 @@ export default {
         }
       } catch (error) {
         console.error('Failed to check download status:', error);
-        this.showNotification('❌ Failed to check download status', 'error');
+        this.errorHandler.handleError(error, 'checking download status');
       }
     },
     startPeriodicCleanup() {
@@ -577,9 +577,9 @@ export default {
               this.removeFromDownloadingList(completed.modelId);
               
               if (completed.status === 1) {
-                this.showNotification(`✅ Download completed: ${completed.fileName}`, 'success');
+                this.errorHandler.handleSuccess(`Download completed: ${completed.fileName}`);
               } else {
-                this.showNotification(`❌ Download failed: ${completed.fileName}`, 'error');
+                this.errorHandler.handleError(new Error('Download failed'), `downloading ${completed.fileName}`);
               }
             }
             

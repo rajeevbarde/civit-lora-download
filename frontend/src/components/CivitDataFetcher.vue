@@ -86,9 +86,14 @@
 
 <script>
 import { apiService } from '@/utils/api.js';
+import { useErrorHandler } from '@/composables/useErrorHandler.js';
 
 export default {
   name: 'CivitDataFetcher',
+  setup() {
+    const errorHandler = useErrorHandler();
+    return { errorHandler };
+  },
   data() {
     return {
       isScanning: false,
@@ -103,10 +108,10 @@ export default {
       try {
         const data = await apiService.findMissingFiles();
         this.scanResults = data;
+        this.errorHandler.handleSuccess('Scan completed successfully');
         
       } catch (error) {
-        console.error('Error scanning for missing files:', error);
-        alert('Error scanning for missing files: ' + error.message);
+        this.errorHandler.handleError(error, 'scanning for missing files');
       } finally {
         this.isScanning = false;
       }
@@ -135,11 +140,13 @@ export default {
         
         // Set success status
         file.status = 'success';
+        this.errorHandler.handleSuccess(`File ${file.fileName} fixed successfully`);
         
       } catch (error) {
         console.error('Error fixing file:', error);
         file.status = 'error';
         file.errorMessage = error.message;
+        this.errorHandler.handleError(error, `fixing file ${file.fileName}`, { showNotification: false });
       }
     },
     
@@ -150,7 +157,7 @@ export default {
         return data.hash;
         
       } catch (error) {
-        console.error('Error computing hash:', error);
+        this.errorHandler.handleError(error, 'computing file hash');
         throw new Error(`Failed to compute file hash: ${error.message}`);
       }
     },
@@ -176,7 +183,7 @@ export default {
         return modelVersionId;
         
       } catch (error) {
-        console.error('Error fetching model version ID:', error);
+        this.errorHandler.handleError(error, 'fetching model version ID from CivitAI');
         throw new Error(`Failed to fetch model version ID: ${error.message}`);
       }
     }

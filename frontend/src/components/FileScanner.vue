@@ -150,9 +150,14 @@
 
 <script>
 import { apiService } from '@/utils/api.js';
+import { useErrorHandler } from '@/composables/useErrorHandler.js';
 
 export default {
   name: 'FileScanner',
+  setup() {
+    const errorHandler = useErrorHandler();
+    return { errorHandler };
+  },
   data() {
     return {
       directoryPath: '',
@@ -207,9 +212,11 @@ export default {
       try {
         const data = await apiService.savePathLegacy(this.directoryPath);
         this.message = 'Path saved successfully!';
+        this.errorHandler.handleSuccess('Path saved successfully');
         this.fetchSavedPaths();
         this.directoryPath = '';
       } catch (error) {
+        this.errorHandler.handleError(error, 'saving path');
         this.message = 'Error: ' + error.message;
       }
     },
@@ -222,6 +229,7 @@ export default {
           this.savedPaths = [];
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'fetching saved paths', { showNotification: false });
         this.savedPaths = [];
       }
     },
@@ -229,8 +237,10 @@ export default {
       try {
         const data = await apiService.deletePathLegacy(path);
         this.message = 'Path deleted successfully!';
+        this.errorHandler.handleSuccess('Path deleted successfully');
         this.fetchSavedPaths();
       } catch (error) {
+        this.errorHandler.handleError(error, 'deleting path');
         this.message = 'Error: ' + error.message;
       }
     },
@@ -243,11 +253,15 @@ export default {
         const data = await apiService.startScan();
         if (data.results) {
           this.scanStatus = 'done';
+          this.errorHandler.handleSuccess('Scan started successfully');
           await this.checkFilesInDb(data.results);
         } else {
-          this.message = data.error || 'Failed to start scan.';
+          const errorMsg = data.error || 'Failed to start scan.';
+          this.message = errorMsg;
+          this.errorHandler.handleError(new Error(errorMsg), 'starting scan');
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'starting scan');
         this.message = 'Error: ' + error.message;
       }
     },
@@ -277,6 +291,7 @@ export default {
           this.checkedFiles = [];
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'checking files in database', { showNotification: false });
         this.checkedFiles = [];
       }
     },
@@ -287,13 +302,18 @@ export default {
         const data = await apiService.markDownloaded(this.checkedFiles);
         if (typeof data.updated === 'number') {
           this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
+          this.errorHandler.handleSuccess(`Updated ${data.updated} row(s) in database`);
           if (data.errors && data.errors.length) {
             this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+            this.errorHandler.handleWarning(`Some files had errors: ${data.errors.length} errors encountered`);
           }
         } else {
-          this.markDownloadedMsg = data.error || 'Failed to update DB.';
+          const errorMsg = data.error || 'Failed to update DB.';
+          this.markDownloadedMsg = errorMsg;
+          this.errorHandler.handleError(new Error(errorMsg), 'marking files as downloaded');
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'marking files as downloaded');
         this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {
         this.markingDownloaded = false;
@@ -306,14 +326,18 @@ export default {
       try {
         const data = await apiService.validateDownloadedFiles();
         this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
+        this.errorHandler.handleSuccess(`Validation completed: ${data.validated} files validated`);
         if (data.mismatches && data.mismatches.length > 0) {
           this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
+          this.errorHandler.handleWarning(`Found ${data.mismatches.length} file mismatches`);
         }
         if (data.errors && data.errors.length > 0) {
           this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+          this.errorHandler.handleWarning(`Validation encountered ${data.errors.length} errors`);
         }
         this.validationResults = data; // Store the full validation results
       } catch (error) {
+        this.errorHandler.handleError(error, 'validating downloaded files');
         this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {
         this.validatingFiles = false;
