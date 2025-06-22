@@ -2,65 +2,79 @@
   <div class="summary-page">
     <h1>Summary Page</h1>
     <p>This is the summary page. Add your summary content here.</p>
-    <div v-if="loading || loadingDownloaded">Loading matrix...</div>
+    <div v-if="loading || loadingDownloaded" class="loading">Loading matrix...</div>
     <div v-else>
       <!-- Downloaded Matrix -->
-      <table v-if="matrixDownloaded.length" class="summary-matrix">
-        <caption style="caption-side:top;text-align:left;font-weight:bold;margin-bottom:0.5rem;">Downloaded Matrix (isDownloaded: 1)</caption>
-        <thead>
-          <tr>
-            <th>NSFW Level \\ Base Model</th>
-            <th v-for="bm in baseModelsDownloaded" :key="bm">{{ bm }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in matrixDownloaded" :key="row.modelVersionNsfwLevel">
-            <td>{{ row.modelVersionNsfwLevel }}</td>
-            <td v-for="bm in baseModelsDownloaded" :key="bm"
-                :class="getDownloadedCellClass(row[bm])"
-                :style="getDownloadedCellStyle(row[bm])">
-              {{ row[bm] || 0 }}
-            </td>
-          </tr>
-          <tr style="font-weight:bold;background:#f3f4f6;">
-            <td>Total</td>
-            <td v-for="bm in baseModelsDownloaded" :key="bm">
-              {{ getDownloadedTotal(bm) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="matrixDownloaded.length" class="matrix-container">
+        <h2>Downloaded Matrix (isDownloaded: 1)</h2>
+        <div class="table-wrapper">
+          <table class="summary-matrix">
+            <thead>
+              <tr>
+                <th>NSFW Level \\ Base Model</th>
+                <th v-for="bm in baseModelsDownloaded" :key="bm">{{ bm }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in matrixDownloaded" :key="row.modelVersionNsfwLevel">
+                <td>{{ row.modelVersionNsfwLevel }}</td>
+                <td v-for="bm in baseModelsDownloaded" :key="bm"
+                    :class="getDownloadedCellClass(row[bm])"
+                    :style="getDownloadedCellStyle(row[bm])">
+                  {{ row[bm] || 0 }}
+                </td>
+              </tr>
+              <tr style="font-weight:bold;background:#f3f4f6;">
+                <td>Total</td>
+                <td v-for="bm in baseModelsDownloaded" :key="bm">
+                  {{ getDownloadedTotal(bm) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
       <!-- Existing Matrix -->
-      <table v-if="matrix.length" class="summary-matrix">
-        <thead>
-          <tr>
-            <th>NSFW Level \ Base Model</th>
-            <th v-for="bm in baseModels" :key="bm">{{ bm }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in matrix" :key="row.modelVersionNsfwLevel">
-            <td>{{ row.modelVersionNsfwLevel }}</td>
-            <td v-for="bm in baseModels" :key="bm"
-                :class="getMatrixCellClass(row[bm])"
-                :style="getMatrixCellStyle(row[bm])">
-              {{ row[bm] }}
-            </td>
-          </tr>
-          <tr style="font-weight:bold;background:#f3f4f6;">
-            <td>Total</td>
-            <td v-for="bm in baseModels" :key="bm">
-              {{ getMatrixTotal(bm) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div v-else>No data available.</div>
+      <div v-if="matrix.length" class="matrix-container">
+        <h2>All Models Matrix</h2>
+        <div class="table-wrapper">
+          <table class="summary-matrix">
+            <thead>
+              <tr>
+                <th>NSFW Level \ Base Model</th>
+                <th v-for="bm in baseModels" :key="bm">{{ bm }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in matrix" :key="row.modelVersionNsfwLevel">
+                <td>{{ row.modelVersionNsfwLevel }}</td>
+                <td v-for="bm in baseModels" :key="bm"
+                    :class="getMatrixCellClass(row[bm])"
+                    :style="getMatrixCellStyle(row[bm])">
+                  {{ row[bm] }}
+                </td>
+              </tr>
+              <tr style="font-weight:bold;background:#f3f4f6;">
+                <td>Total</td>
+                <td v-for="bm in baseModels" :key="bm">
+                  {{ getMatrixTotal(bm) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div v-else class="no-data">No data available.</div>
     </div>
   </div>
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
+import { getGreenGradientStyle, calculateMatrixTotal, findGlobalMax } from '@/utils/helpers.js';
+import { COLORS } from '@/utils/constants.js';
+
 export default {
   name: 'Summary',
   data() {
@@ -83,12 +97,12 @@ export default {
     async fetchMatrix() {
       this.loading = true;
       try {
-        const res = await fetch('http://localhost:3000/api/summary-matrix');
-        const data = await res.json();
+        const data = await apiService.getSummaryMatrix();
         this.baseModels = data.baseModels;
         this.nsfwLevels = data.nsfwLevels;
         this.matrix = data.matrix;
       } catch (e) {
+        console.error('Error fetching matrix:', e);
         this.baseModels = [];
         this.nsfwLevels = [];
         this.matrix = [];
@@ -99,12 +113,12 @@ export default {
     async fetchMatrixDownloaded() {
       this.loadingDownloaded = true;
       try {
-        const res = await fetch('http://localhost:3000/api/summary-matrix-downloaded');
-        const data = await res.json();
+        const data = await apiService.getSummaryMatrixDownloaded();
         this.baseModelsDownloaded = data.baseModels;
         this.nsfwLevelsDownloaded = data.nsfwLevels;
         this.matrixDownloaded = data.matrix;
       } catch (e) {
+        console.error('Error fetching downloaded matrix:', e);
         this.baseModelsDownloaded = [];
         this.nsfwLevelsDownloaded = [];
         this.matrixDownloaded = [];
@@ -130,117 +144,158 @@ export default {
     getDownloadedCellStyle(cell) {
       const val = cell || 0;
       if (val === 0) {
-        return 'background: #fef2f2; color: #dc2626;'; // Mild red for zero values
+        return `background: ${COLORS.STATUS.ZERO}; color: ${COLORS.STATUS.ZERO_TEXT};`;
       }
       const max = this.getDownloadedGlobalMax();
-      return this.getGreenGradientStyle(val, max);
+      return getGreenGradientStyle(val, max);
     },
     getMatrixCellStyle(value) {
       const val = value || 0;
       if (val === 0) {
-        return 'background: #fef2f2; color: #dc2626;'; // Mild red for zero values
+        return `background: ${COLORS.STATUS.ZERO}; color: ${COLORS.STATUS.ZERO_TEXT};`;
       }
       const max = this.getMatrixGlobalMax();
-      return this.getGreenGradientStyle(val, max);
-    },
-    getGreenGradientStyle(val, max) {
-      if (!val || max === 0) {
-        return '';
-      }
-      // Gradient from #f9f9f9 (0) to #bbf7d0 (max) to #22c55e (high)
-      let percent = max ? val / max : 0;
-      if (percent < 0.01) percent = 0.01;
-      if (percent > 1) percent = 1;
-      // Interpolate between #f9f9f9 and #bbf7d0, then toward #22c55e
-      // We'll use a simple 2-stop gradient for now
-      let bg = '';
-      if (percent < 0.7) {
-        // #f9f9f9 to #bbf7d0
-        bg = this.interpolateColor('#f9f9f9', '#bbf7d0', percent / 0.7);
-      } else {
-        // #bbf7d0 to #22c55e
-        bg = this.interpolateColor('#bbf7d0', '#22c55e', (percent - 0.7) / 0.3);
-      }
-      return `background: ${bg};`;
-    },
-    interpolateColor(a, b, t) {
-      // a, b: hex colors; t: 0-1
-      function hexToRgb(hex) {
-        hex = hex.replace('#', '');
-        if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
-        const num = parseInt(hex, 16);
-        return [num >> 16, (num >> 8) & 0xff, num & 0xff];
-      }
-      function rgbToHex([r, g, b]) {
-        return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-      }
-      const rgbA = hexToRgb(a);
-      const rgbB = hexToRgb(b);
-      const rgb = rgbA.map((v, i) => Math.round(v + (rgbB[i] - v) * t));
-      return rgbToHex(rgb);
+      return getGreenGradientStyle(val, max);
     },
     getDownloadedTotal(bm) {
-      let sum = 0;
-      for (const row of this.matrixDownloaded) {
-        sum += row[bm] || 0;
-      }
-      return sum;
+      return calculateMatrixTotal(this.matrixDownloaded, bm);
     },
     getMatrixTotal(bm) {
-      let sum = 0;
-      for (const row of this.matrix) {
-        sum += row[bm] || 0;
-      }
-      return sum;
+      return calculateMatrixTotal(this.matrix, bm);
     },
     getDownloadedGlobalMax() {
-      let max = 0;
-      for (const bm of this.baseModelsDownloaded) {
-        for (const row of this.matrixDownloaded) {
-          const v = row[bm] || 0;
-          if (v > max) max = v;
-        }
-      }
-      return max;
+      return findGlobalMax(this.matrixDownloaded, this.baseModelsDownloaded);
     },
     getMatrixGlobalMax() {
-      let max = 0;
-      for (const bm of this.baseModels) {
-        for (const row of this.matrix) {
-          const v = row[bm] || 0;
-          if (v > max) max = v;
-        }
-      }
-      return max;
-    }
-  }
+      return findGlobalMax(this.matrix, this.baseModels);
+    },
+  },
 };
 </script>
 
 <style scoped>
 .summary-page {
-  padding: 2rem;
+  width: 100%;
+  padding: 16px;
 }
-.summary-matrix {
-  border-collapse: collapse;
-  margin-top: 2rem;
+
+h1 {
+  font-size: 28px;
+  font-weight: 300;
+  margin-bottom: 16px;
+  color: #1a202c;
+  letter-spacing: -0.5px;
 }
-.summary-matrix th, .summary-matrix td {
-  border: 1px solid #ccc;
-  padding: 0.5rem 1rem;
+
+h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: #374151;
+}
+
+p {
+  margin-bottom: 24px;
+  color: #6b7280;
+}
+
+.loading {
   text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  color: #6c757d;
 }
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+  color: #6c757d;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.matrix-container {
+  margin-bottom: 32px;
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.summary-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 13px;
+}
+
 .summary-matrix th {
-  background: #f0f0f0;
+  background: #f8f9fa;
+  padding: 12px 10px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 12px;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
+
+.summary-matrix td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #f1f3f4;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.summary-matrix tr:hover {
+  background-color: #f8f9fa;
+}
+
+.summary-matrix tr:last-child td {
+  border-bottom: none;
+}
+
 .cell-zero {
   background: #fef2f2;
   color: #dc2626;
-  font-weight: 500;
 }
+
 .cell-highlight {
-  background: #dbeafe;
-  color: #1e293b;
-  font-weight: 500;
+  color: #065f46;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .summary-page {
+    padding: 8px;
+  }
+  
+  h1 {
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+  
+  h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  
+  .summary-matrix {
+    font-size: 11px;
+  }
+  
+  .summary-matrix th,
+  .summary-matrix td {
+    padding: 6px 8px;
+  }
 }
 </style> 

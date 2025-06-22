@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="model-table-page">
     <h1>Model Database</h1>
     
     <!-- Notifications -->
@@ -56,98 +56,100 @@
     
     <div v-if="loading" class="loading">Loading...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Model ID</th>
-            <th>Model Name</th>
-            <th>Model Type</th>
-            <th>Model NSFW</th>
-            <th>Model NSFW Level</th>
-            <th>Model Download Count</th>
-            <th>Model Version ID</th>
-            <th>Model Version Name</th>
-            <th>Base Model</th>
-            <th>Base Model Type</th>
-            <th>Version NSFW Level</th>
-            <th>Version Download Count</th>
-            <th>File Name</th>
-            <th>File Type</th>
-            <th>File Download URL</th>
-            <th class="checkbox-header">
-              <input 
-                type="checkbox" 
-                :checked="isAllSelected" 
-                :indeterminate="isIndeterminate"
-                @change="toggleSelectAll"
-                class="checkbox-select-all"
-              >
-            </th>
-            <th>Size (GB)</th>
-            <th>Published At</th>
-            <th>Downloaded</th>
-            <th>File Path</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="model in models" :key="model.modelId">
-            <td>{{ model.modelId }}</td>
-            <td>{{ model.modelName }}</td>
-            <td>{{ model.modelType }}</td>
-            <td>{{ model.modelNsfw }}</td>
-            <td>{{ model.modelNsfwLevel }}</td>
-            <td>{{ model.modelDownloadCount?.toLocaleString() }}</td>
-            <td>
-              <a 
-                :href="`http://localhost:5173/model/${model.modelVersionId}`" 
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {{ model.modelVersionId }}
-              </a>
-            </td>
-            <td>{{ model.modelVersionName }}</td>
-            <td>{{ model.basemodel }}</td>
-            <td>{{ model.basemodeltype }}</td>
-            <td>{{ model.modelVersionNsfwLevel }}</td>
-            <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
-            <td>{{ model.fileName }}</td>
-            <td>{{ model.fileType }}</td>
-            <td>
-              <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
-                      @click="downloadModelFile(model)" 
-                      class="btn-download"
-                      :disabled="isModelDownloading(model.modelId)"
-                      :class="{ 'loading': isModelDownloading(model.modelId) }">
-                {{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}
-              </button>
-              <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
-                      @click="downloadModelFile(model)" 
-                      class="btn-retry"
-                      :disabled="isModelDownloading(model.modelId)"
-                      :class="{ 'loading': isModelDownloading(model.modelId) }">
-                {{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}
-              </button>
-              <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
-              <span v-else>-</span>
-            </td>
-            <td class="checkbox-cell">
-              <input 
-                type="checkbox" 
-                :value="model.modelId"
-                v-model="selectedModels"
-                :disabled="!canSelectModel(model)"
-                class="checkbox-model"
-              >
-            </td>
-            <td>{{ model.size_in_gb }}</td>
-            <td>{{ formatDate(model.publishedAt) }}</td>
-            <td>{{ model.isDownloaded }}</td>
-            <td>{{ model.file_path }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else class="table-container">
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Model ID</th>
+              <th>Model Name</th>
+              <th>Model Type</th>
+              <th>Model NSFW</th>
+              <th>Model NSFW Level</th>
+              <th>Model Download Count</th>
+              <th>Model Version ID</th>
+              <th>Model Version Name</th>
+              <th>Base Model</th>
+              <th>Base Model Type</th>
+              <th>Version NSFW Level</th>
+              <th>Version Download Count</th>
+              <th>File Name</th>
+              <th>File Type</th>
+              <th>File Download URL</th>
+              <th class="checkbox-header">
+                <input 
+                  type="checkbox" 
+                  :checked="isAllSelected" 
+                  :indeterminate="isIndeterminate"
+                  @change="toggleSelectAll"
+                  class="checkbox-select-all"
+                >
+              </th>
+              <th>Size (GB)</th>
+              <th>Published At</th>
+              <th>Downloaded</th>
+              <th>File Path</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="model in models" :key="model.modelId">
+              <td>{{ model.modelId }}</td>
+              <td>{{ model.modelName }}</td>
+              <td>{{ model.modelType }}</td>
+              <td>{{ model.modelNsfw }}</td>
+              <td>{{ model.modelNsfwLevel }}</td>
+              <td>{{ model.modelDownloadCount?.toLocaleString() }}</td>
+              <td>
+                <a 
+                  :href="`http://localhost:5173/model/${model.modelVersionId}`" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{ model.modelVersionId }}
+                </a>
+              </td>
+              <td>{{ model.modelVersionName }}</td>
+              <td>{{ model.basemodel }}</td>
+              <td>{{ model.basemodeltype }}</td>
+              <td>{{ model.modelVersionNsfwLevel }}</td>
+              <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
+              <td>{{ model.fileName }}</td>
+              <td>{{ model.fileType }}</td>
+              <td>
+                <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
+                        @click="downloadModelFile(model)" 
+                        class="btn-download"
+                        :disabled="isModelDownloading(model.modelId)"
+                        :class="{ 'loading': isModelDownloading(model.modelId) }">
+                  {{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}
+                </button>
+                <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
+                        @click="downloadModelFile(model)" 
+                        class="btn-retry"
+                        :disabled="isModelDownloading(model.modelId)"
+                        :class="{ 'loading': isModelDownloading(model.modelId) }">
+                  {{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}
+                </button>
+                <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
+                <span v-else>-</span>
+              </td>
+              <td class="checkbox-cell">
+                <input 
+                  type="checkbox" 
+                  :value="model.modelId"
+                  v-model="selectedModels"
+                  :disabled="!canSelectModel(model)"
+                  class="checkbox-model"
+                >
+              </td>
+              <td>{{ model.size_in_gb }}</td>
+              <td>{{ formatDate(model.publishedAt) }}</td>
+              <td>{{ model.isDownloaded }}</td>
+              <td>{{ model.file_path }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <div class="pagination">
         <button 
           :disabled="currentPage === 1"
@@ -608,171 +610,195 @@ body {
   background: #f8fafc;
 }
 
-.app-container {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 24px;
+.model-table-page {
+  width: 100%;
+  padding: 16px;
 }
 
 h1 {
   font-size: 28px;
   font-weight: 300;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   color: #1a202c;
   letter-spacing: -0.5px;
 }
 
 .filters {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   display: flex;
-  gap: 24px;
+  gap: 20px;
   align-items: center;
   flex-wrap: wrap;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .filter-group label {
   font-size: 14px;
   font-weight: 500;
-  color: #4a5568;
+  color: #495057;
 }
 
 .filter-group select {
   padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
   background: white;
   font-size: 14px;
-  color: #2d3748;
+  color: #495057;
   transition: border-color 0.2s ease;
+  min-width: 150px;
 }
 
 .filter-group select:focus {
   outline: none;
-  border-color: #3182ce;
-  box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
 .bulk-actions {
-  margin-bottom: 20px;
-  padding: 16px;
-  background: #ebf8ff;
-  border: 1px solid #bee3f8;
-  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 6px;
 }
 
 .bulk-info {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .bulk-info span {
   font-weight: 500;
-  color: #2b6cb0;
+  color: #1976d2;
 }
 
 .btn-bulk-download {
   padding: 8px 16px;
-  background: #48bb78;
+  background: #2196f3;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s;
 }
 
 .btn-bulk-download:hover:not(:disabled) {
-  background: #38a169;
+  background: #1976d2;
 }
 
 .btn-bulk-download:disabled {
-  opacity: 0.6;
+  background: #ccc;
   cursor: not-allowed;
 }
 
 .btn-clear-selection {
   padding: 8px 16px;
-  background: #e2e8f0;
-  color: #4a5568;
+  background: #f44336;
+  color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s;
 }
 
 .btn-clear-selection:hover {
-  background: #cbd5e0;
+  background: #d32f2f;
 }
 
 .download-status {
   margin-bottom: 16px;
   padding: 12px 16px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  border-radius: 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
 }
 
 .status-info {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .status-info span {
   font-weight: 500;
-  color: #0369a1;
+  color: #495057;
 }
 
 .btn-status-check {
   padding: 6px 12px;
-  background: #0ea5e9;
+  background: #007bff;
   color: white;
   border: none;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s;
 }
 
 .btn-status-check:hover {
-  background: #0284c7;
+  background: #0056b3;
+}
+
+.table-container {
+  width: 100%;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
 }
 
 .table-wrapper {
   width: 100%;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
   background: white;
+  font-size: 13px;
 }
 
 th {
-  background: #f7fafc;
-  padding: 16px 12px;
+  background: #f8f9fa;
+  padding: 12px 10px;
   text-align: left;
   font-weight: 600;
-  font-size: 13px;
-  color: #4a5568;
-  border-bottom: 1px solid #e2e8f0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size: 12px;
+  color: #495057;
+  border-bottom: 1px solid #dee2e6;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+td {
+  padding: 10px;
+  border-bottom: 1px solid #f1f3f4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+tr:hover {
+  background-color: #f8f9fa;
 }
 
 .checkbox-header {
@@ -783,14 +809,13 @@ th {
 .checkbox-cell {
   width: 40px;
   text-align: center;
-  padding: 12px 8px;
+  padding: 10px 8px;
 }
 
 .checkbox-select-all, .checkbox-model {
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #3182ce;
 }
 
 .checkbox-model:disabled {
@@ -798,184 +823,116 @@ th {
   opacity: 0.5;
 }
 
-td {
-  padding: 12px;
-  font-size: 14px;
-  color: #2d3748;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: top;
-}
-
-tr:hover {
-  background-color: #f8fafc;
-}
-
-tr:last-child td {
-  border-bottom: none;
-}
-
-a {
-  color: #3182ce;
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: #2c5282;
-  text-decoration: underline;
-}
-
-.btn-download, .btn-retry {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  min-width: 80px;
-}
-
 .btn-download {
-  background: #48bb78;
+  background: #28a745;
   color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
 }
 
 .btn-download:hover:not(:disabled) {
-  background: #38a169;
+  background: #218838;
+}
+
+.btn-download:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.btn-download.loading {
+  background: #6c757d;
 }
 
 .btn-retry {
-  background: #ed8936;
-  color: white;
+  background: #ffc107;
+  color: #212529;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
 }
 
 .btn-retry:hover:not(:disabled) {
-  background: #dd6b20;
+  background: #e0a800;
 }
 
-.btn-download:disabled, .btn-retry:disabled {
-  opacity: 0.6;
+.btn-retry:disabled {
+  background: #6c757d;
   cursor: not-allowed;
 }
 
-.btn-download.loading, .btn-retry.loading {
-  background: #a0aec0;
-  cursor: not-allowed;
-}
-
-.btn-download.loading::after, .btn-retry.loading::after {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  margin: auto;
-  border: 2px solid transparent;
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-@keyframes spin {
-  0% { transform: translateY(-50%) rotate(0deg); }
-  100% { transform: translateY(-50%) rotate(360deg); }
+.btn-retry.loading {
+  background: #6c757d;
 }
 
 .status-downloaded {
-  color: #48bb78;
+  color: #28a745;
   font-weight: 500;
-  font-size: 12px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid #dee2e6;
+}
+
+.btn-pagination {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.btn-pagination:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-pagination:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.page-info {
+  font-weight: 500;
+  color: #495057;
+  min-width: 80px;
+  text-align: center;
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #718096;
   font-size: 16px;
+  color: #6c757d;
 }
 
 .error {
-  color: #e53e3e;
-  padding: 24px;
   text-align: center;
-  background: #fed7d7;
+  padding: 40px;
+  font-size: 16px;
+  color: #dc3545;
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
   border-radius: 6px;
-  margin-bottom: 24px;
 }
 
-.pagination {
-  margin-top: 24px;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
-  padding: 20px;
-  background: #f7fafc;
-  border-top: 1px solid #e2e8f0;
-}
-
-.btn-pagination {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.btn-pagination:hover:not(:disabled) {
-  background: #f7fafc;
-  border-color: #cbd5e0;
-}
-
-.btn-pagination:disabled {
-  background: #f7fafc;
-  color: #a0aec0;
-  cursor: not-allowed;
-}
-
-.page-info {
-  font-size: 14px;
-  color: #4a5568;
-  font-weight: 500;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .app-container {
-    padding: 16px;
-  }
-  
-  h1 {
-    font-size: 24px;
-    margin-bottom: 24px;
-  }
-  
-  .filters {
-    gap: 16px;
-  }
-  
-  th, td {
-    padding: 10px 8px;
-    font-size: 13px;
-  }
-  
-  .pagination {
-    padding: 16px;
-    gap: 12px;
-  }
-}
-
+/* Notifications */
 .notifications-container {
-  margin-bottom: 20px;
-  position: relative;
+  margin-bottom: 16px;
 }
 
 .notification {
@@ -985,45 +942,44 @@ a:hover {
   padding: 12px 16px;
   margin-bottom: 8px;
   border-radius: 6px;
-  font-weight: 500;
-  animation: slideIn 0.3s ease-out;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-width: 100%;
 }
 
 .notification-success {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #bbf7d0;
+  background-color: #d1fae5;
+  border: 1px solid #10b981;
+  color: #065f46;
 }
 
 .notification-error {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background-color: #fee2e2;
+  border: 1px solid #ef4444;
+  color: #991b1b;
 }
 
 .notification-warning {
-  background: #fffbeb;
-  color: #d97706;
-  border: 1px solid #fed7aa;
+  background-color: #fef3c7;
+  border: 1px solid #f59e0b;
+  color: #92400e;
 }
 
 .notification-info {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background-color: #dbeafe;
+  border: 1px solid #3b82f6;
+  color: #1e40af;
 }
 
 .notification-message {
   flex: 1;
   margin-right: 12px;
+  word-wrap: break-word;
 }
 
 .notification-close {
   background: none;
   border: none;
   font-size: 18px;
-  font-weight: bold;
   cursor: pointer;
   padding: 0;
   width: 20px;
@@ -1032,39 +988,63 @@ a:hover {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s;
 }
 
 .notification-close:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.1);
 }
 
 .clear-all-notifications {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  padding: 4px 8px;
-  background: #6b7280;
+  background-color: #6b7280;
   color: white;
   border: none;
+  padding: 8px 16px;
   border-radius: 4px;
-  font-size: 12px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  font-size: 12px;
+  margin-top: 8px;
+  transition: background-color 0.2s;
 }
 
 .clear-all-notifications:hover {
-  background: #4b5563;
+  background-color: #4b5563;
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .model-table-page {
+    padding: 8px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .filter-group select {
+    min-width: auto;
+  }
+  
+  .bulk-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .status-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  table {
+    font-size: 11px;
+  }
+  
+  th, td {
+    padding: 6px 8px;
   }
 }
 </style>
