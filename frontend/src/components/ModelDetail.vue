@@ -41,9 +41,14 @@
 
 
 <script>
+import { useRoute } from 'vue-router';
 import { apiService } from '@/utils/api.js';
 
 export default {
+  setup() {
+    const route = useRoute();
+    return { route };
+  },
   data() {
     return {
       model: null,
@@ -57,7 +62,7 @@ export default {
   methods: {
     async fetchModelDetails() {
       try {
-        const id = Number(this.$route.params.id);
+        const id = Number(this.route.params.id);
         if (isNaN(id)) {
           throw new Error("Invalid model ID");
         }

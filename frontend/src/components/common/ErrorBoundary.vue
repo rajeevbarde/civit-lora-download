@@ -22,14 +22,21 @@
 </template>
 
 <script>
+import { useRouter } from 'vue-router';
+
 export default {
   name: 'ErrorBoundary',
+  setup() {
+    const router = useRouter();
+    return { router };
+  },
   data() {
     return {
       hasError: false,
       errorMessage: '',
       errorStack: '',
-      showDetails: false
+      showDetails: false,
+      retryKey: 0 // Used to force re-render
     };
   },
   methods: {
@@ -50,12 +57,17 @@ export default {
       this.errorStack = '';
       this.showDetails = false;
       
-      // Force a re-render of the component
-      this.$forceUpdate();
+      // Force a re-render by updating the key
+      this.retryKey++;
+      
+      // Alternative: Use nextTick to ensure DOM updates
+      this.$nextTick(() => {
+        // The component will re-render with the new key
+      });
     },
     
     goHome() {
-      this.$router.push('/');
+      this.router.push('/');
     },
     
     // Optional: Report errors to external service
