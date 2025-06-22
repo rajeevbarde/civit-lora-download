@@ -1,4 +1,5 @@
 const { DOWNLOAD_CONFIG } = require('../config/constants');
+const logger = require('../utils/logger');
 
 // Download queue to manage concurrent downloads
 class DownloadQueue {
@@ -15,7 +16,7 @@ class DownloadQueue {
             try {
                 await downloadTask();
             } catch (error) {
-                console.error('Download task failed:', error.message);
+                logger.error('Download task failed', { error: error.message });
                 this.errors.push({
                     timestamp: new Date().toISOString(),
                     error: error.message,
@@ -53,6 +54,7 @@ class DownloadQueue {
 
     clearErrors() {
         this.errors = [];
+        logger.info('Download queue errors cleared');
     }
 }
 

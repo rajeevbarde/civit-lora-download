@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
 const { validateDatabase, db } = require('./config/database');
+const logger = require('./utils/logger');
 const { 
     validatePagination, 
     validateModelVersionId, 
@@ -33,6 +34,18 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: SERVER_CONFIG.jsonLimit }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        logger.request(req.method, req.url, res.statusCode, duration);
+    });
+    
+    next();
+});
 
 // Route handlers
 app.use('/api/models', modelsRoutes);
@@ -294,33 +307,33 @@ app.get('/api/health', (req, res) => {
 let server;
 
 function gracefulShutdown(signal) {
-    console.log(`\nReceived ${signal}. Starting graceful shutdown...`);
+    logger.info(`Received ${signal}, starting graceful shutdown`);
     
     if (server) {
         server.close((err) => {
             if (err) {
-                console.error('Error during server shutdown:', err);
+                logger.error('Error during server shutdown', { error: err.message });
                 process.exit(1);
             }
             
-            console.log('HTTP server closed.');
+            logger.info('HTTP server closed');
             
             // Close database connection
             db.close((err) => {
                 if (err) {
-                    console.error('Error closing database connection:', err);
+                    logger.error('Error closing database connection', { error: err.message });
                     process.exit(1);
                 }
                 
-                console.log('Database connection closed.');
-                console.log('Graceful shutdown completed.');
+                logger.info('Database connection closed');
+                logger.info('Graceful shutdown completed');
                 process.exit(0);
             });
         });
         
         // Force close after 10 seconds
         setTimeout(() => {
-            console.error('Could not close connections in time, forcefully shutting down');
+            logger.error('Could not close connections in time, forcefully shutting down');
             process.exit(1);
         }, 10000);
     } else {
@@ -340,11 +353,10 @@ async function startServer() {
         
         const PORT = SERVER_CONFIG.port;
         server = app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
-            console.log('Refactored server started successfully!');
+            logger.info('Server started successfully', { port: PORT });
         });
     } catch (error) {
-        console.error('Failed to start server:', error.message);
+        logger.error('Failed to start server', { error: error.message });
         process.exit(1);
     }
 }

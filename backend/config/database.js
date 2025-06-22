@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
+const logger = require('../utils/logger');
 
 // Database configuration
 const DB_PATH = process.env.DB_PATH || 'F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db';
@@ -14,7 +15,7 @@ async function validateDatabase() {
         // Check if database file exists
         if (!fs.existsSync(DB_PATH)) {
             const error = new Error(`Database file not found: ${DB_PATH}`);
-            console.error('Database validation failed:', error.message);
+            logger.error('Database validation failed', { error: error.message });
             reject(error);
             return;
         }
@@ -24,7 +25,7 @@ async function validateDatabase() {
             fs.accessSync(DB_PATH, fs.constants.R_OK);
         } catch (err) {
             const error = new Error(`Database file not readable: ${DB_PATH}`);
-            console.error('Database validation failed:', error.message);
+            logger.error('Database validation failed', { error: error.message });
             reject(error);
             return;
         }
@@ -32,12 +33,12 @@ async function validateDatabase() {
         // Test database connection
         db.get('SELECT 1', (err) => {
             if (err) {
-                console.error('Database connection failed:', err.message);
+                logger.error('Database connection failed', { error: err.message });
                 reject(err);
                 return;
             }
             
-            console.log('Database connected successfully');
+            logger.info('Database connected successfully', { path: DB_PATH });
             resolve(db);
         });
     });

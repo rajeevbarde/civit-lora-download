@@ -4,6 +4,7 @@ const axios = require('axios');
 const { httpAgent, httpsAgent } = require('../config/agents');
 const { DOWNLOAD_CONFIG } = require('../config/constants');
 const databaseService = require('./databaseService');
+const logger = require('../utils/logger');
 
 class DownloadService {
     // Download model file and update DB
@@ -17,10 +18,13 @@ class DownloadService {
                 throw new Error('Missing required parameters: url, fileName, baseModel, modelVersionId');
             }
 
+            logger.info('Starting download', { fileName, baseModel, modelVersionId });
+
             // Ensure directory exists
             if (!fs.existsSync(targetDir)) {
                 try {
                     fs.mkdirSync(targetDir, { recursive: true });
+                    logger.debug('Created directory', { path: targetDir });
                 } catch (dirError) {
                     throw new Error(`Failed to create directory ${targetDir}: ${dirError.message}`);
                 }
@@ -30,10 +34,10 @@ class DownloadService {
             
             // Check if file already exists
             if (fs.existsSync(filePath)) {
-                console.log(`File already exists: ${fileName}`);
+                logger.info('File already exists', { fileName });
                 // Update DB to mark as downloaded
                 await databaseService.updateModelAsDownloaded(modelVersionId, filePath);
-                console.log(`DB updated for existing file: ${fileName}`);
+                logger.info('DB updated for existing file', { fileName });
                 return;
             }
             
@@ -66,7 +70,12 @@ class DownloadService {
                     if (percent >= lastLoggedPercent + 10 || percent === 100) {
                         const elapsed = (Date.now() - startTime) / 1000;
                         const speed = downloaded / elapsed / 1024 / 1024; // MB/s
-                        console.log(`Downloading ${fileName}: ${percent}% (${(downloaded/1024/1024).toFixed(1)}MB/${(totalLength/1024/1024).toFixed(1)}MB) - ${speed.toFixed(2)} MB/s`);
+                        logger.download(fileName, {
+                            percent,
+                            downloaded: `${(downloaded/1024/1024).toFixed(1)}MB`,
+                            total: `${(totalLength/1024/1024).toFixed(1)}MB`,
+                            speed: `${speed.toFixed(2)} MB/s`
+                        });
                         lastLoggedPercent = percent;
                     }
                 }
@@ -78,14 +87,14 @@ class DownloadService {
                 
                 writer.on('error', err => {
                     error = err;
-                    console.error(`Write error for ${fileName}:`, err.message);
+                    logger.error('Write error during download', { fileName, error: err.message });
                     writer.close();
                     reject(new Error(`File write error: ${err.message}`));
                 });
                 
                 response.data.on('error', err => {
                     error = err;
-                    console.error(`Download error for ${fileName}:`, err.message);
+                    logger.error('Download error', { fileName, error: err.message });
                     writer.close();
                     reject(new Error(`Download error: ${err.message}`));
                 });
@@ -94,7 +103,11 @@ class DownloadService {
                     if (!error) {
                         const totalTime = (Date.now() - startTime) / 1000;
                         const avgSpeed = downloaded / totalTime / 1024 / 1024; // MB/s
-                        console.log(`Download completed: ${fileName} in ${totalTime.toFixed(1)}s (${avgSpeed.toFixed(2)} MB/s avg)`);
+                        logger.info('Download completed', {
+                            fileName,
+                            duration: `${totalTime.toFixed(1)}s`,
+                            avgSpeed: `${avgSpeed.toFixed(2)} MB/s`
+                        });
                         resolve();
                     }
                 });
@@ -104,18 +117,18 @@ class DownloadService {
             
             // Update DB asynchronously
             await databaseService.updateModelAsDownloaded(modelVersionId, filePath);
-            console.log(`DB updated successfully for ${fileName}`);
+            logger.info('DB updated successfully', { fileName });
             
         } catch (err) {
-            console.error(`Download failed for ${fileName}:`, err.message);
+            logger.error('Download failed', { fileName, error: err.message });
             
             // Clean up partial file if it exists
             if (writer && fs.existsSync(filePath)) {
                 try {
                     fs.unlinkSync(filePath);
-                    console.log(`Cleaned up partial file: ${fileName}`);
+                    logger.info('Cleaned up partial file', { fileName });
                 } catch (cleanupError) {
-                    console.error(`Failed to clean up partial file ${fileName}:`, cleanupError.message);
+                    logger.error('Failed to clean up partial file', { fileName, error: cleanupError.message });
                 }
             }
             
@@ -123,7 +136,7 @@ class DownloadService {
             try {
                 await databaseService.markModelAsFailed(modelVersionId);
             } catch (dbError) {
-                console.error(`Failed to mark model as failed in DB:`, dbError.message);
+                logger.error('Failed to mark model as failed in DB', { modelVersionId, error: dbError.message });
             }
             
             // Re-throw the error for the queue to handle
