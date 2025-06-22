@@ -24,11 +24,14 @@ const pathService = require('./services/pathService');
 const downloadService = require('./services/downloadService');
 const downloadQueue = require('./services/downloadQueue');
 
-// Import routes
+// Import legacy routes
 const modelsRoutes = require('./routes/models');
 const pathsRoutes = require('./routes/paths');
 const filesRoutes = require('./routes/files');
 const downloadsRoutes = require('./routes/downloads');
+
+// Import versioned routes
+const v1Routes = require('./routes/v1');
 
 const app = express();
 
@@ -48,11 +51,48 @@ app.use((req, res, next) => {
     next();
 });
 
-// Route handlers with appropriate timeouts
+// API versioning middleware
+app.use((req, res, next) => {
+    // Add API version info to response headers
+    res.set('X-API-Version', 'v1');
+    res.set('X-API-Latest', 'v1');
+    next();
+});
+
+// Versioned API routes (recommended)
+app.use('/api/v1', timeoutMiddleware.normal, v1Routes);
+
+// Legacy route handlers (for backward compatibility)
 app.use('/api/models', timeoutMiddleware.normal, modelsRoutes);
 app.use('/api/paths', timeoutMiddleware.normal, pathsRoutes);
 app.use('/api/files', timeoutMiddleware.file, filesRoutes);
 app.use('/api/downloads', timeoutMiddleware.download, downloadsRoutes);
+
+// API root endpoint
+app.get('/api', (req, res) => {
+    res.json({
+        name: 'CivitAI Lora Download Manager API',
+        version: '1.0.0',
+        description: 'API for managing CivitAI Lora model downloads and file organization',
+        versions: {
+            v1: {
+                status: 'active',
+                url: '/api/v1',
+                docs: '/api/v1/docs'
+            }
+        },
+        legacy: {
+            status: 'deprecated',
+            message: 'Legacy endpoints are deprecated. Please use /api/v1 endpoints.',
+            endpoints: {
+                models: '/api/models',
+                paths: '/api/paths',
+                files: '/api/files',
+                downloads: '/api/downloads'
+            }
+        }
+    });
+});
 
 // Legacy route mappings for backward compatibility with appropriate timeouts
 app.get('/api/models', timeoutMiddleware.normal, validatePagination, async (req, res) => {
@@ -311,7 +351,15 @@ app.get('/api/db-stats', timeoutMiddleware.quick, (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        api: {
+            latest: 'v1',
+            supported: ['v1']
+        }
+    });
 });
 
 // Graceful shutdown handling
