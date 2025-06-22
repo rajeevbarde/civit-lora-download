@@ -122,24 +122,6 @@ export function findGlobalMax(matrix, baseModels) {
 }
 
 /**
- * Debounce function to limit function calls
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-export function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
-
-/**
  * Generate a unique ID
  * @returns {string} Unique ID
  */
@@ -185,4 +167,94 @@ export function formatFileSize(bytes) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Safe error handler for async operations
+ * @param {Function} asyncFn - Async function to execute
+ * @param {string} errorMessage - Default error message
+ * @param {Function} onError - Optional error callback
+ * @returns {Promise} Promise that resolves with result or rejects with handled error
+ */
+export async function safeAsync(asyncFn, errorMessage = 'Operation failed', onError = null) {
+  try {
+    return await asyncFn();
+  } catch (error) {
+    const message = error.message || errorMessage;
+    console.error('Safe async error:', message, error);
+    
+    if (onError && typeof onError === 'function') {
+      onError(error, message);
+    }
+    
+    throw new Error(message);
+  }
+}
+
+/**
+ * Validate required fields in an object
+ * @param {Object} obj - Object to validate
+ * @param {Array} requiredFields - Array of required field names
+ * @returns {Object} Validation result with isValid and missingFields
+ */
+export function validateRequiredFields(obj, requiredFields) {
+  const missingFields = requiredFields.filter(field => {
+    const value = obj[field];
+    return value === undefined || value === null || value === '';
+  });
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+}
+
+/**
+ * Retry function with exponential backoff
+ * @param {Function} fn - Function to retry
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} baseDelay - Base delay in milliseconds
+ * @returns {Promise} Promise that resolves with result or rejects after max retries
+ */
+export async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff: delay = baseDelay * 2^attempt
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
+/**
+ * Debounce function with immediate option
+ * @param {Function} func - Function to debounce
+ * @param {number} wait - Wait time in milliseconds
+ * @param {boolean} immediate - Whether to execute immediately
+ * @returns {Function} Debounced function
+ */
+export function debounce(func, wait, immediate = false) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      if (!immediate) func(...args);
+    };
+    const callNow = immediate && !timeout;
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+    if (callNow) func(...args);
+  };
 } 

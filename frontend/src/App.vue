@@ -7,7 +7,9 @@
       <router-link to="/">Model Table</router-link>
     </nav>
     <main class="main-content">
-      <router-view />
+      <ErrorBoundary>
+        <router-view />
+      </ErrorBoundary>
     </main>
     <NotificationSystem ref="notificationSystem" />
   </div>
@@ -15,11 +17,13 @@
 
 <script>
 import NotificationSystem from '@/components/common/NotificationSystem.vue';
+import ErrorBoundary from '@/components/common/ErrorBoundary.vue';
 
 export default {
   name: 'App',
   components: {
-    NotificationSystem
+    NotificationSystem,
+    ErrorBoundary
   },
   provide() {
     return {
