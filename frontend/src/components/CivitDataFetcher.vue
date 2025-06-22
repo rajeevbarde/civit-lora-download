@@ -97,27 +97,114 @@ export default {
   data() {
     return {
       isScanning: false,
-      scanResults: null
+      scanResults: null,
+      // Race condition protection
+      processingFiles: new Set(),
+      pendingOperations: new Map(),
+      concurrentOperations: new Set()
     }
   },
   methods: {
+    // Race condition protection methods
+    cancelPendingOperation(operationId) {
+      const controller = this.pendingOperations.get(operationId);
+      if (controller) {
+        controller.abort();
+        this.pendingOperations.delete(operationId);
+        console.log(`Cancelled pending operation: ${operationId}`);
+      }
+    },
+    
+    createOperationController(operationId) {
+      const controller = new AbortController();
+      this.pendingOperations.set(operationId, controller);
+      return controller.signal;
+    },
+    
+    removeOperationController(operationId) {
+      this.pendingOperations.delete(operationId);
+    },
+    
+    isOperationInProgress(operationId) {
+      return this.concurrentOperations.has(operationId);
+    },
+    
+    startOperation(operationId) {
+      if (this.concurrentOperations.has(operationId)) {
+        throw new Error(`Operation ${operationId} is already in progress`);
+      }
+      this.concurrentOperations.add(operationId);
+    },
+    
+    endOperation(operationId) {
+      this.concurrentOperations.delete(operationId);
+    },
+    
+    isFileProcessing(filePath) {
+      return this.processingFiles.has(filePath);
+    },
+    
+    startFileProcessing(filePath) {
+      if (this.processingFiles.has(filePath)) {
+        throw new Error(`File ${filePath} is already being processed`);
+      }
+      this.processingFiles.add(filePath);
+    },
+    
+    endFileProcessing(filePath) {
+      this.processingFiles.delete(filePath);
+    },
+    
     async scanForMissingFiles() {
+      const operationId = 'scanForMissingFiles';
+      
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Scan operation already in progress, skipping...');
+        return;
+      }
+      
+      // Cancel any existing scan operation
+      this.cancelPendingOperation(operationId);
+      
+      this.startOperation(operationId);
       this.isScanning = true;
       this.scanResults = null;
       
       try {
-        const data = await apiService.findMissingFiles();
-        this.scanResults = data;
-        this.errorHandler.handleSuccess('Scan completed successfully');
+        const signal = this.createOperationController(operationId);
+        const data = await apiService.findMissingFiles({ signal });
+        
+        console.log('Find missing files API response:', data);
+        
+        // Update results if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
+          this.scanResults = data;
+          this.errorHandler.handleSuccess('Scan completed successfully');
+          console.log('Scan results updated:', this.scanResults);
+        }
         
       } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Scan operation was cancelled');
+          return;
+        }
         this.errorHandler.handleError(error, 'scanning for missing files');
       } finally {
         this.isScanning = false;
+        this.removeOperationController(operationId);
+        this.endOperation(operationId);
       }
     },
     
     async fixFile(file) {
+      // Prevent concurrent operations on the same file
+      if (this.isFileProcessing(file.fullPath)) {
+        console.log(`File ${file.fileName} is already being processed, skipping...`);
+        return;
+      }
+      
+      this.startFileProcessing(file.fullPath);
+      
       // Set processing status
       file.status = 'processing';
       
@@ -147,6 +234,8 @@ export default {
         file.status = 'error';
         file.errorMessage = error.message;
         this.errorHandler.handleError(error, `fixing file ${file.fileName}`, { showNotification: false });
+      } finally {
+        this.endFileProcessing(file.fullPath);
       }
     },
     
@@ -187,6 +276,22 @@ export default {
         throw new Error(`Failed to fetch model version ID: ${error.message}`);
       }
     }
+  },
+  beforeUnmount() {
+    // Cancel all pending operations
+    this.pendingOperations.forEach((controller, operationId) => {
+      controller.abort();
+      console.log(`Cancelled pending operation: ${operationId}`);
+    });
+    this.pendingOperations.clear();
+    
+    // Clear processing states
+    this.processingFiles.clear();
+    
+    // Clear concurrent operations
+    this.concurrentOperations.clear();
+    
+    console.log('CivitDataFetcher component unmounted, all cleanup completed');
   }
 }
 </script>

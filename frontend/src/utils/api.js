@@ -63,113 +63,158 @@ api.interceptors.response.use(
 // API service methods
 export const apiService = {
   // Models
-  async getModels(params = {}) {
-    const response = await api.get('/models', { params });
+  async getModels(params = {}, options = {}) {
+    const response = await api.get('/models', { 
+      params,
+      signal: options.signal 
+    });
     return response.data;
   },
 
-  async getModelDetail(modelVersionId) {
-    const response = await api.get(`/modeldetail/${modelVersionId}`);
+  async getModelDetail(modelVersionId, options = {}) {
+    const response = await api.get(`/modeldetail/${modelVersionId}`, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async getBaseModels() {
-    const response = await api.get('/basemodels');
+  async getBaseModels(options = {}) {
+    const response = await api.get('/basemodels', {
+      signal: options.signal
+    });
     return response.data;
   },
 
   // Downloads
-  async downloadModelFile(downloadData) {
-    const response = await api.post('/download-model-file', downloadData);
+  async downloadModelFile(downloadData, options = {}) {
+    const response = await api.post('/download-model-file', downloadData, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async getDownloadStatus() {
-    const response = await api.get('/download-status');
+  async getDownloadStatus(options = {}) {
+    const response = await api.get('/download-status', {
+      signal: options.signal
+    });
     return response.data;
   },
 
   // File operations
-  async findMissingFiles() {
-    const response = await api.post('/find-missing-files');
+  async findMissingFiles(options = {}) {
+    const response = await api.post('/find-missing-files', {}, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async fixFile(fixData) {
-    const response = await api.post('/fix-file', fixData);
+  async fixFile(fixData, options = {}) {
+    const response = await api.post('/fix-file', fixData, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async computeFileHash(filePath) {
-    const response = await api.post('/compute-file-hash', { filePath });
+  async computeFileHash(filePath, options = {}) {
+    const response = await api.post('/compute-file-hash', { filePath }, {
+      signal: options.signal
+    });
     return response.data;
   },
 
   // Paths
-  async getSavedPaths() {
-    const response = await api.get('/paths');
+  async getSavedPaths(options = {}) {
+    const response = await api.get('/paths', {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async savePath(path) {
-    const response = await api.post('/paths', { path });
+  async savePath(path, options = {}) {
+    const response = await api.post('/paths', { path }, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async deletePath(path) {
-    const response = await api.delete('/paths', { data: { path } });
+  async deletePath(path, options = {}) {
+    const response = await api.delete('/paths', { 
+      data: { path },
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async scanPaths() {
-    const response = await api.post('/scan-paths');
+  async scanPaths(options = {}) {
+    const response = await api.post('/scan-paths', {}, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async markDownloaded(files) {
-    const response = await api.post('/mark-downloaded', { files });
+  async markDownloaded(files, options = {}) {
+    const response = await api.post('/mark-downloaded', { files }, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async validateDownloadedFiles() {
-    const response = await api.post('/validate-downloaded-files');
+  async validateDownloadedFiles(options = {}) {
+    const response = await api.post('/validate-downloaded-files', {}, {
+      signal: options.signal
+    });
     return response.data;
   },
 
   // Additional methods for FileScanner
-  async savePathLegacy(path) {
-    const response = await api.post('/save-path', { path });
+  async savePathLegacy(path, options = {}) {
+    const response = await api.post('/save-path', { path }, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async getSavedPathsLegacy() {
-    const response = await api.get('/saved-path');
+  async getSavedPathsLegacy(options = {}) {
+    const response = await api.get('/saved-path', {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async deletePathLegacy(path) {
-    const response = await api.delete('/saved-path', { data: { path } });
+  async deletePathLegacy(path, options = {}) {
+    const response = await api.delete('/saved-path', { 
+      data: { path },
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async startScan() {
-    const response = await api.post('/start-scan');
+  async startScan(options = {}) {
+    const response = await api.post('/start-scan', {}, {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async checkFilesInDb(files) {
-    const response = await api.post('/check-files-in-db', { files });
+  async checkFilesInDb(files, options = {}) {
+    const response = await api.post('/check-files-in-db', { files }, {
+      signal: options.signal
+    });
     return response.data;
   },
 
   // Summary
-  async getSummaryMatrix() {
-    const response = await api.get('/summary-matrix');
+  async getSummaryMatrix(options = {}) {
+    const response = await api.get('/summary-matrix', {
+      signal: options.signal
+    });
     return response.data;
   },
 
-  async getSummaryMatrixDownloaded() {
-    const response = await api.get('/summary-matrix-downloaded');
+  async getSummaryMatrixDownloaded(options = {}) {
+    const response = await api.get('/summary-matrix-downloaded', {
+      signal: options.signal
+    });
     return response.data;
   },
 };

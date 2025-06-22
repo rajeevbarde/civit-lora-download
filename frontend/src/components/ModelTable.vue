@@ -37,7 +37,7 @@
     <div v-if="selectedModels.length > 0" class="bulk-actions">
       <div class="bulk-info">
         <span>{{ selectedModels.length }} model(s) selected</span>
-        <button @click="downloadSelectedModels" class="btn-bulk-download" :disabled="isBulkDownloading">
+        <button @click="bulkDownloadSelectedModels" class="btn-bulk-download" :disabled="isBulkDownloading">
           {{ isBulkDownloading ? 'Queuing...' : `Download ${selectedModels.length} Models` }}
         </button>
         <button @click="clearSelection" class="btn-clear-selection">Clear Selection</button>
@@ -184,21 +184,22 @@ export default {
       currentPage: 1,
       itemsPerPage: 50,
       totalItems: 0,
+      selectedModels: [],
       selectedBaseModel: '',
       selectedDownloaded: '',
       baseModelOptions: [],
-      downloadingModels: [], // Track which models are currently downloading
-      selectedModels: [], // Track selected models for bulk download
-      isBulkDownloading: false, // Track bulk download state
-      notifications: [], // Track notifications for download status
-      isStatusVisible: false, // Track if status is currently shown
-      // Interval tracking for proper cleanup
-      cleanupInterval: null,
-      statusPollingIntervals: new Map(), // Track individual polling intervals
-      // Additional loading states
-      isCheckingStatus: false, // Loading state for status checking
-      isChangingPage: false, // Loading state for page changes
-      isFetchingBaseModels: false, // Loading state for base models
+      isFetchingBaseModels: false,
+      isChangingPage: false,
+      isBulkDownloading: false,
+      downloadingModels: [],
+      statusPollingIntervals: new Map(),
+      notifications: [],
+      isStatusVisible: false,
+      isCheckingStatus: false,
+      // Race condition protection
+      pendingRequests: new Map(),
+      isFetching: false,
+      concurrentOperations: new Set()
     }
   },
   computed: {
@@ -231,8 +232,16 @@ export default {
     this.startPeriodicCleanup();
   },
   beforeUnmount() {
-    // Clean up all intervals when component is destroyed
+    // Clean up all intervals
     this.cleanupAllIntervals();
+    
+    // Cancel all pending requests
+    this.cancelAllPendingRequests();
+    
+    // Clear all operations
+    this.concurrentOperations.clear();
+    
+    console.log('Component unmounted, all cleanup completed');
   },
   deactivated() {
     // Clean up intervals when component is deactivated (route change)
@@ -262,19 +271,31 @@ export default {
     clearSelection() {
       this.selectedModels = [];
     },
-    async downloadSelectedModels() {
+    async bulkDownloadSelectedModels() {
+      const operationId = 'bulkDownload';
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Bulk download already in progress, skipping...');
+        return;
+      }
+      
       if (this.selectedModels.length === 0) return;
       
+      this.startOperation(operationId);
       this.isBulkDownloading = true;
+      
       const selectedModelObjects = this.models.filter(model => 
         this.selectedModels.includes(model.modelId)
       );
       
       try {
-        // Queue all downloads in parallel
-        const downloadPromises = selectedModelObjects.map(async model => {
-          if (this.isModelDownloading(model.modelId)) return;
+        // Process downloads sequentially to prevent race conditions
+        for (const model of selectedModelObjects) {
+          if (this.isModelDownloading(model.modelId)) {
+            console.log(`Model ${model.fileName} is already downloading, skipping...`);
+            continue;
+          }
           
+          // Add to downloading list
           this.downloadingModels.push({
             modelId: model.modelId,
             modelVersionId: model.modelVersionId,
@@ -301,10 +322,10 @@ export default {
             console.error(`Download failed for: ${model.fileName}`, err.message);
             this.removeFromDownloadingList(model.modelId);
           }
-        });
-        
-        // Wait for all download requests to be queued
-        await Promise.all(downloadPromises);
+          
+          // Small delay between downloads to prevent overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         
         // Clear selection after queuing all downloads
         this.selectedModels = [];
@@ -313,10 +334,19 @@ export default {
         console.error('Bulk download error:', error);
       } finally {
         this.isBulkDownloading = false;
+        this.endOperation(operationId);
       }
     },
     async fetchBaseModels() {
+      const operationId = 'fetchBaseModels';
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Base models fetch already in progress, skipping...');
+        return;
+      }
+      
+      this.startOperation(operationId);
       this.isFetchingBaseModels = true;
+      
       try {
         const response = await apiService.getBaseModels();
         this.baseModelOptions = response.baseModels || [];
@@ -324,11 +354,20 @@ export default {
         this.baseModelOptions = [];
       } finally {
         this.isFetchingBaseModels = false;
+        this.endOperation(operationId);
       }
     },
     async fetchModels() {
-      this.loading = true
-      this.error = null
+      const operationId = 'fetchModels';
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Models fetch already in progress, cancelling previous request...');
+        this.cancelPendingRequest(operationId);
+      }
+      
+      this.startOperation(operationId);
+      this.loading = true;
+      this.error = null;
+      
       try {
         const params = {
           page: this.currentPage,
@@ -336,22 +375,46 @@ export default {
         };
         if (this.selectedBaseModel) params.basemodel = this.selectedBaseModel;
         if (this.selectedDownloaded !== '') params.isDownloaded = this.selectedDownloaded;
-        const response = await apiService.getModels(params);
-        this.models = response.data
-        this.totalItems = response.total
+        
+        const signal = this.createRequestController(operationId);
+        const response = await apiService.getModels(params, { signal });
+        
+        // Update data if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
+          this.models = response.data;
+          this.totalItems = response.total;
+        }
       } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Models fetch was cancelled');
+          return;
+        }
         this.errorHandler.handleError(error, 'loading models');
-        this.error = 'Failed to load models'
+        this.error = 'Failed to load models';
       } finally {
-        this.loading = false
+        this.loading = false;
+        this.removeRequestController(operationId);
+        this.endOperation(operationId);
       }
     },
     async changePage(newPage) {
+      const operationId = 'changePage';
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Page change already in progress, skipping...');
+        return;
+      }
+      
+      this.startOperation(operationId);
       this.isChangingPage = true;
-      this.currentPage = newPage
+      this.currentPage = newPage;
       this.selectedModels = []; // Clear selection when changing pages
-      await this.fetchModels()
-      this.isChangingPage = false;
+      
+      try {
+        await this.fetchModels();
+      } finally {
+        this.isChangingPage = false;
+        this.endOperation(operationId);
+      }
     },
     async downloadModelFile(model) {
       try {
@@ -399,6 +462,12 @@ export default {
       return this.downloadingModels.some(item => item.modelId === modelId);
     },
     startStatusPolling(modelVersionId, fileName) {
+      // Prevent multiple polling intervals for the same model
+      if (this.statusPollingIntervals.has(modelVersionId)) {
+        console.log(`Polling already active for model: ${modelVersionId}`);
+        return;
+      }
+      
       let pollCount = 0;
       const maxPolls = 300; // 10 minutes at 2-second intervals
       
@@ -416,11 +485,15 @@ export default {
           // Check individual model status without triggering loading state
           const response = await apiService.getModelDetail(modelVersionId);
           if (response) {
-            // Update the specific model in the current data without refreshing entire table
-            const modelIndex = this.models.findIndex(m => m.modelVersionId === modelVersionId);
-            if (modelIndex !== -1) {
-              this.models[modelIndex] = response;
-            }
+            // Use Vue's nextTick to ensure DOM updates are synchronized
+            this.$nextTick(() => {
+              // Update the specific model in the current data without refreshing entire table
+              const modelIndex = this.models.findIndex(m => m.modelVersionId === modelVersionId);
+              if (modelIndex !== -1) {
+                // Create a new object to ensure reactivity
+                this.models.splice(modelIndex, 1, { ...response });
+              }
+            });
             
             // Check if download is complete (status changed from 0 to 1 or 3)
             if (response.isDownloaded === 1 || response.isDownloaded === 3) {
@@ -650,6 +723,48 @@ export default {
       this.statusPollingIntervals.clear();
       
       console.log('All intervals cleaned up');
+    },
+    // Race condition protection methods
+    cancelPendingRequest(requestId) {
+      const controller = this.pendingRequests.get(requestId);
+      if (controller) {
+        controller.abort();
+        this.pendingRequests.delete(requestId);
+        console.log(`Cancelled pending request: ${requestId}`);
+      }
+    },
+    
+    cancelAllPendingRequests() {
+      this.pendingRequests.forEach((controller, requestId) => {
+        controller.abort();
+        console.log(`Cancelled pending request: ${requestId}`);
+      });
+      this.pendingRequests.clear();
+    },
+    
+    createRequestController(requestId) {
+      const controller = new AbortController();
+      this.pendingRequests.set(requestId, controller);
+      return controller.signal;
+    },
+    
+    removeRequestController(requestId) {
+      this.pendingRequests.delete(requestId);
+    },
+    
+    isOperationInProgress(operationId) {
+      return this.concurrentOperations.has(operationId);
+    },
+    
+    startOperation(operationId) {
+      if (this.concurrentOperations.has(operationId)) {
+        throw new Error(`Operation ${operationId} is already in progress`);
+      }
+      this.concurrentOperations.add(operationId);
+    },
+    
+    endOperation(operationId) {
+      this.concurrentOperations.delete(operationId);
     },
   }
 }
