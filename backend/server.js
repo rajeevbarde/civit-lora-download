@@ -5,10 +5,57 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const axios = require('axios');
+const http = require('http');
+const https = require('https');
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Create connection pools for better performance
+const httpAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  maxSockets: 20,
+  maxFreeSockets: 10,
+  timeout: 60000
+});
+
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 1000,
+  maxSockets: 20,
+  maxFreeSockets: 10,
+  timeout: 60000
+});
+
+// Download queue to manage concurrent downloads
+const downloadQueue = {
+  active: 0,
+  maxConcurrent: 3, // Limit concurrent downloads to avoid overwhelming the system
+  queue: [],
+  
+  async add(downloadTask) {
+    if (this.active < this.maxConcurrent) {
+      this.active++;
+      try {
+        await downloadTask();
+      } finally {
+        this.active--;
+        this.processNext();
+      }
+    } else {
+      this.queue.push(downloadTask);
+    }
+  },
+  
+  processNext() {
+    if (this.queue.length > 0 && this.active < this.maxConcurrent) {
+      const nextTask = this.queue.shift();
+      this.add(nextTask);
+    }
+  }
+};
 
 // Update this path to your actual database file location
 const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
@@ -424,71 +471,143 @@ app.post('/api/download-model-file', async (req, res) => {
   if (!url || !fileName || !baseModel || !modelVersionId) {
     return res.status(400).json({ error: 'Missing required fields.' });
   }
-  const baseDir = 'Z:/Projects/AI/BigFiles/SD/loras';
-  const targetDir = path.join(baseDir, baseModel);
-  try {
-    // Ensure directory exists
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
+  
+  // Return immediately and process download in background
+  res.json({ success: true, message: 'Download queued' });
+  
+  // Add download task to queue
+  downloadQueue.add(async () => {
+    const baseDir = 'Z:/Projects/AI/BigFiles/SD/loras';
+    const targetDir = path.join(baseDir, baseModel);
+    
+    try {
+      // Ensure directory exists
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true });
+      }
+      
+      const filePath = path.join(targetDir, fileName);
+      
+      // Check if file already exists
+      if (fs.existsSync(filePath)) {
+        console.log(`File already exists: ${fileName}`);
+        // Update DB to mark as downloaded
+        db.run(
+          'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
+          [filePath, modelVersionId],
+          function (err) {
+            if (err) {
+              console.error('DB update failed for existing file:', err.message);
+            } else {
+              console.log(`DB updated for existing file: ${fileName}`);
+            }
+          }
+        );
+        return;
+      }
+      
+      // Download file with optimized settings
+      const response = await axios({
+        method: 'get',
+        url,
+        responseType: 'stream',
+        timeout: 300000, // 5 min timeout
+        maxRedirects: 5,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        },
+        httpAgent: httpAgent,
+        httpsAgent: httpsAgent
+      });
+      
+      const totalLength = parseInt(response.headers['content-length'], 10);
+      let downloaded = 0;
+      let lastLoggedPercent = 0;
+      const startTime = Date.now();
+      
+      const writer = fs.createWriteStream(filePath);
+      
+      // Set up progress tracking
+      response.data.on('data', (chunk) => {
+        downloaded += chunk.length;
+        if (totalLength) {
+          const percent = Math.floor((downloaded / totalLength) * 100);
+          if (percent >= lastLoggedPercent + 10 || percent === 100) {
+            const elapsed = (Date.now() - startTime) / 1000;
+            const speed = downloaded / elapsed / 1024 / 1024; // MB/s
+            console.log(`Downloading ${fileName}: ${percent}% (${(downloaded/1024/1024).toFixed(1)}MB/${(totalLength/1024/1024).toFixed(1)}MB) - ${speed.toFixed(2)} MB/s`);
+            lastLoggedPercent = percent;
+          }
+        }
+      });
+      
+      // Handle download completion
+      await new Promise((resolve, reject) => {
+        let error = null;
+        
+        writer.on('error', err => {
+          error = err;
+          console.error(`Write error for ${fileName}:`, err.message);
+          writer.close();
+          reject(err);
+        });
+        
+        response.data.on('error', err => {
+          error = err;
+          console.error(`Download error for ${fileName}:`, err.message);
+          writer.close();
+          reject(err);
+        });
+        
+        writer.on('close', () => {
+          if (!error) {
+            const totalTime = (Date.now() - startTime) / 1000;
+            const avgSpeed = downloaded / totalTime / 1024 / 1024; // MB/s
+            console.log(`Download completed: ${fileName} in ${totalTime.toFixed(1)}s (${avgSpeed.toFixed(2)} MB/s avg)`);
+            resolve();
+          }
+        });
+        
+        response.data.pipe(writer);
+      });
+      
+      // Update DB asynchronously
+      db.run(
+        'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
+        [filePath, modelVersionId],
+        function (err) {
+          if (err) {
+            console.error(`DB update failed for ${fileName}:`, err.message);
+          } else {
+            console.log(`DB updated successfully for ${fileName}`);
+          }
+        }
+      );
+      
+    } catch (err) {
+      console.error(`Download failed for ${fileName}:`, err.message);
+      
+      // Update DB to mark as failed (status 3)
+      db.run(
+        'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?',
+        [modelVersionId],
+        function (dbErr) {
+          if (dbErr) {
+            console.error('Failed to update DB with error status:', dbErr.message);
+          }
+        }
+      );
     }
-    const filePath = path.join(targetDir, fileName);
-    // Download file
-    const response = await axios({
-      method: 'get',
-      url,
-      responseType: 'stream',
-      timeout: 600000 // 10 min
-    });
-    const totalLength = parseInt(response.headers['content-length'], 10);
-    let downloaded = 0;
-    let lastLoggedPercent = 0;
-    const writer = fs.createWriteStream(filePath);
-    response.data.on('data', (chunk) => {
-      downloaded += chunk.length;
-      if (totalLength) {
-        const percent = Math.floor((downloaded / totalLength) * 100);
-        if (percent >= lastLoggedPercent + 10 || percent === 100) {
-          console.log(`Downloading ${fileName}: ${percent}% (${downloaded}/${totalLength} bytes)`);
-          lastLoggedPercent = percent;
-        }
-      }
-    });
-    await new Promise((resolve, reject) => {
-      response.data.pipe(writer);
-      let error = null;
-      writer.on('error', err => {
-        error = err;
-        writer.close();
-        reject(err);
-      });
-      writer.on('close', () => {
-        if (!error) resolve();
-      });
-    });
-    // Update DB
-    db.run(
-      'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
-      [filePath, modelVersionId],
-      function (err) {
-        if (err) {
-          return res.status(500).json({ error: 'File saved but DB update failed: ' + err.message });
-        }
-        return res.json({ success: true, fullPath: filePath });
-      }
-    );
-  } catch (err) {
-    // Update DB to mark as failed (status 3)
-    db.run(
-      'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?',
-      [modelVersionId],
-      function (dbErr) {
-        if (dbErr) {
-          console.error('Failed to update DB with error status:', dbErr.message);
-        }
-        return res.status(500).json({ error: err.message });
-      }
-    );
-  }
+  });
+});
+
+// Status endpoint to check download queue
+app.get('/api/download-status', (req, res) => {
+  res.json({
+    active: downloadQueue.active,
+    queued: downloadQueue.queue.length,
+    maxConcurrent: downloadQueue.maxConcurrent
+  });
 });
 
 // Endpoint to get summary matrix for base models vs modelVersionNsfwLevel

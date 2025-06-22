@@ -1,6 +1,17 @@
 <template>
   <div class="app-container">
     <h1>Model Database</h1>
+    
+    <!-- Notifications -->
+    <div v-if="notifications.length > 0" class="notifications-container">
+      <div v-for="notification in notifications" :key="notification.id" 
+           :class="['notification', `notification-${notification.type}`]">
+        <span class="notification-message">{{ notification.message }}</span>
+        <button @click="removeNotification(notification.id)" class="notification-close">×</button>
+      </div>
+      <button @click="clearAllNotifications" class="clear-all-notifications">Clear All</button>
+    </div>
+    
     <!-- Filter Controls -->
     <div class="filters">
       <div class="filter-group">
@@ -27,9 +38,19 @@
       <div class="bulk-info">
         <span>{{ selectedModels.length }} model(s) selected</span>
         <button @click="downloadSelectedModels" class="btn-bulk-download" :disabled="isBulkDownloading">
-          {{ isBulkDownloading ? 'Downloading...' : `Download ${selectedModels.length} Models` }}
+          {{ isBulkDownloading ? 'Queuing...' : `Download ${selectedModels.length} Models` }}
         </button>
         <button @click="clearSelection" class="btn-clear-selection">Clear Selection</button>
+      </div>
+    </div>
+    
+    <!-- Download Status Indicator -->
+    <div v-if="downloadingModels.length > 0" class="download-status">
+      <div class="status-info">
+        <span>🔄 {{ downloadingModels.length }} download(s) in progress</span>
+        <button @click="checkDownloadStatus" class="btn-status-check">
+          {{ isStatusVisible ? 'Hide Status' : 'Show Status' }}
+        </button>
       </div>
     </div>
     
@@ -97,16 +118,16 @@
               <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
                       @click="downloadModelFile(model)" 
                       class="btn-download"
-                      :disabled="downloadingModels.includes(model.modelId)"
-                      :class="{ 'loading': downloadingModels.includes(model.modelId) }">
-                {{ downloadingModels.includes(model.modelId) ? 'Downloading...' : 'Download' }}
+                      :disabled="isModelDownloading(model.modelId)"
+                      :class="{ 'loading': isModelDownloading(model.modelId) }">
+                {{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}
               </button>
               <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
                       @click="downloadModelFile(model)" 
                       class="btn-retry"
-                      :disabled="downloadingModels.includes(model.modelId)"
-                      :class="{ 'loading': downloadingModels.includes(model.modelId) }">
-                {{ downloadingModels.includes(model.modelId) ? 'Retrying...' : 'Retry' }}
+                      :disabled="isModelDownloading(model.modelId)"
+                      :class="{ 'loading': isModelDownloading(model.modelId) }">
+                {{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}
               </button>
               <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
               <span v-else>-</span>
@@ -161,6 +182,8 @@ export default {
       downloadingModels: [], // Track which models are currently downloading
       selectedModels: [], // Track selected models for bulk download
       isBulkDownloading: false, // Track bulk download state
+      notifications: [], // Track notifications for download status
+      isStatusVisible: false, // Track if status is currently shown
     }
   },
   computed: {
@@ -188,6 +211,15 @@ export default {
   mounted() {
     this.fetchBaseModels();
     this.fetchModels();
+    
+    // Start periodic cleanup to check for stuck downloads
+    this.startPeriodicCleanup();
+  },
+  beforeDestroy() {
+    // Clean up intervals when component is destroyed
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
   },
   methods: {
     canSelectModel(model) {
@@ -216,11 +248,15 @@ export default {
       );
       
       try {
-        // Download models in parallel
+        // Queue all downloads in parallel
         const downloadPromises = selectedModelObjects.map(async model => {
-          if (this.downloadingModels.includes(model.modelId)) return;
+          if (this.isModelDownloading(model.modelId)) return;
           
-          this.downloadingModels.push(model.modelId);
+          this.downloadingModels.push({
+            modelId: model.modelId,
+            modelVersionId: model.modelVersionId,
+            fileName: model.fileName
+          });
           
           try {
             const response = await axios.post('http://localhost:3000/api/download-model-file', {
@@ -231,26 +267,24 @@ export default {
             });
             
             if (response.data && response.data.success) {
-              console.log(`Download started for: ${model.fileName}`);
+              console.log(`Download queued for: ${model.fileName}`);
+              // Start polling for this model
+              this.startStatusPolling(model.modelVersionId, model.fileName);
             } else {
-              console.error(`Download failed for: ${model.fileName}`, response.data.error);
+              console.error(`Failed to queue download for: ${model.fileName}`, response.data.error);
+              this.removeFromDownloadingList(model.modelId);
             }
           } catch (err) {
             console.error(`Download failed for: ${model.fileName}`, err.message);
-          } finally {
-            const index = this.downloadingModels.indexOf(model.modelId);
-            if (index > -1) {
-              this.downloadingModels.splice(index, 1);
-            }
+            this.removeFromDownloadingList(model.modelId);
           }
         });
         
-        // Wait for all downloads to complete
+        // Wait for all download requests to be queued
         await Promise.all(downloadPromises);
         
-        // Refresh the table after all downloads are initiated
-        this.fetchModels();
-        this.selectedModels = []; // Clear selection after bulk download
+        // Clear selection after queuing all downloads
+        this.selectedModels = [];
         
       } catch (error) {
         console.error('Bulk download error:', error);
@@ -292,8 +326,12 @@ export default {
     },
     async downloadModelFile(model) {
       try {
-        // Add model to downloading list
-        this.downloadingModels.push(model.modelId);
+        // Add model to downloading list with modelVersionId for proper tracking
+        this.downloadingModels.push({
+          modelId: model.modelId,
+          modelVersionId: model.modelVersionId,
+          fileName: model.fileName
+        });
         
         const response = await axios.post('http://localhost:3000/api/download-model-file', {
           url: model.fileDownloadUrl,
@@ -301,22 +339,228 @@ export default {
           baseModel: model.basemodel,
           modelVersionId: model.modelVersionId
         });
+        
         if (response.data && response.data.success) {
-          this.fetchModels(); // Refresh table
+          console.log(`Download queued for: ${model.fileName}`);
+          // Start polling for status updates
+          this.startStatusPolling(model.modelVersionId, model.fileName);
         } else {
-          console.error('Download failed:', response.data.error || 'Unknown error');
-          this.fetchModels(); // Refresh table even on failure
+          console.error('Failed to queue download:', response.data.error || 'Unknown error');
+          // Remove from downloading list on failure
+          this.removeFromDownloadingList(model.modelId);
+          this.showNotification(`❌ Failed to queue download: ${model.fileName}`, 'error');
         }
       } catch (err) {
-        console.error('Download failed:', err.response?.data?.error || err.message);
-        this.fetchModels(); // Refresh table even on error
-      } finally {
-        // Remove model from downloading list
-        const index = this.downloadingModels.indexOf(model.modelId);
-        if (index > -1) {
-          this.downloadingModels.splice(index, 1);
+        console.error('Download request failed:', err.response?.data?.error || err.message);
+        
+        // Check if it's a network error vs server error
+        if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
+          this.showNotification(`❌ Network error: Cannot connect to server`, 'error');
+        } else if (err.response?.status >= 500) {
+          this.showNotification(`❌ Server error: Please try again later`, 'error');
+        } else {
+          this.showNotification(`❌ Download failed: ${err.response?.data?.error || err.message}`, 'error');
         }
+        
+        // Remove from downloading list on error
+        this.removeFromDownloadingList(model.modelId);
       }
+    },
+    removeFromDownloadingList(modelId) {
+      const index = this.downloadingModels.findIndex(item => item.modelId === modelId);
+      if (index > -1) {
+        this.downloadingModels.splice(index, 1);
+      }
+    },
+    isModelDownloading(modelId) {
+      return this.downloadingModels.some(item => item.modelId === modelId);
+    },
+    startStatusPolling(modelVersionId, fileName) {
+      let pollCount = 0;
+      const maxPolls = 300; // 10 minutes at 2-second intervals
+      
+      // Poll for status updates every 2 seconds
+      const pollInterval = setInterval(async () => {
+        try {
+          pollCount++;
+          
+          // Check if model is still in downloading state
+          if (!this.downloadingModels.some(item => item.modelVersionId === modelVersionId)) {
+            clearInterval(pollInterval);
+            return;
+          }
+          
+          // Check individual model status without triggering loading state
+          const response = await axios.get(`http://localhost:3000/api/modeldetail/${modelVersionId}`);
+          if (response.data) {
+            // Update the specific model in the current data without refreshing entire table
+            const modelIndex = this.models.findIndex(m => m.modelVersionId === modelVersionId);
+            if (modelIndex !== -1) {
+              this.models[modelIndex] = response.data;
+            }
+            
+            // Check if download is complete (status changed from 0 to 1 or 3)
+            if (response.data.isDownloaded === 1 || response.data.isDownloaded === 3) {
+              // Download completed (success or failed)
+              this.removeFromDownloadingListByVersionId(modelVersionId);
+              clearInterval(pollInterval);
+              
+              if (response.data.isDownloaded === 1) {
+                console.log(`Download completed successfully for model: ${modelVersionId}`);
+                this.showNotification(`✅ Download completed: ${fileName}`, 'success');
+              } else {
+                console.log(`Download failed for model: ${modelVersionId}`);
+                this.showNotification(`❌ Download failed: ${fileName}`, 'error');
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error polling for status:', error);
+          
+          // If we get a 404, the model might not exist in DB yet
+          if (error.response && error.response.status === 404) {
+            // Don't immediately fail, wait a bit more as the download might still be processing
+            if (pollCount > 10) { // Wait at least 20 seconds before giving up
+              this.removeFromDownloadingListByVersionId(modelVersionId);
+              clearInterval(pollInterval);
+              this.showNotification(`❌ Download failed: Model not found in database`, 'error');
+            }
+          } else if (error.response && error.response.status >= 500) {
+            // Server error, try again later
+            console.log(`Server error while polling, will retry: ${error.message}`);
+          } else {
+            // Network error, try again later
+            console.log(`Network error while polling, will retry: ${error.message}`);
+          }
+        }
+        
+        // Stop polling after max attempts
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          this.removeFromDownloadingListByVersionId(modelVersionId);
+          console.log(`Stopped polling for model: ${modelVersionId} (max attempts reached)`);
+          this.showNotification(`⏰ Download timeout: Check status manually`, 'warning');
+        }
+      }, 2000);
+    },
+    removeFromDownloadingListByVersionId(modelVersionId) {
+      const index = this.downloadingModels.findIndex(item => item.modelVersionId === modelVersionId);
+      if (index > -1) {
+        this.downloadingModels.splice(index, 1);
+      }
+    },
+    showNotification(message, type = 'info') {
+      const notification = {
+        id: Date.now(),
+        message,
+        type,
+        timestamp: new Date()
+      };
+      
+      this.notifications.push(notification);
+      
+      // Removed automatic timer - user must manually close notifications
+    },
+    
+    removeNotification(id) {
+      const index = this.notifications.findIndex(n => n.id === id);
+      if (index > -1) {
+        this.notifications.splice(index, 1);
+      }
+    },
+    
+    clearAllNotifications() {
+      this.notifications = [];
+    },
+    async checkDownloadStatus() {
+      // Toggle status visibility
+      this.isStatusVisible = !this.isStatusVisible;
+      
+      if (!this.isStatusVisible) {
+        // Hide status - remove any existing status notifications
+        this.notifications = this.notifications.filter(n => !n.message.includes('🔄') && !n.message.includes('⏳') && !n.message.includes('✅') && !n.message.includes('📋'));
+        return;
+      }
+      
+      try {
+        const response = await axios.get('http://localhost:3000/api/download-status');
+        console.log('Download queue status:', response.data);
+        
+        // Remove any existing status notifications first
+        this.notifications = this.notifications.filter(n => !n.message.includes('🔄') && !n.message.includes('⏳') && !n.message.includes('✅') && !n.message.includes('📋'));
+        
+        // Show queue status to user
+        const { active, queued, maxConcurrent } = response.data;
+        let statusMessage = '';
+        
+        if (active > 0) {
+          statusMessage += `🔄 ${active} download(s) currently active`;
+        }
+        
+        if (queued > 0) {
+          statusMessage += statusMessage ? ` | ` : '';
+          statusMessage += `⏳ ${queued} download(s) waiting in queue`;
+        }
+        
+        if (active === 0 && queued === 0) {
+          statusMessage = '✅ No downloads in progress';
+        }
+        
+        this.showNotification(statusMessage, 'info');
+        
+        // Also show current downloading models
+        if (this.downloadingModels.length > 0) {
+          const downloadingList = this.downloadingModels.map(item => item.fileName).join(', ');
+          this.showNotification(`📋 Currently tracking: ${downloadingList}`, 'info');
+        }
+        
+        // Only refresh if there are no active downloads to avoid blinking
+        if (this.downloadingModels.length === 0) {
+          await this.fetchModels();
+        }
+      } catch (error) {
+        console.error('Failed to check download status:', error);
+        this.showNotification('❌ Failed to check download status', 'error');
+      }
+    },
+    startPeriodicCleanup() {
+      // Check for stuck downloads every 30 seconds
+      this.cleanupInterval = setInterval(async () => {
+        if (this.downloadingModels.length > 0) {
+          console.log(`Periodic cleanup: Checking ${this.downloadingModels.length} downloading models`);
+          
+          try {
+            // Refresh the table to get latest status
+            await this.fetchModels();
+            
+            // Check if any downloads have completed
+            const completedModels = [];
+            for (const modelId of this.downloadingModels.map(item => item.modelId)) {
+              const model = this.models.find(m => m.modelId === modelId);
+              if (model && (model.isDownloaded === 1 || model.isDownloaded === 3)) {
+                completedModels.push({ modelId, status: model.isDownloaded, fileName: model.fileName });
+              }
+            }
+            
+            // Remove completed models from downloading list
+            for (const completed of completedModels) {
+              this.removeFromDownloadingList(completed.modelId);
+              
+              if (completed.status === 1) {
+                this.showNotification(`✅ Download completed: ${completed.fileName}`, 'success');
+              } else {
+                this.showNotification(`❌ Download failed: ${completed.fileName}`, 'error');
+              }
+            }
+            
+            if (completedModels.length > 0) {
+              console.log(`Periodic cleanup: Found ${completedModels.length} completed downloads`);
+            }
+          } catch (error) {
+            console.error('Error during periodic cleanup:', error);
+          }
+        }
+      }, 30000); // 30 seconds
     },
   }
 }
@@ -440,6 +684,42 @@ h1 {
 
 .btn-clear-selection:hover {
   background: #cbd5e0;
+}
+
+.download-status {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-info span {
+  font-weight: 500;
+  color: #0369a1;
+}
+
+.btn-status-check {
+  padding: 6px 12px;
+  background: #0ea5e9;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-status-check:hover {
+  background: #0284c7;
 }
 
 .table-wrapper {
@@ -663,6 +943,101 @@ a:hover {
   .pagination {
     padding: 16px;
     gap: 12px;
+  }
+}
+
+.notifications-container {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notification-success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.notification-error {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.notification-warning {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fed7aa;
+}
+
+.notification-info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.notification-message {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.notification-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.clear-all-notifications {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clear-all-notifications:hover {
+  background: #4b5563;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
