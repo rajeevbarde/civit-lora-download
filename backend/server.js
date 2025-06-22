@@ -2,6 +2,13 @@ const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
 
+// Import services
+const databaseService = require('./services/databaseService');
+const fileService = require('./services/fileService');
+const pathService = require('./services/pathService');
+const downloadService = require('./services/downloadService');
+const downloadQueue = require('./services/downloadQueue');
+
 // Import routes
 const modelsRoutes = require('./routes/models');
 const pathsRoutes = require('./routes/paths');
@@ -21,77 +28,258 @@ app.use('/api/files', filesRoutes);
 app.use('/api/downloads', downloadsRoutes);
 
 // Legacy route mappings for backward compatibility
-app.get('/api/models', modelsRoutes);
-app.get('/api/modeldetail/:id', (req, res) => {
-    // Redirect to new route
-    req.url = `/detail/${req.params.id}`;
-    modelsRoutes(req, res);
+app.get('/api/models', async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const filters = {
+            basemodel: req.query.basemodel,
+            isDownloaded: req.query.isDownloaded,
+            modelVersionId: req.query.modelVersionId
+        };
+        const result = await databaseService.getModels(page, limit, filters);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.get('/api/basemodels', (req, res) => {
-    req.url = '/basemodels';
-    modelsRoutes(req, res);
+
+app.get('/api/modeldetail/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const model = await databaseService.getModelDetail(id);
+        
+        if (!model) {
+            return res.status(404).json({ error: 'Model not found' });
+        }
+        
+        res.json(model);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.get('/api/summary-matrix', (req, res) => {
-    req.url = '/summary-matrix';
-    modelsRoutes(req, res);
+
+app.get('/api/basemodels', async (req, res) => {
+    try {
+        const result = await databaseService.getBaseModels();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.get('/api/summary-matrix-downloaded', (req, res) => {
-    req.url = '/summary-matrix-downloaded';
-    modelsRoutes(req, res);
+
+app.get('/api/summary-matrix', async (req, res) => {
+    try {
+        const result = await databaseService.getSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/summary-matrix-downloaded', async (req, res) => {
+    try {
+        const result = await databaseService.getDownloadedSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Legacy path routes
-app.post('/api/save-path', (req, res) => {
-    req.url = '/save';
-    pathsRoutes(req, res);
+app.post('/api/save-path', async (req, res) => {
+    try {
+        const { path: dirPath } = req.body;
+        const result = await pathService.addPath(dirPath);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
-app.get('/api/saved-path', (req, res) => {
-    req.url = '/saved';
-    pathsRoutes(req, res);
+
+app.get('/api/saved-path', async (req, res) => {
+    try {
+        const result = await pathService.getSavedPaths();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.delete('/api/saved-path', (req, res) => {
-    req.url = '/delete';
-    pathsRoutes(req, res);
+
+app.delete('/api/saved-path', async (req, res) => {
+    try {
+        const { path: pathToDelete } = req.body;
+        const result = await pathService.deletePath(pathToDelete);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
 // Legacy file routes
-app.post('/api/start-scan', (req, res) => {
-    req.url = '/start-scan';
-    filesRoutes(req, res);
+app.post('/api/start-scan', async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        
+        if (!paths.length) {
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        
+        const results = await fileService.scanDirectories(paths);
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.post('/api/check-files-in-db', (req, res) => {
-    req.url = '/check-files-in-db';
-    filesRoutes(req, res);
+
+app.post('/api/check-files-in-db', async (req, res) => {
+    try {
+        const { files } = req.body;
+        if (!Array.isArray(files)) {
+            return res.status(400).json({ error: 'files must be an array' });
+        }
+        
+        const dbFileNames = await databaseService.getAllFileNames();
+        const results = await fileService.checkFilesInDatabase(files, dbFileNames);
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.post('/api/mark-downloaded', (req, res) => {
-    req.url = '/mark-downloaded';
-    filesRoutes(req, res);
+
+app.post('/api/mark-downloaded', async (req, res) => {
+    try {
+        const { files } = req.body;
+        if (!Array.isArray(files)) {
+            return res.status(400).json({ error: 'files must be an array' });
+        }
+        
+        const dbFileNamesToUpdate = [];
+        files.forEach(f => {
+            let isDownloaded = 0;
+            let dbFileName = null;
+            if (f.status === 'Present') {
+                isDownloaded = 1;
+                dbFileName = f.baseName;
+            }
+            if (isDownloaded && dbFileName) {
+                dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
+            }
+        });
+        
+        if (dbFileNamesToUpdate.length === 0) {
+            return res.json({ updated: 0, errors: [] });
+        }
+        
+        const result = await databaseService.batchUpdateFilesAsDownloaded(dbFileNamesToUpdate);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.post('/api/validate-downloaded-files', (req, res) => {
-    req.url = '/validate-downloaded-files';
-    filesRoutes(req, res);
+
+app.post('/api/validate-downloaded-files', async (req, res) => {
+    try {
+        const downloadedFiles = await databaseService.getDownloadedFiles();
+        const result = await fileService.validateDownloadedFiles(downloadedFiles);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.post('/api/find-missing-files', (req, res) => {
-    req.url = '/find-missing-files';
-    filesRoutes(req, res);
+
+app.post('/api/find-missing-files', async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        const dbFileNames = await databaseService.getAllFileNames();
+        const result = await fileService.findMissingFiles(paths, dbFileNames);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
-app.post('/api/compute-file-hash', (req, res) => {
-    req.url = '/compute-file-hash';
-    filesRoutes(req, res);
+
+app.post('/api/compute-file-hash', async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        if (!filePath) {
+            return res.status(400).json({ error: 'filePath is required' });
+        }
+        
+        const result = await fileService.computeFileHash(filePath);
+        res.json(result);
+    } catch (error) {
+        if (error.message.includes('File not found')) {
+            res.status(404).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
 });
-app.post('/api/fix-file', (req, res) => {
-    req.url = '/fix-file';
-    filesRoutes(req, res);
+
+app.post('/api/fix-file', async (req, res) => {
+    try {
+        const { modelVersionId, filePath } = req.body;
+        
+        if (!modelVersionId || !filePath) {
+            return res.status(400).json({ error: 'modelVersionId and filePath are required' });
+        }
+        
+        // Get the DB filename for this modelVersionId
+        const dbRecord = await databaseService.getFileNameByModelVersionId(modelVersionId);
+        
+        if (!dbRecord || !dbRecord.fileName) {
+            return res.status(404).json({ error: 'Model not found in database' });
+        }
+        
+        const dbFileName = dbRecord.fileName;
+        
+        // Fix the file
+        const fixResult = await fileService.fixFile(modelVersionId, filePath, dbFileName);
+        
+        // Update the database
+        await databaseService.updateModelAsDownloaded(modelVersionId, fixResult.newPath);
+        
+        res.json(fixResult);
+    } catch (error) {
+        if (error.message.includes('File not found')) {
+            res.status(404).json({ error: error.message });
+        } else if (error.message.includes('already exists')) {
+            res.status(409).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
 });
 
 // Legacy download routes
-app.post('/api/download-model-file', (req, res) => {
-    req.url = '/model-file';
-    downloadsRoutes(req, res);
+app.post('/api/download-model-file', async (req, res) => {
+    try {
+        const { url, fileName, baseModel, modelVersionId } = req.body;
+        
+        if (!url || !fileName || !baseModel || !modelVersionId) {
+            return res.status(400).json({ error: 'Missing required fields.' });
+        }
+        
+        // Return immediately and process download in background
+        res.json({ success: true, message: 'Download queued' });
+        
+        // Add download task to queue
+        downloadQueue.add(async () => {
+            await downloadService.downloadModelFile(url, fileName, baseModel, modelVersionId);
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
+
 app.get('/api/download-status', (req, res) => {
-    req.url = '/status';
-    downloadsRoutes(req, res);
+    try {
+        const status = downloadQueue.getStatus();
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Health check endpoint
