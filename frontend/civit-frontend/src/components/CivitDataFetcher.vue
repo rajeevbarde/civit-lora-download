@@ -60,11 +60,17 @@
             <div class="file-actions">
               <button 
                 @click="fixFile(file)" 
-                :disabled="file.status === 'processing'"
+                :disabled="file.status === 'processing' || file.status === 'success' || file.status === 'error'"
                 class="fix-btn"
-                :class="{ 'processing': file.status === 'processing' }"
+                :class="{ 
+                  'processing': file.status === 'processing',
+                  'success': file.status === 'success',
+                  'error': file.status === 'error'
+                }"
               >
-                {{ file.status === 'processing' ? 'Processing...' : 'Fix File' }}
+                {{ file.status === 'processing' ? 'Processing...' : 
+                   file.status === 'success' ? '✅ Fixed' : 
+                   file.status === 'error' ? '❌ Error' : 'Fix File' }}
               </button>
             </div>
           </div>
@@ -155,7 +161,6 @@ export default {
         console.error('Error fixing file:', error);
         file.status = 'error';
         file.errorMessage = error.message;
-        alert(`Error fixing file ${file.fileName}: ${error.message}`);
       }
     },
     
@@ -408,6 +413,16 @@ export default {
 
 .fix-btn.processing {
   background: #007bff;
+}
+
+.fix-btn.success {
+  background: #28a745;
+  cursor: default;
+}
+
+.fix-btn.error {
+  background: #dc3545;
+  cursor: default;
 }
 
 .no-missing {
