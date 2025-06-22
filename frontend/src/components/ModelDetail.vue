@@ -41,9 +41,7 @@
 
 
 <script>
-
-import axios from 'axios';
-
+import { apiService } from '@/utils/api.js';
 
 export default {
   data() {
@@ -65,8 +63,8 @@ export default {
         }
 
         // Fetch from your API
-        const response = await axios.get(`http://localhost:3000/api/modeldetail/${id}`);
-        this.model = response.data;
+        const response = await apiService.getModelDetail(id);
+        this.model = response;
 
       } catch (err) {
         console.error(err);

@@ -149,6 +149,8 @@
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
+
 export default {
   name: 'FileScanner',
   data() {
@@ -203,29 +205,17 @@ export default {
         return;
       }
       try {
-        const response = await fetch('http://localhost:3000/api/save-path', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ path: this.directoryPath }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.message = 'Path saved successfully!';
-          this.fetchSavedPaths();
-          this.directoryPath = '';
-        } else {
-          this.message = data.error || 'Failed to save path.';
-        }
+        const data = await apiService.savePathLegacy(this.directoryPath);
+        this.message = 'Path saved successfully!';
+        this.fetchSavedPaths();
+        this.directoryPath = '';
       } catch (error) {
         this.message = 'Error: ' + error.message;
       }
     },
     async fetchSavedPaths() {
       try {
-        const response = await fetch('http://localhost:3000/api/saved-path');
-        const data = await response.json();
+        const data = await apiService.getSavedPathsLegacy();
         if (Array.isArray(data.paths)) {
           this.savedPaths = data.paths;
         } else {
@@ -237,20 +227,9 @@ export default {
     },
     async deletePath(path) {
       try {
-        const response = await fetch('http://localhost:3000/api/saved-path', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ path }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.message = 'Path deleted successfully!';
-          this.fetchSavedPaths();
-        } else {
-          this.message = data.error || 'Failed to delete path.';
-        }
+        const data = await apiService.deletePathLegacy(path);
+        this.message = 'Path deleted successfully!';
+        this.fetchSavedPaths();
       } catch (error) {
         this.message = 'Error: ' + error.message;
       }
@@ -261,8 +240,7 @@ export default {
       this.scanStatus = '';
       this.activeTab = 'present'; // Reset to first tab
       try {
-        const response = await fetch('http://localhost:3000/api/start-scan', { method: 'POST' });
-        const data = await response.json();
+        const data = await apiService.startScan();
         if (data.results) {
           this.scanStatus = 'done';
           await this.checkFilesInDb(data.results);
@@ -292,12 +270,7 @@ export default {
         return;
       }
       try {
-        const response = await fetch('http://localhost:3000/api/check-files-in-db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files })
-        });
-        const data = await response.json();
+        const data = await apiService.checkFilesInDb(files);
         if (Array.isArray(data.results)) {
           this.checkedFiles = data.results;
         } else {
@@ -311,13 +284,8 @@ export default {
       this.markingDownloaded = true;
       this.markDownloadedMsg = '';
       try {
-        const response = await fetch('http://localhost:3000/api/mark-downloaded', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: this.checkedFiles })
-        });
-        const data = await response.json();
-        if (response.ok && typeof data.updated === 'number') {
+        const data = await apiService.markDownloaded(this.checkedFiles);
+        if (typeof data.updated === 'number') {
           this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
           if (data.errors && data.errors.length) {
             this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
@@ -336,23 +304,15 @@ export default {
       this.markDownloadedMsg = '';
       this.validationResults = null; // Clear previous results
       try {
-        const response = await fetch('http://localhost:3000/api/validate-downloaded-files', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
-          if (data.mismatches && data.mismatches.length > 0) {
-            this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
-          }
-          if (data.errors && data.errors.length > 0) {
-            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-          }
-          this.validationResults = data; // Store the full validation results
-        } else {
-          this.markDownloadedMsg = data.error || 'Failed to validate files.';
+        const data = await apiService.validateDownloadedFiles();
+        this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
+        if (data.mismatches && data.mismatches.length > 0) {
+          this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
         }
+        if (data.errors && data.errors.length > 0) {
+          this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+        }
+        this.validationResults = data; // Store the full validation results
       } catch (error) {
         this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {

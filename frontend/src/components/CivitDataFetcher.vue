@@ -85,6 +85,8 @@
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
+
 export default {
   name: 'CivitDataFetcher',
   data() {
@@ -99,18 +101,7 @@ export default {
       this.scanResults = null;
       
       try {
-        const response = await fetch('http://localhost:3000/api/find-missing-files', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiService.findMissingFiles();
         this.scanResults = data;
         
       } catch (error) {
@@ -135,23 +126,11 @@ export default {
         console.log(`Model Version ID for ${file.fileName}: ${modelVersionId}`);
         
         // Step 3: Call the fix-file API
-        const response = await fetch('http://localhost:3000/api/fix-file', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            modelVersionId: modelVersionId,
-            filePath: file.fullPath
-          })
+        const result = await apiService.fixFile({
+          modelVersionId: modelVersionId,
+          filePath: file.fullPath
         });
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
         console.log('File fixed successfully:', result);
         
         // Set success status
@@ -167,20 +146,7 @@ export default {
     async computeFileHash(filePath) {
       try {
         // Use backend endpoint to compute hash
-        const response = await fetch('http://localhost:3000/api/compute-file-hash', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ filePath })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiService.computeFileHash(filePath);
         return data.hash;
         
       } catch (error) {

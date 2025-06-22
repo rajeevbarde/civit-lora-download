@@ -167,7 +167,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { apiService } from '@/utils/api.js';
 
 export default {
   data() {
@@ -261,19 +261,19 @@ export default {
           });
           
           try {
-            const response = await axios.post('http://localhost:3000/api/download-model-file', {
+            const response = await apiService.downloadModelFile({
               url: model.fileDownloadUrl,
               fileName: model.fileName,
               baseModel: model.basemodel,
               modelVersionId: model.modelVersionId
             });
             
-            if (response.data && response.data.success) {
+            if (response && response.success) {
               console.log(`Download queued for: ${model.fileName}`);
               // Start polling for this model
               this.startStatusPolling(model.modelVersionId, model.fileName);
             } else {
-              console.error(`Failed to queue download for: ${model.fileName}`, response.data.error);
+              console.error(`Failed to queue download for: ${model.fileName}`, response.error);
               this.removeFromDownloadingList(model.modelId);
             }
           } catch (err) {
@@ -296,8 +296,8 @@ export default {
     },
     async fetchBaseModels() {
       try {
-        const response = await axios.get('http://localhost:3000/api/basemodels');
-        this.baseModelOptions = response.data.baseModels || [];
+        const response = await apiService.getBaseModels();
+        this.baseModelOptions = response.baseModels || [];
       } catch (error) {
         this.baseModelOptions = [];
       }
@@ -312,9 +312,9 @@ export default {
         };
         if (this.selectedBaseModel) params.basemodel = this.selectedBaseModel;
         if (this.selectedDownloaded !== '') params.isDownloaded = this.selectedDownloaded;
-        const response = await axios.get('http://localhost:3000/api/models', { params });
-        this.models = response.data.data
-        this.totalItems = response.data.total
+        const response = await apiService.getModels(params);
+        this.models = response.data
+        this.totalItems = response.total
       } catch (error) {
         this.error = 'Failed to load models'
       } finally {
@@ -335,19 +335,19 @@ export default {
           fileName: model.fileName
         });
         
-        const response = await axios.post('http://localhost:3000/api/download-model-file', {
+        const response = await apiService.downloadModelFile({
           url: model.fileDownloadUrl,
           fileName: model.fileName,
           baseModel: model.basemodel,
           modelVersionId: model.modelVersionId
         });
         
-        if (response.data && response.data.success) {
+        if (response && response.success) {
           console.log(`Download queued for: ${model.fileName}`);
           // Start polling for status updates
           this.startStatusPolling(model.modelVersionId, model.fileName);
         } else {
-          console.error('Failed to queue download:', response.data.error || 'Unknown error');
+          console.error('Failed to queue download:', response.error || 'Unknown error');
           // Remove from downloading list on failure
           this.removeFromDownloadingList(model.modelId);
           this.showNotification(`❌ Failed to queue download: ${model.fileName}`, 'error');
@@ -393,21 +393,21 @@ export default {
           }
           
           // Check individual model status without triggering loading state
-          const response = await axios.get(`http://localhost:3000/api/modeldetail/${modelVersionId}`);
-          if (response.data) {
+          const response = await apiService.getModelDetail(modelVersionId);
+          if (response) {
             // Update the specific model in the current data without refreshing entire table
             const modelIndex = this.models.findIndex(m => m.modelVersionId === modelVersionId);
             if (modelIndex !== -1) {
-              this.models[modelIndex] = response.data;
+              this.models[modelIndex] = response;
             }
             
             // Check if download is complete (status changed from 0 to 1 or 3)
-            if (response.data.isDownloaded === 1 || response.data.isDownloaded === 3) {
+            if (response.isDownloaded === 1 || response.isDownloaded === 3) {
               // Download completed (success or failed)
               this.removeFromDownloadingListByVersionId(modelVersionId);
               clearInterval(pollInterval);
               
-              if (response.data.isDownloaded === 1) {
+              if (response.isDownloaded === 1) {
                 console.log(`Download completed successfully for model: ${modelVersionId}`);
                 this.showNotification(`✅ Download completed: ${fileName}`, 'success');
               } else {
@@ -485,14 +485,14 @@ export default {
       }
       
       try {
-        const response = await axios.get('http://localhost:3000/api/download-status');
-        console.log('Download queue status:', response.data);
+        const response = await apiService.getDownloadStatus();
+        console.log('Download queue status:', response);
         
         // Remove any existing status notifications first
         this.notifications = this.notifications.filter(n => !n.message.includes('🔄') && !n.message.includes('⏳') && !n.message.includes('✅') && !n.message.includes('📋'));
         
         // Show queue status to user
-        const { active, queued, maxConcurrent } = response.data;
+        const { active, queued, maxConcurrent } = response;
         let statusMessage = '';
         
         if (active > 0) {

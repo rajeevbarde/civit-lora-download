@@ -118,6 +118,32 @@ export const apiService = {
     return response.data;
   },
 
+  // Additional methods for FileScanner
+  async savePathLegacy(path) {
+    const response = await api.post('/save-path', { path });
+    return response.data;
+  },
+
+  async getSavedPathsLegacy() {
+    const response = await api.get('/saved-path');
+    return response.data;
+  },
+
+  async deletePathLegacy(path) {
+    const response = await api.delete('/saved-path', { data: { path } });
+    return response.data;
+  },
+
+  async startScan() {
+    const response = await api.post('/start-scan');
+    return response.data;
+  },
+
+  async checkFilesInDb(files) {
+    const response = await api.post('/check-files-in-db', { files });
+    return response.data;
+  },
+
   // Summary
   async getSummaryMatrix() {
     const response = await api.get('/summary-matrix');
