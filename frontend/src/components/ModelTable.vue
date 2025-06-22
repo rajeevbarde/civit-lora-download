@@ -16,8 +16,8 @@
     <div class="filters">
       <div class="filter-group">
         <label for="baseModelSelect">Base Model:</label>
-        <select id="baseModelSelect" v-model="selectedBaseModel">
-          <option value="">All</option>
+        <select id="baseModelSelect" v-model="selectedBaseModel" :disabled="isFetchingBaseModels">
+          <option value="">{{ isFetchingBaseModels ? 'Loading...' : 'All' }}</option>
           <option v-for="bm in baseModelOptions" :key="bm" :value="bm">{{ bm }}</option>
         </select>
       </div>
@@ -48,8 +48,8 @@
     <div v-if="downloadingModels.length > 0" class="download-status">
       <div class="status-info">
         <span>🔄 {{ downloadingModels.length }} download(s) in progress</span>
-        <button @click="checkDownloadStatus" class="btn-status-check">
-          {{ isStatusVisible ? 'Hide Status' : 'Show Status' }}
+        <button @click="checkDownloadStatus" class="btn-status-check" :disabled="isCheckingStatus">
+          {{ isCheckingStatus ? 'Checking...' : (isStatusVisible ? 'Hide Status' : 'Show Status') }}
         </button>
       </div>
     </div>
@@ -152,15 +152,16 @@
       </div>
       <div class="pagination">
         <button 
-          :disabled="currentPage === 1"
+          :disabled="currentPage === 1 || isChangingPage"
           @click="changePage(currentPage - 1)"
           class="btn-pagination"
-        >Previous</button>
+        >{{ isChangingPage ? 'Loading...' : 'Previous' }}</button>
         <span class="page-info">Page {{ currentPage }}</span>
         <button 
           @click="changePage(currentPage + 1)"
+          :disabled="isChangingPage"
           class="btn-pagination"
-        >Next</button>
+        >{{ isChangingPage ? 'Loading...' : 'Next' }}</button>
       </div>
     </div>
   </div>
@@ -194,6 +195,10 @@ export default {
       // Interval tracking for proper cleanup
       cleanupInterval: null,
       statusPollingIntervals: new Map(), // Track individual polling intervals
+      // Additional loading states
+      isCheckingStatus: false, // Loading state for status checking
+      isChangingPage: false, // Loading state for page changes
+      isFetchingBaseModels: false, // Loading state for base models
     }
   },
   computed: {
@@ -311,11 +316,14 @@ export default {
       }
     },
     async fetchBaseModels() {
+      this.isFetchingBaseModels = true;
       try {
         const response = await apiService.getBaseModels();
         this.baseModelOptions = response.baseModels || [];
       } catch (error) {
         this.baseModelOptions = [];
+      } finally {
+        this.isFetchingBaseModels = false;
       }
     },
     async fetchModels() {
@@ -339,9 +347,11 @@ export default {
       }
     },
     async changePage(newPage) {
+      this.isChangingPage = true;
       this.currentPage = newPage
       this.selectedModels = []; // Clear selection when changing pages
       await this.fetchModels()
+      this.isChangingPage = false;
     },
     async downloadModelFile(model) {
       try {
@@ -506,6 +516,7 @@ export default {
         return;
       }
       
+      this.isCheckingStatus = true;
       try {
         const response = await apiService.getDownloadStatus();
         console.log('Download queue status:', response);
@@ -545,6 +556,8 @@ export default {
       } catch (error) {
         console.error('Failed to check download status:', error);
         this.errorHandler.handleError(error, 'checking download status');
+      } finally {
+        this.isCheckingStatus = false;
       }
     },
     startPeriodicCleanup() {
@@ -801,6 +814,12 @@ h1 {
   background: #0056b3;
 }
 
+.btn-status-check:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .table-container {
   width: 100%;
 }
@@ -935,6 +954,7 @@ tr:hover {
 .btn-pagination:disabled {
   background: #6c757d;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .page-info {
@@ -946,9 +966,40 @@ tr:hover {
 
 .loading {
   text-align: center;
-  padding: 40px;
-  font-size: 16px;
+  padding: 2rem;
   color: #6c757d;
+  font-size: 1.1rem;
+}
+
+.loading::before {
+  content: "⏳ ";
+  margin-right: 0.5rem;
+}
+
+.btn-download.loading,
+.btn-retry.loading {
+  position: relative;
+  color: transparent;
+}
+
+.btn-download.loading::after,
+.btn-retry.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid #ffffff;
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .error {
@@ -1040,5 +1091,11 @@ tr:hover {
 
 .clear-all-notifications:hover {
   background-color: #4b5563;
+}
+
+.filter-group select:disabled {
+  background: #f8f9fa;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 </style>
