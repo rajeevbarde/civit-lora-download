@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const databaseService = require('../services/databaseService');
+const { validatePagination, validateModelVersionId } = require('../middleware/validation');
 
 // Get models with pagination and filters
-router.get('/', async (req, res) => {
+router.get('/', validatePagination, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -21,7 +22,7 @@ router.get('/', async (req, res) => {
 });
 
 // Get model detail by modelVersionId
-router.get('/detail/:id', async (req, res) => {
+router.get('/detail/:id', validateModelVersionId, async (req, res) => {
     try {
         const { id } = req.params;
         const model = await databaseService.getModelDetail(id);

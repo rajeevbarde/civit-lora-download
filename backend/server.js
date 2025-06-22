@@ -5,6 +5,15 @@ const express = require('express');
 const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
 const { validateDatabase, db } = require('./config/database');
+const { 
+    validatePagination, 
+    validateModelVersionId, 
+    validateFilePath, 
+    validateDownloadRequest, 
+    validateFilesArray, 
+    validatePath, 
+    validateFixFileRequest 
+} = require('./middleware/validation');
 
 // Import services
 const databaseService = require('./services/databaseService');
@@ -32,7 +41,7 @@ app.use('/api/files', filesRoutes);
 app.use('/api/downloads', downloadsRoutes);
 
 // Legacy route mappings for backward compatibility
-app.get('/api/models', async (req, res) => {
+app.get('/api/models', validatePagination, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -48,7 +57,7 @@ app.get('/api/models', async (req, res) => {
     }
 });
 
-app.get('/api/modeldetail/:id', async (req, res) => {
+app.get('/api/modeldetail/:id', validateModelVersionId, async (req, res) => {
     try {
         const { id } = req.params;
         const model = await databaseService.getModelDetail(id);
@@ -91,7 +100,7 @@ app.get('/api/summary-matrix-downloaded', async (req, res) => {
 });
 
 // Legacy path routes
-app.post('/api/save-path', async (req, res) => {
+app.post('/api/save-path', validatePath, async (req, res) => {
     try {
         const { path: dirPath } = req.body;
         const result = await pathService.addPath(dirPath);
@@ -110,7 +119,7 @@ app.get('/api/saved-path', async (req, res) => {
     }
 });
 
-app.delete('/api/saved-path', async (req, res) => {
+app.delete('/api/saved-path', validatePath, async (req, res) => {
     try {
         const { path: pathToDelete } = req.body;
         const result = await pathService.deletePath(pathToDelete);
@@ -136,13 +145,9 @@ app.post('/api/start-scan', async (req, res) => {
     }
 });
 
-app.post('/api/check-files-in-db', async (req, res) => {
+app.post('/api/check-files-in-db', validateFilesArray, async (req, res) => {
     try {
         const { files } = req.body;
-        if (!Array.isArray(files)) {
-            return res.status(400).json({ error: 'files must be an array' });
-        }
-        
         const dbFileNames = await databaseService.getAllFileNames();
         const results = await fileService.checkFilesInDatabase(files, dbFileNames);
         res.json({ results });
@@ -151,12 +156,9 @@ app.post('/api/check-files-in-db', async (req, res) => {
     }
 });
 
-app.post('/api/mark-downloaded', async (req, res) => {
+app.post('/api/mark-downloaded', validateFilesArray, async (req, res) => {
     try {
         const { files } = req.body;
-        if (!Array.isArray(files)) {
-            return res.status(400).json({ error: 'files must be an array' });
-        }
         
         const dbFileNamesToUpdate = [];
         files.forEach(f => {
@@ -203,13 +205,9 @@ app.post('/api/find-missing-files', async (req, res) => {
     }
 });
 
-app.post('/api/compute-file-hash', async (req, res) => {
+app.post('/api/compute-file-hash', validateFilePath, async (req, res) => {
     try {
         const { filePath } = req.body;
-        if (!filePath) {
-            return res.status(400).json({ error: 'filePath is required' });
-        }
-        
         const result = await fileService.computeFileHash(filePath);
         res.json(result);
     } catch (error) {
@@ -221,13 +219,9 @@ app.post('/api/compute-file-hash', async (req, res) => {
     }
 });
 
-app.post('/api/fix-file', async (req, res) => {
+app.post('/api/fix-file', validateFixFileRequest, async (req, res) => {
     try {
         const { modelVersionId, filePath } = req.body;
-        
-        if (!modelVersionId || !filePath) {
-            return res.status(400).json({ error: 'modelVersionId and filePath are required' });
-        }
         
         // Get the DB filename for this modelVersionId
         const dbRecord = await databaseService.getFileNameByModelVersionId(modelVersionId);
@@ -257,13 +251,9 @@ app.post('/api/fix-file', async (req, res) => {
 });
 
 // Legacy download routes
-app.post('/api/download-model-file', async (req, res) => {
+app.post('/api/download-model-file', validateDownloadRequest, async (req, res) => {
     try {
         const { url, fileName, baseModel, modelVersionId } = req.body;
-        
-        if (!url || !fileName || !baseModel || !modelVersionId) {
-            return res.status(400).json({ error: 'Missing required fields.' });
-        }
         
         // Return immediately and process download in background
         res.json({ success: true, message: 'Download queued' });
