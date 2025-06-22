@@ -6,6 +6,7 @@ const cors = require('cors');
 const { SERVER_CONFIG } = require('./config/constants');
 const { validateDatabase, db } = require('./config/database');
 const logger = require('./utils/logger');
+const { timeoutMiddleware } = require('./middleware/timeout');
 const { 
     validatePagination, 
     validateModelVersionId, 
@@ -47,14 +48,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// Route handlers
-app.use('/api/models', modelsRoutes);
-app.use('/api/paths', pathsRoutes);
-app.use('/api/files', filesRoutes);
-app.use('/api/downloads', downloadsRoutes);
+// Route handlers with appropriate timeouts
+app.use('/api/models', timeoutMiddleware.normal, modelsRoutes);
+app.use('/api/paths', timeoutMiddleware.normal, pathsRoutes);
+app.use('/api/files', timeoutMiddleware.file, filesRoutes);
+app.use('/api/downloads', timeoutMiddleware.download, downloadsRoutes);
 
-// Legacy route mappings for backward compatibility
-app.get('/api/models', validatePagination, async (req, res) => {
+// Legacy route mappings for backward compatibility with appropriate timeouts
+app.get('/api/models', timeoutMiddleware.normal, validatePagination, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
@@ -70,7 +71,7 @@ app.get('/api/models', validatePagination, async (req, res) => {
     }
 });
 
-app.get('/api/modeldetail/:id', validateModelVersionId, async (req, res) => {
+app.get('/api/modeldetail/:id', timeoutMiddleware.normal, validateModelVersionId, async (req, res) => {
     try {
         const { id } = req.params;
         const model = await databaseService.getModelDetail(id);
@@ -85,7 +86,7 @@ app.get('/api/modeldetail/:id', validateModelVersionId, async (req, res) => {
     }
 });
 
-app.get('/api/basemodels', async (req, res) => {
+app.get('/api/basemodels', timeoutMiddleware.quick, async (req, res) => {
     try {
         const result = await databaseService.getBaseModels();
         res.json(result);
@@ -94,7 +95,7 @@ app.get('/api/basemodels', async (req, res) => {
     }
 });
 
-app.get('/api/summary-matrix', async (req, res) => {
+app.get('/api/summary-matrix', timeoutMiddleware.normal, async (req, res) => {
     try {
         const result = await databaseService.getSummaryMatrix();
         res.json(result);
@@ -103,7 +104,7 @@ app.get('/api/summary-matrix', async (req, res) => {
     }
 });
 
-app.get('/api/summary-matrix-downloaded', async (req, res) => {
+app.get('/api/summary-matrix-downloaded', timeoutMiddleware.normal, async (req, res) => {
     try {
         const result = await databaseService.getDownloadedSummaryMatrix();
         res.json(result);
@@ -113,7 +114,7 @@ app.get('/api/summary-matrix-downloaded', async (req, res) => {
 });
 
 // Legacy path routes
-app.post('/api/save-path', validatePath, async (req, res) => {
+app.post('/api/save-path', timeoutMiddleware.quick, validatePath, async (req, res) => {
     try {
         const { path: dirPath } = req.body;
         const result = await pathService.addPath(dirPath);
@@ -123,7 +124,7 @@ app.post('/api/save-path', validatePath, async (req, res) => {
     }
 });
 
-app.get('/api/saved-path', async (req, res) => {
+app.get('/api/saved-path', timeoutMiddleware.quick, async (req, res) => {
     try {
         const result = await pathService.getSavedPaths();
         res.json(result);
@@ -132,7 +133,7 @@ app.get('/api/saved-path', async (req, res) => {
     }
 });
 
-app.delete('/api/saved-path', validatePath, async (req, res) => {
+app.delete('/api/saved-path', timeoutMiddleware.quick, validatePath, async (req, res) => {
     try {
         const { path: pathToDelete } = req.body;
         const result = await pathService.deletePath(pathToDelete);
@@ -143,7 +144,7 @@ app.delete('/api/saved-path', validatePath, async (req, res) => {
 });
 
 // Legacy file routes
-app.post('/api/start-scan', async (req, res) => {
+app.post('/api/start-scan', timeoutMiddleware.file, async (req, res) => {
     try {
         const paths = await pathService.readSavedPaths();
         
@@ -158,7 +159,7 @@ app.post('/api/start-scan', async (req, res) => {
     }
 });
 
-app.post('/api/check-files-in-db', validateFilesArray, async (req, res) => {
+app.post('/api/check-files-in-db', timeoutMiddleware.file, validateFilesArray, async (req, res) => {
     try {
         const { files } = req.body;
         const dbFileNames = await databaseService.getAllFileNames();
@@ -169,7 +170,7 @@ app.post('/api/check-files-in-db', validateFilesArray, async (req, res) => {
     }
 });
 
-app.post('/api/mark-downloaded', validateFilesArray, async (req, res) => {
+app.post('/api/mark-downloaded', timeoutMiddleware.normal, validateFilesArray, async (req, res) => {
     try {
         const { files } = req.body;
         
@@ -197,7 +198,7 @@ app.post('/api/mark-downloaded', validateFilesArray, async (req, res) => {
     }
 });
 
-app.post('/api/validate-downloaded-files', async (req, res) => {
+app.post('/api/validate-downloaded-files', timeoutMiddleware.file, async (req, res) => {
     try {
         const downloadedFiles = await databaseService.getDownloadedFiles();
         const result = await fileService.validateDownloadedFiles(downloadedFiles);
@@ -207,7 +208,7 @@ app.post('/api/validate-downloaded-files', async (req, res) => {
     }
 });
 
-app.post('/api/find-missing-files', async (req, res) => {
+app.post('/api/find-missing-files', timeoutMiddleware.file, async (req, res) => {
     try {
         const paths = await pathService.readSavedPaths();
         const dbFileNames = await databaseService.getAllFileNames();
@@ -218,7 +219,7 @@ app.post('/api/find-missing-files', async (req, res) => {
     }
 });
 
-app.post('/api/compute-file-hash', validateFilePath, async (req, res) => {
+app.post('/api/compute-file-hash', timeoutMiddleware.file, validateFilePath, async (req, res) => {
     try {
         const { filePath } = req.body;
         const result = await fileService.computeFileHash(filePath);
@@ -232,7 +233,7 @@ app.post('/api/compute-file-hash', validateFilePath, async (req, res) => {
     }
 });
 
-app.post('/api/fix-file', validateFixFileRequest, async (req, res) => {
+app.post('/api/fix-file', timeoutMiddleware.file, validateFixFileRequest, async (req, res) => {
     try {
         const { modelVersionId, filePath } = req.body;
         
@@ -264,7 +265,7 @@ app.post('/api/fix-file', validateFixFileRequest, async (req, res) => {
 });
 
 // Legacy download routes
-app.post('/api/download-model-file', validateDownloadRequest, async (req, res) => {
+app.post('/api/download-model-file', timeoutMiddleware.download, validateDownloadRequest, async (req, res) => {
     try {
         const { url, fileName, baseModel, modelVersionId } = req.body;
         
@@ -280,7 +281,7 @@ app.post('/api/download-model-file', validateDownloadRequest, async (req, res) =
     }
 });
 
-app.get('/api/download-status', (req, res) => {
+app.get('/api/download-status', timeoutMiddleware.quick, (req, res) => {
     try {
         const status = downloadQueue.getStatus();
         res.json(status);
@@ -289,7 +290,7 @@ app.get('/api/download-status', (req, res) => {
     }
 });
 
-app.post('/api/download-status/clear-errors', (req, res) => {
+app.post('/api/download-status/clear-errors', timeoutMiddleware.quick, (req, res) => {
     try {
         downloadQueue.clearErrors();
         res.json({ message: 'Download errors cleared successfully' });
@@ -299,7 +300,7 @@ app.post('/api/download-status/clear-errors', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
