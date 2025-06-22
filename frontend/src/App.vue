@@ -114,20 +114,12 @@ table {
   width: 100%;
   border-collapse: collapse;
   background-color: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border-radius: 6px;
-  overflow: hidden;
-  font-size: 13px;
 }
 
 th, td {
   padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid #eee;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
 }
 
 th {
@@ -135,9 +127,6 @@ th {
   font-weight: 600;
   color: #495057;
   font-size: 12px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
 }
 
 tr:hover {

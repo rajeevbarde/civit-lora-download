@@ -756,58 +756,40 @@ h1 {
 
 .table-container {
   width: 100%;
-  background: white;
-  border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
 }
 
 .table-wrapper {
   width: 100%;
-  overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  font-size: 13px;
 }
 
 th {
-  background: #f8f9fa;
-  padding: 12px 10px;
+  padding: 8px;
   text-align: left;
-  font-weight: 600;
-  font-size: 12px;
-  color: #495057;
-  border-bottom: 1px solid #dee2e6;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  border-bottom: 1px solid #ddd;
+  background: #f2f2f2;
 }
 
 td {
-  padding: 10px;
-  border-bottom: 1px solid #f1f3f4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
 }
 
 tr:hover {
-  background-color: #f8f9fa;
+  background-color: #f5f5f5;
 }
 
 .checkbox-header {
-  width: 40px;
+  width: 50px;
   text-align: center;
 }
 
 .checkbox-cell {
-  width: 40px;
+  width: 50px;
   text-align: center;
   padding: 10px 8px;
 }
@@ -832,6 +814,7 @@ tr:hover {
   cursor: pointer;
   font-size: 12px;
   transition: background-color 0.2s;
+  white-space: nowrap;
 }
 
 .btn-download:hover:not(:disabled) {
@@ -856,6 +839,7 @@ tr:hover {
   cursor: pointer;
   font-size: 12px;
   transition: background-color 0.2s;
+  white-space: nowrap;
 }
 
 .btn-retry:hover:not(:disabled) {
@@ -1009,42 +993,5 @@ tr:hover {
 
 .clear-all-notifications:hover {
   background-color: #4b5563;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .model-table-page {
-    padding: 8px;
-  }
-  
-  .filters {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .filter-group select {
-    min-width: auto;
-  }
-  
-  .bulk-info {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  
-  .status-info {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  
-  table {
-    font-size: 11px;
-  }
-  
-  th, td {
-    padding: 6px 8px;
-  }
 }
 </style>
