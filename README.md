@@ -13,3 +13,13 @@ The table used for this project is named `ALLCivitData`.
 2. Once downloaded, execute the SQL script found in `civitalldata.sql` against the downloaded database. This will generate the `ALLCivitData` table from the existing database.
 
 Make sure you have SQLite installed to run the SQL script.
+
+## Starting the Application
+
+To start both the frontend and backend servers simultaneously, simply run the `start_servers.bat` file (double-click it or run it from the command line):
+
+```
+start_servers.bat
+```
+
+This will open two new command windows: one for the backend server and one for the frontend server. Each will automatically install dependencies if needed and start the respective server.
