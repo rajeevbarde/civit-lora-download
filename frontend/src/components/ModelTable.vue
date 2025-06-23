@@ -62,11 +62,9 @@
           <thead>
             <tr>
               <th>Model ID</th>
-              <th>Model Name</th>
+              <th>Model Name / Version</th>
               <th>Model NSFW</th>
               <th>Model NSFW Level</th>
-              <th>Model Version ID</th>
-              <th>Model Version Name</th>
               <th>Base Model</th>
               <th>Base Model Type</th>
               <th>Version NSFW Level</th>
@@ -90,19 +88,17 @@
           <tbody>
             <tr v-for="model in models" :key="model.modelId">
               <td>{{ model.modelId }}</td>
-              <td>{{ model.modelName }}</td>
-              <td>{{ model.modelNsfw }}</td>
-              <td>{{ model.modelNsfwLevel }}</td>
               <td>
                 <a 
                   :href="`http://localhost:5173/model/${model.modelVersionId}`" 
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {{ model.modelVersionId }}
+                  {{ model.modelName }} / {{ model.modelVersionName }}
                 </a>
               </td>
-              <td>{{ model.modelVersionName }}</td>
+              <td>{{ model.modelNsfw }}</td>
+              <td>{{ model.modelNsfwLevel }}</td>
               <td>{{ model.basemodel }}</td>
               <td>{{ model.basemodeltype }}</td>
               <td>{{ model.modelVersionNsfwLevel }}</td>
