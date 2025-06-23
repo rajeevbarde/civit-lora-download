@@ -25,10 +25,10 @@
         <label for="downloadedSelect">Downloaded:</label>
         <select id="downloadedSelect" v-model="selectedDownloaded">
           <option value="">All</option>
-          <option value="0">0</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
+          <option value="0">Not Downloaded</option>
+          <option value="1">Downloaded</option>
+          <option value="2">Downloading</option>
+          <option value="3">Failed</option>
         </select>
       </div>
     </div>
@@ -63,10 +63,8 @@
             <tr>
               <th>Model ID</th>
               <th>Model Name</th>
-              <th>Model Type</th>
               <th>Model NSFW</th>
               <th>Model NSFW Level</th>
-              <th>Model Download Count</th>
               <th>Model Version ID</th>
               <th>Model Version Name</th>
               <th>Base Model</th>
@@ -74,7 +72,6 @@
               <th>Version NSFW Level</th>
               <th>Version Download Count</th>
               <th>File Name</th>
-              <th>File Type</th>
               <th>File Download URL</th>
               <th class="checkbox-header">
                 <input 
@@ -87,7 +84,6 @@
               </th>
               <th>Size (GB)</th>
               <th>Published At</th>
-              <th>Downloaded</th>
               <th>File Path</th>
             </tr>
           </thead>
@@ -95,10 +91,8 @@
             <tr v-for="model in models" :key="model.modelId">
               <td>{{ model.modelId }}</td>
               <td>{{ model.modelName }}</td>
-              <td>{{ model.modelType }}</td>
               <td>{{ model.modelNsfw }}</td>
               <td>{{ model.modelNsfwLevel }}</td>
-              <td>{{ model.modelDownloadCount?.toLocaleString() }}</td>
               <td>
                 <a 
                   :href="`http://localhost:5173/model/${model.modelVersionId}`" 
@@ -114,7 +108,6 @@
               <td>{{ model.modelVersionNsfwLevel }}</td>
               <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
               <td>{{ model.fileName }}</td>
-              <td>{{ model.fileType }}</td>
               <td>
                 <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
                         @click="downloadModelFile(model)" 
@@ -144,7 +137,6 @@
               </td>
               <td>{{ model.size_in_gb }}</td>
               <td>{{ formatDate(model.publishedAt) }}</td>
-              <td>{{ model.isDownloaded }}</td>
               <td>{{ model.file_path }}</td>
             </tr>
           </tbody>
