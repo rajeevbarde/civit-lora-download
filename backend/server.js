@@ -1,1056 +1,422 @@
+// Load environment variables first
+require('dotenv').config();
+
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const cors = require('cors');
-const fs = require('fs');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios');
-const http = require('http');
-const https = require('https');
+const { SERVER_CONFIG } = require('./config/constants');
+const { validateDatabase, dbPool } = require('./config/database');
+const logger = require('./utils/logger');
+const { timeoutMiddleware } = require('./middleware/timeout');
+const { 
+    validatePagination, 
+    validateModelVersionId, 
+    validateFilePath, 
+    validateDownloadRequest, 
+    validateFilesArray, 
+    validatePath, 
+    validateFixFileRequest 
+} = require('./middleware/validation');
+
+// Import services
+const databaseService = require('./services/databaseService');
+const fileService = require('./services/fileService');
+const pathService = require('./services/pathService');
+const downloadService = require('./services/downloadService');
+const downloadQueue = require('./services/downloadQueue');
+
+// Import legacy routes
+const modelsRoutes = require('./routes/models');
+const pathsRoutes = require('./routes/paths');
+const filesRoutes = require('./routes/files');
+const downloadsRoutes = require('./routes/downloads');
+
+// Import versioned routes
+const v1Routes = require('./routes/v1');
 
 const app = express();
+
+// Middleware
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: SERVER_CONFIG.jsonLimit }));
 
-// Create connection pools for better performance
-const httpAgent = new http.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 1000,
-  maxSockets: 20,
-  maxFreeSockets: 10,
-  timeout: 60000
+// Request logging middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        logger.request(req.method, req.url, res.statusCode, duration);
+    });
+    
+    next();
 });
 
-const httpsAgent = new https.Agent({
-  keepAlive: true,
-  keepAliveMsecs: 1000,
-  maxSockets: 20,
-  maxFreeSockets: 10,
-  timeout: 60000
+// API versioning middleware
+app.use((req, res, next) => {
+    // Add API version info to response headers
+    res.set('X-API-Version', 'v1');
+    res.set('X-API-Latest', 'v1');
+    next();
 });
 
-// Download queue to manage concurrent downloads
-const downloadQueue = {
-  active: 0,
-  maxConcurrent: 3, // Limit concurrent downloads to avoid overwhelming the system
-  queue: [],
-  
-  async add(downloadTask) {
-    if (this.active < this.maxConcurrent) {
-      this.active++;
-      try {
-        await downloadTask();
-      } finally {
-        this.active--;
-        this.processNext();
-      }
-    } else {
-      this.queue.push(downloadTask);
-    }
-  },
-  
-  processNext() {
-    if (this.queue.length > 0 && this.active < this.maxConcurrent) {
-      const nextTask = this.queue.shift();
-      this.add(nextTask);
-    }
-  }
-};
+// Versioned API routes (recommended)
+app.use('/api/v1', timeoutMiddleware.normal, v1Routes);
 
-// Update this path to your actual database file location
-const db = new sqlite3.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
+// Legacy route handlers (for backward compatibility)
+app.use('/api/models', timeoutMiddleware.normal, modelsRoutes);
+app.use('/api/paths', timeoutMiddleware.normal, pathsRoutes);
+app.use('/api/files', timeoutMiddleware.file, filesRoutes);
+app.use('/api/downloads', timeoutMiddleware.download, downloadsRoutes);
 
-const scanJobs = {};
-
-app.get('/api/models', (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-
-    let baseWhere = [];
-    let params = [];
-
-    if (req.query.basemodel) {
-        baseWhere.push('basemodel = ?');
-        params.push(req.query.basemodel);
-    }
-    if (req.query.isDownloaded !== undefined && req.query.isDownloaded !== "") {
-        baseWhere.push('isDownloaded = ?');
-        params.push(Number(req.query.isDownloaded));
-    }
-    if (req.query.modelVersionId) {
-        baseWhere.push('modelVersionId = ?');
-        params.push(req.query.modelVersionId);
-    }
-
-    let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
-
-    let query = `
-        SELECT
-            modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
-            modelVersionId, modelVersionName, modelVersionDescription,
-            basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-            fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
-        FROM ALLCivitData
-        ${whereClause}
-    `;
-
-    // First, get the total count with filters
-    db.get(`SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params, (err, count) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        // Then get the paginated data
-        db.all(query + ' LIMIT ? OFFSET ?', [...params, limit, offset], (err, rows) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
+// API root endpoint
+app.get('/api', (req, res) => {
+    res.json({
+        name: 'CivitAI Lora Download Manager API',
+        version: '1.0.0',
+        description: 'API for managing CivitAI Lora model downloads and file organization',
+        versions: {
+            v1: {
+                status: 'active',
+                url: '/api/v1',
+                docs: '/api/v1/docs'
             }
-            res.json({
-                total: count.total,
-                page: page,
-                limit: limit,
-                data: rows
-            });
-        });
+        },
+        legacy: {
+            status: 'deprecated',
+            message: 'Legacy endpoints are deprecated. Please use /api/v1 endpoints.',
+            endpoints: {
+                models: '/api/models',
+                paths: '/api/paths',
+                files: '/api/files',
+                downloads: '/api/downloads'
+            }
+        }
     });
 });
 
-app.get('/api/modeldetail/:id', (req, res) => {
-    const { id } = req.params;
+// Legacy route mappings for backward compatibility with appropriate timeouts
+app.get('/api/models', timeoutMiddleware.normal, validatePagination, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const filters = {
+            basemodel: req.query.basemodel,
+            isDownloaded: req.query.isDownloaded,
+            modelVersionId: req.query.modelVersionId
+        };
+        const result = await databaseService.getModels(page, limit, filters);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
-    // Query to get model details by modelVersionId
-    const query = `
-        SELECT
-            modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
-            modelVersionId, modelVersionName, modelVersionDescription,
-            basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-            fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
-        FROM ALLCivitData
-        WHERE modelVersionId = ?
-    `;
-
-    db.get(query, [id], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-
-        if (!row) {
+app.get('/api/modeldetail/:id', timeoutMiddleware.normal, validateModelVersionId, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const model = await databaseService.getModelDetail(id);
+        
+        if (!model) {
             return res.status(404).json({ error: 'Model not found' });
         }
-
-        // Return only the model data — no pagination, total count, etc.
-        res.json(row);
-    });
-});
-
-// Endpoint to save directory path to a JSON file
-app.post('/api/save-path', (req, res) => {
-    const dirPath = req.body.path;
-    if (!dirPath) {
-        return res.status(400).json({ error: 'No path provided' });
-    }
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    // Read existing paths
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        let paths = [];
-        if (!err) {
-            try {
-                const json = JSON.parse(data);
-                if (Array.isArray(json.paths)) {
-                    paths = json.paths;
-                }
-            } catch (e) {}
-        }
-        // Only add if not already present
-        if (!paths.includes(dirPath)) {
-            paths.push(dirPath);
-        }
-        fs.writeFile(saveFilePath, JSON.stringify({ paths }, null, 2), (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to save path' });
-            }
-            res.json({ message: 'Path saved successfully' });
-        });
-    });
-});
-
-// Endpoint to get the saved directory path from the JSON file
-app.get('/api/saved-path', (req, res) => {
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        if (err) {
-            // If file doesn't exist, return empty array
-            return res.json({ paths: [] });
-        }
-        try {
-            const json = JSON.parse(data);
-            res.json({ paths: Array.isArray(json.paths) ? json.paths : [] });
-        } catch (e) {
-            res.json({ paths: [] });
-        }
-    });
-});
-
-// Endpoint to delete a path from the saved_path.json array
-app.delete('/api/saved-path', (req, res) => {
-    const pathToDelete = req.body.path;
-    if (!pathToDelete) {
-        return res.status(400).json({ error: 'No path provided' });
-    }
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        let paths = [];
-        if (!err) {
-            try {
-                const json = JSON.parse(data);
-                if (Array.isArray(json.paths)) {
-                    paths = json.paths;
-                }
-            } catch (e) {}
-        }
-        const newPaths = paths.filter(p => p !== pathToDelete);
-        fs.writeFile(saveFilePath, JSON.stringify({ paths: newPaths }, null, 2), (err) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to delete path' });
-            }
-            res.json({ message: 'Path deleted successfully' });
-        });
-    });
-});
-
-// Start scan endpoint
-app.post('/api/start-scan', (req, res) => {
-    console.log('=== SCAN REQUEST RECEIVED ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log('User pressed scan button - starting file scan process...');
-    
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        let paths = [];
-        if (!err) {
-            try {
-                const json = JSON.parse(data);
-                if (Array.isArray(json.paths)) {
-                    paths = json.paths;
-                }
-            } catch (e) {
-                console.log('Error parsing saved_path.json:', e.message);
-            }
-        }
         
-        console.log(`Found ${paths.length} saved paths to scan:`);
-        paths.forEach((p, index) => {
-            console.log(`  ${index + 1}. ${p}`);
-        });
+        res.json(model);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/basemodels', timeoutMiddleware.quick, async (req, res) => {
+    try {
+        const result = await databaseService.getBaseModels();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/summary-matrix', timeoutMiddleware.normal, async (req, res) => {
+    try {
+        const result = await databaseService.getSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/summary-matrix-downloaded', timeoutMiddleware.normal, async (req, res) => {
+    try {
+        const result = await databaseService.getDownloadedSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Legacy path routes
+app.post('/api/save-path', timeoutMiddleware.quick, validatePath, async (req, res) => {
+    try {
+        const { path: dirPath } = req.body;
+        const result = await pathService.addPath(dirPath);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+app.get('/api/saved-path', timeoutMiddleware.quick, async (req, res) => {
+    try {
+        const result = await pathService.getSavedPaths();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/saved-path', timeoutMiddleware.quick, validatePath, async (req, res) => {
+    try {
+        const { path: pathToDelete } = req.body;
+        const result = await pathService.deletePath(pathToDelete);
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
+
+// Legacy file routes
+app.post('/api/start-scan', timeoutMiddleware.file, async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
         
         if (!paths.length) {
-            console.log('ERROR: No saved paths to scan');
             return res.status(400).json({ error: 'No saved paths to scan.' });
         }
         
-        // Deduplicated, case-insensitive allowed extensions
-        const allowedExts = [
-             'safetensors'
-        ];
-        console.log(`Scanning for files with extensions: ${allowedExts.join(', ')}`);
-        
-        function hasAllowedExt(filename) {
-            const ext = path.extname(filename).replace('.', '');
-            return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
-        }
-        
-        // Scan each path
-        console.log('Starting file scan for each path...');
-        const results = paths.map((p, pathIndex) => {
-            console.log(`\n--- Scanning path ${pathIndex + 1}/${paths.length}: ${p} ---`);
-            let result = { path: p, files: [], error: null };
-            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
-            if (!isValidWinPath) {
-                result.error = 'Invalid full path format (should be like C:\\folder\\...)';
-                console.log(`  ERROR: ${result.error}`);
-            } else if (!fs.existsSync(p)) {
-                result.error = 'Directory does not exist';
-                console.log(`  ERROR: ${result.error}`);
-            } else if (!fs.statSync(p).isDirectory()) {
-                result.error = 'Path is not a directory';
-                console.log(`  ERROR: ${result.error}`);
-            } else {
-                console.log(`  Path is valid, scanning for files...`);
-                // Recursively get files
-                function getAllFiles(dirPath, arrayOfFiles = []) {
-                    try {
-                        const files = fs.readdirSync(dirPath);
-                        files.forEach(file => {
-                            const fullPath = path.join(dirPath, file);
-                            if (fs.statSync(fullPath).isDirectory()) {
-                                getAllFiles(fullPath, arrayOfFiles);
-                            } else {
-                                if (hasAllowedExt(fullPath)) {
-                                    arrayOfFiles.push(fullPath);
-                                }
-                            }
-                        });
-                    } catch (e) {
-                        console.log(`    Error reading directory ${dirPath}: ${e.message}`);
-                    }
-                    return arrayOfFiles;
-                }
-                result.files = getAllFiles(p, []);
-                console.log(`  Found ${result.files.length} matching files in this path`);
-                if (result.files.length > 0) {
-                    console.log(`  Sample files found:`);
-                    result.files.slice(0, 3).forEach((file, idx) => {
-                        console.log(`    ${idx + 1}. ${path.basename(file)}`);
-                    });
-                    if (result.files.length > 3) {
-                        console.log(`    ... and ${result.files.length - 3} more files`);
-                    }
-                }
-            }
-            return result;
-        });
-        
-        const totalFilesFound = results.reduce((sum, result) => sum + (result.files ? result.files.length : 0), 0);
-        const successfulPaths = results.filter(r => !r.error).length;
-        const failedPaths = results.filter(r => r.error).length;
-        
-        console.log('\n=== SCAN COMPLETED ===');
-        console.log(`Total paths processed: ${paths.length}`);
-        console.log(`Successful paths: ${successfulPaths}`);
-        console.log(`Failed paths: ${failedPaths}`);
-        console.log(`Total files found: ${totalFilesFound}`);
-        console.log(`Scan completed at: ${new Date().toISOString()}`);
-        console.log('=== END SCAN ===\n');
-        
+        const results = await fileService.scanDirectories(paths);
         res.json({ results });
-    });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
-// Endpoint to check if files are present in the DB
-app.post('/api/check-files-in-db', (req, res) => {
-    const files = req.body.files; // [{ fullPath, baseName }]
-    if (!Array.isArray(files)) {
-        return res.status(400).json({ error: 'files must be an array' });
-    }
-    
-    console.log('=== CHECKING FILES IN DATABASE ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`Checking ${files.length} files against database...`);
-    
-    db.all('SELECT fileName FROM ALLCivitData', [], (err, rows) => {
-        if (err) {
-            console.log(`ERROR: Database query failed: ${err.message}`);
-            return res.status(500).json({ error: err.message });
-        }
-        
-        console.log(`Database contains ${rows.length} file records`);
-        const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
-        
-        console.log('Processing scanned files...');
-        const results = files.map((f, index) => {            
-            const lowerBase = (f.baseName || '').toLowerCase();
-            let status = '';
-            if (dbFileNames.includes(lowerBase)) {
-                status = 'Present';
-            }
-            
-            // Log progress every 100 files
-            if ((index + 1) % 100 === 0 || index === files.length - 1) {
-                console.log(`  Processed ${index + 1}/${files.length} files`);
-            }
-            
-            return {
-                fullPath: f.fullPath,
-                baseName: f.baseName,
-                status
-            };
-        });
-        
-        const presentCount = results.filter(r => r.status === 'Present').length;
-        const notFoundCount = results.filter(r => !r.status || r.status === '').length;
-        
-        console.log('=== DATABASE CHECK COMPLETED ===');
-        console.log(`Files present in DB: ${presentCount}`);
-        console.log(`Files not found in DB: ${notFoundCount}`);
-        console.log(`Check completed at: ${new Date().toISOString()}`);
-        console.log('=== END DATABASE CHECK ===\n');
-        
-        res.json({ results });
-    });
-});
-
-// Endpoint to mark files as downloaded in the DB
-app.post('/api/mark-downloaded', (req, res) => {
-    const files = req.body.files; // [{ status, fullPath, baseName }]
-    if (!Array.isArray(files)) {
-        return res.status(400).json({ error: 'files must be an array' });
-    }
-    
-    console.log('=== MARKING FILES AS DOWNLOADED ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`Processing ${files.length} files for database update...`);
-    
-    let updated = 0;
-    let errors = [];
-    const dbFileNamesToUpdate = [];
-    files.forEach(f => {
-        let isDownloaded = 0;
-        let dbFileName = null;
-        if (f.status === 'Present') {
-            isDownloaded = 1;
-            dbFileName = f.baseName;
-        }
-        if (isDownloaded && dbFileName) {
-            dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
-        }
-    });
-    
-    console.log(`Files to update in database: ${dbFileNamesToUpdate.length}`);
-    if (dbFileNamesToUpdate.length === 0) {
-        console.log('No files to update - all files already marked or not found in DB');
-        console.log('=== END MARK DOWNLOADED ===\n');
-        return res.json({ updated: 0, errors: [] });
-    }
-    
-    const sqlite = require('sqlite3').verbose();
-    const dbConn = new sqlite.Database('F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db');
-    let processed = 0;
-    function updateNext() {
-        if (processed >= dbFileNamesToUpdate.length) {
-            console.log('=== DATABASE UPDATE COMPLETED ===');
-            console.log(`Successfully updated: ${updated} files`);
-            console.log(`Errors encountered: ${errors.length}`);
-            if (errors.length > 0) {
-                console.log('Error details:');
-                errors.forEach((error, idx) => {
-                    console.log(`  ${idx + 1}. ${error.fileName}: ${error.error}`);
-                });
-            }
-            console.log(`Update completed at: ${new Date().toISOString()}`);
-            console.log('=== END MARK DOWNLOADED ===\n');
-            dbConn.close();
-            return res.json({ updated, errors });
-        }
-        const item = dbFileNamesToUpdate[processed];
-        console.log(`Updating ${processed + 1}/${dbFileNamesToUpdate.length}: ${item.dbFileName} (isDownloaded=${item.isDownloaded})`);
-        dbConn.run(
-            'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?',
-            [item.isDownloaded, item.fullPath, item.dbFileName],
-            function (err) {
-                if (err) {
-                    errors.push({ fileName: item.dbFileName, error: err.message });
-                    console.log(`  ERROR updating ${item.dbFileName}: ${err.message}`);
-                } else {
-                    updated++;
-                    console.log(`  SUCCESS: Updated ${item.dbFileName} (isDownloaded=${item.isDownloaded}, file_path=${item.fullPath})`);
-                }
-                processed++;
-                updateNext();
-            }
-        );
-    }
-    updateNext();
-});
-
-app.get('/api/basemodels', (req, res) => {
-    db.all('SELECT DISTINCT basemodel FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" ORDER BY basemodel ASC', [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        // Return as array of strings
-        const baseModels = rows.map(r => r.basemodel);
-        res.json({ baseModels });
-    });
-});
-
-// Download model file and update DB
-app.post('/api/download-model-file', async (req, res) => {
-  const { url, fileName, baseModel, modelVersionId } = req.body;
-  if (!url || !fileName || !baseModel || !modelVersionId) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
-  
-  // Return immediately and process download in background
-  res.json({ success: true, message: 'Download queued' });
-  
-  // Add download task to queue
-  downloadQueue.add(async () => {
-    const baseDir = 'Z:/Projects/AI/BigFiles/SD/loras';
-    const targetDir = path.join(baseDir, baseModel);
-    
+app.post('/api/check-files-in-db', timeoutMiddleware.file, validateFilesArray, async (req, res) => {
     try {
-      // Ensure directory exists
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
-      
-      const filePath = path.join(targetDir, fileName);
-      
-      // Check if file already exists
-      if (fs.existsSync(filePath)) {
-        console.log(`File already exists: ${fileName}`);
-        // Update DB to mark as downloaded
-        db.run(
-          'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
-          [filePath, modelVersionId],
-          function (err) {
-            if (err) {
-              console.error('DB update failed for existing file:', err.message);
-            } else {
-              console.log(`DB updated for existing file: ${fileName}`);
+        const { files } = req.body;
+        const dbFileNames = await databaseService.getAllFileNames();
+        const results = await fileService.checkFilesInDatabase(files, dbFileNames);
+        res.json({ results });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/mark-downloaded', timeoutMiddleware.normal, validateFilesArray, async (req, res) => {
+    try {
+        const { files } = req.body;
+        
+        const dbFileNamesToUpdate = [];
+        files.forEach(f => {
+            let isDownloaded = 0;
+            let dbFileName = null;
+            if (f.status === 'Present') {
+                isDownloaded = 1;
+                dbFileName = f.baseName;
             }
-          }
-        );
-        return;
-      }
-      
-      // Download file with optimized settings
-      const response = await axios({
-        method: 'get',
-        url,
-        responseType: 'stream',
-        timeout: 300000, // 5 min timeout
-        maxRedirects: 5,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
-        httpAgent: httpAgent,
-        httpsAgent: httpsAgent
-      });
-      
-      const totalLength = parseInt(response.headers['content-length'], 10);
-      let downloaded = 0;
-      let lastLoggedPercent = 0;
-      const startTime = Date.now();
-      
-      const writer = fs.createWriteStream(filePath);
-      
-      // Set up progress tracking
-      response.data.on('data', (chunk) => {
-        downloaded += chunk.length;
-        if (totalLength) {
-          const percent = Math.floor((downloaded / totalLength) * 100);
-          if (percent >= lastLoggedPercent + 10 || percent === 100) {
-            const elapsed = (Date.now() - startTime) / 1000;
-            const speed = downloaded / elapsed / 1024 / 1024; // MB/s
-            console.log(`Downloading ${fileName}: ${percent}% (${(downloaded/1024/1024).toFixed(1)}MB/${(totalLength/1024/1024).toFixed(1)}MB) - ${speed.toFixed(2)} MB/s`);
-            lastLoggedPercent = percent;
-          }
-        }
-      });
-      
-      // Handle download completion
-      await new Promise((resolve, reject) => {
-        let error = null;
-        
-        writer.on('error', err => {
-          error = err;
-          console.error(`Write error for ${fileName}:`, err.message);
-          writer.close();
-          reject(err);
+            if (isDownloaded && dbFileName) {
+                dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
+            }
         });
         
-        response.data.on('error', err => {
-          error = err;
-          console.error(`Download error for ${fileName}:`, err.message);
-          writer.close();
-          reject(err);
-        });
-        
-        writer.on('close', () => {
-          if (!error) {
-            const totalTime = (Date.now() - startTime) / 1000;
-            const avgSpeed = downloaded / totalTime / 1024 / 1024; // MB/s
-            console.log(`Download completed: ${fileName} in ${totalTime.toFixed(1)}s (${avgSpeed.toFixed(2)} MB/s avg)`);
-            resolve();
-          }
-        });
-        
-        response.data.pipe(writer);
-      });
-      
-      // Update DB asynchronously
-      db.run(
-        'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
-        [filePath, modelVersionId],
-        function (err) {
-          if (err) {
-            console.error(`DB update failed for ${fileName}:`, err.message);
-          } else {
-            console.log(`DB updated successfully for ${fileName}`);
-          }
+        if (dbFileNamesToUpdate.length === 0) {
+            return res.json({ updated: 0, errors: [] });
         }
-      );
-      
-    } catch (err) {
-      console.error(`Download failed for ${fileName}:`, err.message);
-      
-      // Update DB to mark as failed (status 3)
-      db.run(
-        'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?',
-        [modelVersionId],
-        function (dbErr) {
-          if (dbErr) {
-            console.error('Failed to update DB with error status:', dbErr.message);
-          }
-        }
-      );
+        
+        const result = await databaseService.batchUpdateFilesAsDownloaded(dbFileNamesToUpdate);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-  });
 });
 
-// Status endpoint to check download queue
-app.get('/api/download-status', (req, res) => {
-  res.json({
-    active: downloadQueue.active,
-    queued: downloadQueue.queue.length,
-    maxConcurrent: downloadQueue.maxConcurrent
-  });
-});
-
-// Endpoint to get summary matrix for base models vs modelVersionNsfwLevel
-app.get('/api/summary-matrix', (req, res) => {
-    // Query to get counts grouped by basemodel and modelVersionNsfwLevel
-    const query = `
-        SELECT basemodel, modelVersionNsfwLevel, COUNT(*) as count
-        FROM ALLCivitData
-        WHERE basemodel IS NOT NULL AND basemodel != '' AND modelVersionNsfwLevel IS NOT NULL AND modelVersionNsfwLevel != ''
-        GROUP BY basemodel, modelVersionNsfwLevel
-    `;
-    db.all(query, [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        // Build unique lists for columns and rows
-        const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
-        const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
-        // Build matrix: { row: nsfwLevel, columns: { basemodel: count, ... } }
-        const matrix = nsfwLevels.map(nsfw => {
-            const row = { modelVersionNsfwLevel: nsfw };
-            baseModels.forEach(bm => {
-                const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw);
-                row[bm] = found ? found.count : 0;
-            });
-            return row;
-        });
-        res.json({ baseModels, nsfwLevels, matrix });
-    });
-});
-
-// Endpoint to get summary matrix for base models vs modelVersionNsfwLevel, with isDownloaded counts
-app.get('/api/summary-matrix-downloaded', (req, res) => {
-    // Query to get counts grouped by basemodel, modelVersionNsfwLevel, and isDownloaded
-    const query = `
-        SELECT basemodel, modelVersionNsfwLevel, isDownloaded, COUNT(*) as count
-        FROM ALLCivitData
-        WHERE basemodel IS NOT NULL AND basemodel != '' AND modelVersionNsfwLevel IS NOT NULL AND modelVersionNsfwLevel != ''
-              AND isDownloaded = 1
-        GROUP BY basemodel, modelVersionNsfwLevel, isDownloaded
-    `;
-    db.all(query, [], (err, rows) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        // Build unique lists for columns and rows
-        const baseModels = [...new Set(rows.map(r => r.basemodel))].sort();
-        const nsfwLevels = [...new Set(rows.map(r => r.modelVersionNsfwLevel))].sort();
-        // Build matrix: { row: nsfwLevel, columns: { basemodel: count, ... } }
-        const matrix = nsfwLevels.map(nsfw => {
-            const row = { modelVersionNsfwLevel: nsfw };
-            baseModels.forEach(bm => {
-                const found = rows.find(r => r.basemodel === bm && r.modelVersionNsfwLevel === nsfw && r.isDownloaded === 1);
-                row[bm] = found ? found.count : 0;
-            });
-            return row;
-        });
-        res.json({ baseModels, nsfwLevels, matrix });
-    });
-});
-
-// Endpoint to fix file by modelVersionId - rename file and update DB
-app.post('/api/fix-file', (req, res) => {
-    const { modelVersionId, filePath } = req.body;
-    
-    if (!modelVersionId || !filePath) {
-        return res.status(400).json({ error: 'modelVersionId and filePath are required' });
+app.post('/api/validate-downloaded-files', timeoutMiddleware.file, async (req, res) => {
+    try {
+        const downloadedFiles = await databaseService.getDownloadedFiles();
+        const result = await fileService.validateDownloadedFiles(downloadedFiles);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-    
-    console.log('=== FIXING FILE ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`ModelVersionId: ${modelVersionId}`);
-    console.log(`File path: ${filePath}`);
-    
-    // First, get the DB filename for this modelVersionId
-    db.get('SELECT fileName FROM ALLCivitData WHERE modelVersionId = ?', [modelVersionId], (err, row) => {
-        if (err) {
-            console.log(`ERROR: Database query failed: ${err.message}`);
-            return res.status(500).json({ error: err.message });
+});
+
+app.post('/api/find-missing-files', timeoutMiddleware.file, async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        const dbFileNames = await databaseService.getAllFileNames();
+        const result = await fileService.findMissingFiles(paths, dbFileNames);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/compute-file-hash', timeoutMiddleware.file, validateFilePath, async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        const result = await fileService.computeFileHash(filePath);
+        res.json(result);
+    } catch (error) {
+        if (error.message.includes('File not found')) {
+            res.status(404).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: error.message });
         }
+    }
+});
+
+app.post('/api/fix-file', timeoutMiddleware.file, validateFixFileRequest, async (req, res) => {
+    try {
+        const { modelVersionId, filePath } = req.body;
         
-        if (!row || !row.fileName) {
-            console.log(`ERROR: No record found for modelVersionId: ${modelVersionId}`);
+        // Get the DB filename for this modelVersionId
+        const dbRecord = await databaseService.getFileNameByModelVersionId(modelVersionId);
+        
+        if (!dbRecord || !dbRecord.fileName) {
             return res.status(404).json({ error: 'Model not found in database' });
         }
         
-        const dbFileName = row.fileName;
-        console.log(`DB filename: ${dbFileName}`);
+        const dbFileName = dbRecord.fileName;
         
-        // Check if the file exists
-        if (!fs.existsSync(filePath)) {
-            console.log(`ERROR: File does not exist: ${filePath}`);
-            return res.status(404).json({ error: 'File not found on disk' });
-        }
+        // Fix the file
+        const fixResult = await fileService.fixFile(modelVersionId, filePath, dbFileName);
         
-        // Get directory and extension from the original file
-        const dir = path.dirname(filePath);
-        const ext = path.extname(filePath);
+        // Update the database
+        await databaseService.updateModelAsDownloaded(modelVersionId, fixResult.newPath);
         
-        // Construct new file path with DB filename
-        const newFilePath = path.join(dir, dbFileName);
-        
-        // Check if target file already exists
-        if (fs.existsSync(newFilePath)) {
-            console.log(`ERROR: Target file already exists: ${newFilePath}`);
-            return res.status(409).json({ error: 'Target file already exists' });
-        }
-        
-        try {
-            // Rename the file
-            fs.renameSync(filePath, newFilePath);
-            console.log(`SUCCESS: Renamed file from ${filePath} to ${newFilePath}`);
-            
-            // Update the database
-            db.run(
-                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?',
-                [newFilePath, modelVersionId],
-                function (err) {
-                    if (err) {
-                        console.log(`ERROR: Database update failed: ${err.message}`);
-                        // Try to revert the file rename
-                        try {
-                            fs.renameSync(newFilePath, filePath);
-                            console.log(`Reverted file rename due to DB update failure`);
-                        } catch (revertErr) {
-                            console.log(`ERROR: Failed to revert file rename: ${revertErr.message}`);
-                        }
-                        return res.status(500).json({ error: 'File renamed but database update failed: ' + err.message });
-                    }
-                    
-                    console.log(`SUCCESS: Updated database for modelVersionId: ${modelVersionId}`);
-                    console.log(`=== FIX COMPLETED ===`);
-                    console.log(`Fix completed at: ${new Date().toISOString()}`);
-                    console.log(`=== END FIX ===\n`);
-                    
-                    res.json({ 
-                        success: true, 
-                        message: 'File renamed and database updated successfully',
-                        oldPath: filePath,
-                        newPath: newFilePath,
-                        dbFileName: dbFileName
-                    });
-                }
-            );
-        } catch (renameErr) {
-            console.log(`ERROR: File rename failed: ${renameErr.message}`);
-            return res.status(500).json({ error: 'File rename failed: ' + renameErr.message });
-        }
-    });
-});
-
-// Endpoint to validate downloaded files
-app.post('/api/validate-downloaded-files', (req, res) => {
-    console.log('=== VALIDATING DOWNLOADED FILES ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    
-    // Query to get all downloaded files (isDownloaded = 1)
-    const query = `
-        SELECT fileName, file_path, modelVersionId
-        FROM ALLCivitData
-        WHERE isDownloaded = 1
-    `;
-    
-    db.all(query, [], (err, rows) => {
-        if (err) {
-            console.log(`ERROR: Database query failed: ${err.message}`);
-            return res.status(500).json({ error: err.message });
-        }
-        
-        console.log(`Found ${rows.length} downloaded files to validate`);
-        
-        let validated = 0;
-        let mismatches = [];
-        let errors = [];
-        
-        // Process each file
-        rows.forEach((row, index) => {
-            const { fileName, file_path, modelVersionId } = row;
-            
-            try {
-                // Check if file_path exists
-                if (!file_path || !fs.existsSync(file_path)) {
-                    mismatches.push({
-                        fileName,
-                        modelVersionId,
-                        file_path,
-                        issue: 'File not found on disk',
-                        expectedPath: file_path
-                    });
-                    return;
-                }
-                
-                // Get the actual filename from the file_path
-                const actualFileName = path.basename(file_path);
-                
-                // Check if the filename in DB matches the actual filename
-                if (fileName !== actualFileName) {
-                    mismatches.push({
-                        fileName,
-                        modelVersionId,
-                        file_path,
-                        actualFileName,
-                        issue: 'Filename mismatch',
-                        expectedFileName: fileName
-                    });
-                    return;
-                }
-                
-                // Check if the file_path in DB matches the expected path structure
-                // This is a basic validation - you might want to add more specific checks
-                const expectedPath = file_path;
-                if (file_path !== expectedPath) {
-                    mismatches.push({
-                        fileName,
-                        modelVersionId,
-                        file_path,
-                        issue: 'Path structure mismatch',
-                        expectedPath: expectedPath
-                    });
-                    return;
-                }
-                
-                validated++;
-                
-                // Log progress every 100 files
-                if ((index + 1) % 100 === 0 || index === rows.length - 1) {
-                    console.log(`  Validated ${index + 1}/${rows.length} files`);
-                }
-                
-            } catch (error) {
-                errors.push({
-                    fileName,
-                    modelVersionId,
-                    error: error.message
-                });
-                console.log(`ERROR validating ${fileName}: ${error.message}`);
-            }
-        });
-        
-        console.log('=== VALIDATION COMPLETED ===');
-        console.log(`Files validated successfully: ${validated}`);
-        console.log(`Files with mismatches: ${mismatches.length}`);
-        console.log(`Errors encountered: ${errors.length}`);
-        console.log(`Validation completed at: ${new Date().toISOString()}`);
-        console.log('=== END VALIDATION ===\n');
-        
-        res.json({
-            validated,
-            mismatches,
-            errors,
-            total: rows.length
-        });
-    });
-});
-
-// Endpoint to find files not in database
-app.post('/api/find-missing-files', (req, res) => {
-    console.log('=== FINDING MISSING FILES ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    
-    const saveFilePath = path.join(__dirname, 'saved_path.json');
-    fs.readFile(saveFilePath, 'utf8', (err, data) => {
-        let paths = [];
-        if (!err) {
-            try {
-                const json = JSON.parse(data);
-                if (Array.isArray(json.paths)) {
-                    paths = json.paths;
-                }
-            } catch (e) {
-                console.log('Error parsing saved_path.json:', e.message);
-            }
-        }
-        
-        if (!paths.length) {
-            console.log('ERROR: No saved paths to scan');
-            return res.status(400).json({ error: 'No saved paths to scan.' });
-        }
-        
-        // Deduplicated, case-insensitive allowed extensions
-        const allowedExts = ['safetensors'];
-        console.log(`Scanning for files with extensions: ${allowedExts.join(', ')}`);
-        
-        function hasAllowedExt(filename) {
-            const ext = path.extname(filename).replace('.', '');
-            return allowedExts.some(e => e.toLowerCase() === ext.toLowerCase());
-        }
-        
-        // Get all files from the scanned paths
-        const allFiles = [];
-        const scanErrors = [];
-        
-        paths.forEach((p, pathIndex) => {
-            console.log(`\n--- Scanning path ${pathIndex + 1}/${paths.length}: ${p} ---`);
-            
-            const isValidWinPath = /^[a-zA-Z]:\\/.test(p);
-            if (!isValidWinPath) {
-                scanErrors.push({ path: p, error: 'Invalid full path format (should be like C:\\folder\\...)' });
-                console.log(`  ERROR: Invalid path format`);
-                return;
-            }
-            
-            if (!fs.existsSync(p)) {
-                scanErrors.push({ path: p, error: 'Directory does not exist' });
-                console.log(`  ERROR: Directory does not exist`);
-                return;
-            }
-            
-            if (!fs.statSync(p).isDirectory()) {
-                scanErrors.push({ path: p, error: 'Path is not a directory' });
-                console.log(`  ERROR: Path is not a directory`);
-                return;
-            }
-            
-            console.log(`  Path is valid, scanning for files...`);
-            
-            // Recursively get files
-            function getAllFiles(dirPath, arrayOfFiles = []) {
-                try {
-                    const files = fs.readdirSync(dirPath);
-                    files.forEach(file => {
-                        const fullPath = path.join(dirPath, file);
-                        if (fs.statSync(fullPath).isDirectory()) {
-                            getAllFiles(fullPath, arrayOfFiles);
-                        } else {
-                            if (hasAllowedExt(fullPath)) {
-                                arrayOfFiles.push(fullPath);
-                            }
-                        }
-                    });
-                } catch (e) {
-                    console.log(`    Error reading directory ${dirPath}: ${e.message}`);
-                    scanErrors.push({ path: dirPath, error: e.message });
-                }
-                return arrayOfFiles;
-            }
-            
-            const pathFiles = getAllFiles(p, []);
-            allFiles.push(...pathFiles);
-            console.log(`  Found ${pathFiles.length} matching files in this path`);
-        });
-        
-        console.log(`\nTotal files found: ${allFiles.length}`);
-        
-        if (allFiles.length === 0) {
-            console.log('No files found to check against database');
-            console.log('=== END FINDING MISSING FILES ===\n');
-            return res.json({ 
-                missingFiles: [], 
-                scanErrors, 
-                totalScanned: 0,
-                totalMissing: 0 
-            });
-        }
-        
-        // Get all filenames from database
-        db.all('SELECT fileName FROM ALLCivitData WHERE fileName IS NOT NULL AND fileName != ""', [], (err, rows) => {
-            if (err) {
-                console.log(`ERROR: Database query failed: ${err.message}`);
-                return res.status(500).json({ error: err.message });
-            }
-            
-            console.log(`Database contains ${rows.length} file records`);
-            const dbFileNames = rows.map(r => r.fileName ? r.fileName.toLowerCase() : '');
-            
-            // Find files that are not in the database
-            const missingFiles = [];
-            allFiles.forEach((filePath, index) => {
-                const fileName = path.basename(filePath);
-                const lowerFileName = fileName.toLowerCase();
-                
-                if (!dbFileNames.includes(lowerFileName)) {
-                    missingFiles.push({
-                        fullPath: filePath,
-                        fileName: fileName,
-                        directory: path.dirname(filePath)
-                    });
-                }
-                
-                // Log progress every 100 files
-                if ((index + 1) % 100 === 0 || index === allFiles.length - 1) {
-                    console.log(`  Processed ${index + 1}/${allFiles.length} files`);
-                }
-            });
-            
-            console.log('=== MISSING FILES CHECK COMPLETED ===');
-            console.log(`Files scanned: ${allFiles.length}`);
-            console.log(`Files in database: ${rows.length}`);
-            console.log(`Missing files found: ${missingFiles.length}`);
-            console.log(`Scan errors: ${scanErrors.length}`);
-            console.log(`Check completed at: ${new Date().toISOString()}`);
-            console.log('=== END FINDING MISSING FILES ===\n');
-            
-            res.json({
-                missingFiles,
-                scanErrors,
-                totalScanned: allFiles.length,
-                totalMissing: missingFiles.length,
-                totalInDatabase: rows.length
-            });
-        });
-    });
-});
-
-// Endpoint to compute SHA256 hash of a file
-app.post('/api/compute-file-hash', (req, res) => {
-    const { filePath } = req.body;
-    
-    if (!filePath) {
-        return res.status(400).json({ error: 'filePath is required' });
-    }
-    
-    console.log('=== COMPUTING FILE HASH ===');
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`File path: ${filePath}`);
-    
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-        console.log(`ERROR: File does not exist: ${filePath}`);
-        return res.status(404).json({ error: 'File not found' });
-    }
-    
-    try {
-        // Read file and compute SHA256 hash
-        const crypto = require('crypto');
-        const fileBuffer = fs.readFileSync(filePath);
-        const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-        
-        console.log(`SUCCESS: Hash computed for ${path.basename(filePath)}`);
-        console.log(`Hash: ${hash}`);
-        console.log(`=== HASH COMPUTATION COMPLETED ===`);
-        console.log(`Hash computation completed at: ${new Date().toISOString()}`);
-        console.log(`=== END HASH COMPUTATION ===\n`);
-        
-        res.json({ hash });
-        
+        res.json(fixResult);
     } catch (error) {
-        console.log(`ERROR: Hash computation failed: ${error.message}`);
-        return res.status(500).json({ error: 'Hash computation failed: ' + error.message });
+        if (error.message.includes('File not found')) {
+            res.status(404).json({ error: error.message });
+        } else if (error.message.includes('already exists')) {
+            res.status(409).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
     }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// Legacy download routes
+app.post('/api/download-model-file', timeoutMiddleware.download, validateDownloadRequest, async (req, res) => {
+    try {
+        const { url, fileName, baseModel, modelVersionId } = req.body;
+        
+        // Return immediately and process download in background
+        res.json({ success: true, message: 'Download queued' });
+        
+        // Add download task to queue
+        downloadQueue.add(async () => {
+            await downloadService.downloadModelFile(url, fileName, baseModel, modelVersionId);
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
+
+app.get('/api/download-status', timeoutMiddleware.quick, (req, res) => {
+    try {
+        const status = downloadQueue.getStatus();
+        res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/download-status/clear-errors', timeoutMiddleware.quick, (req, res) => {
+    try {
+        downloadQueue.clearErrors();
+        res.json({ message: 'Download errors cleared successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Database pool statistics endpoint
+app.get('/api/db-stats', timeoutMiddleware.quick, (req, res) => {
+    try {
+        const stats = databaseService.getPoolStats();
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Health check endpoint
+app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        api: {
+            latest: 'v1',
+            supported: ['v1']
+        }
+    });
+});
+
+// Graceful shutdown handling
+let server;
+
+function gracefulShutdown(signal) {
+    logger.info(`Received ${signal}, starting graceful shutdown`);
+    
+    if (server) {
+        server.close(async (err) => {
+            if (err) {
+                logger.error('Error during server shutdown', { error: err.message });
+                process.exit(1);
+            }
+            
+            logger.info('HTTP server closed');
+            
+            // Close database pool
+            try {
+                await dbPool.close();
+                logger.info('Database pool closed');
+            } catch (dbError) {
+                logger.error('Error closing database pool', { error: dbError.message });
+            }
+            
+            logger.info('Graceful shutdown completed');
+            process.exit(0);
+        });
+        
+        // Force close after 10 seconds
+        setTimeout(() => {
+            logger.error('Could not close connections in time, forcefully shutting down');
+            process.exit(1);
+        }, 10000);
+    } else {
+        process.exit(0);
+    }
+}
+
+// Handle different termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Start server with database validation
+async function startServer() {
+    try {
+        // Validate database connection before starting server
+        await validateDatabase();
+        
+        const PORT = SERVER_CONFIG.port;
+        server = app.listen(PORT, () => {
+            logger.info('Server started successfully', { port: PORT });
+        });
+    } catch (error) {
+        logger.error('Failed to start server', { error: error.message });
+        process.exit(1);
+    }
+}
+
+startServer(); 

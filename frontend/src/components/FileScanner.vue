@@ -11,6 +11,9 @@
         </li>
       </ul>
     </div>
+    <div v-else class="no-paths-message">
+      <p><strong>No saved paths found.</strong> Please add a directory path below to get started.</p>
+    </div>
     <input
       v-model="directoryPath"
       type="text"
@@ -149,8 +152,15 @@
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
+import { useErrorHandler } from '@/composables/useErrorHandler.js';
+
 export default {
   name: 'FileScanner',
+  setup() {
+    const errorHandler = useErrorHandler();
+    return { errorHandler };
+  },
   data() {
     return {
       directoryPath: '',
@@ -166,10 +176,48 @@ export default {
         { key: 'not-present', label: 'Not Present' }
       ],
       validatingFiles: false,
-      validationResults: null
+      validationResults: null,
+      // Race condition protection
+      pendingOperations: new Map(),
+      concurrentOperations: new Set()
     };
   },
   methods: {
+    // Race condition protection methods
+    cancelPendingOperation(operationId) {
+      const controller = this.pendingOperations.get(operationId);
+      if (controller) {
+        controller.abort();
+        this.pendingOperations.delete(operationId);
+        console.log(`Cancelled pending operation: ${operationId}`);
+      }
+    },
+    
+    createOperationController(operationId) {
+      const controller = new AbortController();
+      this.pendingOperations.set(operationId, controller);
+      return controller.signal;
+    },
+    
+    removeOperationController(operationId) {
+      this.pendingOperations.delete(operationId);
+    },
+    
+    isOperationInProgress(operationId) {
+      return this.concurrentOperations.has(operationId);
+    },
+    
+    startOperation(operationId) {
+      if (this.concurrentOperations.has(operationId)) {
+        throw new Error(`Operation ${operationId} is already in progress`);
+      }
+      this.concurrentOperations.add(operationId);
+    },
+    
+    endOperation(operationId) {
+      this.concurrentOperations.delete(operationId);
+    },
+    
     // New methods for tab functionality
     getTabFiles(tabKey) {
       return this.checkedFiles.filter(file => {
@@ -194,7 +242,7 @@ export default {
       } else if (!status || status === '') {
         return 'status-not-present';
       }
-      return '';
+      return 'status-unknown';
     },
     
     async savePath() {
@@ -203,77 +251,112 @@ export default {
         return;
       }
       try {
-        const response = await fetch('http://localhost:3000/api/save-path', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ path: this.directoryPath }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.message = 'Path saved successfully!';
-          this.fetchSavedPaths();
-          this.directoryPath = '';
-        } else {
-          this.message = data.error || 'Failed to save path.';
-        }
+        const data = await apiService.savePathLegacy(this.directoryPath);
+        this.message = 'Path saved successfully!';
+        this.errorHandler.handleSuccess('Path saved successfully');
+        this.fetchSavedPaths();
+        this.directoryPath = '';
       } catch (error) {
+        this.errorHandler.handleError(error, 'saving path');
         this.message = 'Error: ' + error.message;
       }
     },
     async fetchSavedPaths() {
       try {
-        const response = await fetch('http://localhost:3000/api/saved-path');
-        const data = await response.json();
+        const data = await apiService.getSavedPathsLegacy();
+        console.log('Fetched saved paths:', data);
         if (Array.isArray(data.paths)) {
           this.savedPaths = data.paths;
+          console.log('Saved paths loaded:', this.savedPaths);
         } else {
           this.savedPaths = [];
+          console.log('No saved paths found or invalid format');
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'fetching saved paths', { showNotification: false });
         this.savedPaths = [];
       }
     },
     async deletePath(path) {
       try {
-        const response = await fetch('http://localhost:3000/api/saved-path', {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ path }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.message = 'Path deleted successfully!';
-          this.fetchSavedPaths();
-        } else {
-          this.message = data.error || 'Failed to delete path.';
-        }
+        const data = await apiService.deletePathLegacy(path);
+        this.message = 'Path deleted successfully!';
+        this.errorHandler.handleSuccess('Path deleted successfully');
+        this.fetchSavedPaths();
       } catch (error) {
+        this.errorHandler.handleError(error, 'deleting path');
         this.message = 'Error: ' + error.message;
       }
     },
     async startScan() {
-      this.message = '';
+      const operationId = 'startScan';
+      
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Scan operation already in progress, skipping...');
+        return;
+      }
+      
+      // Check if there are saved paths to scan
+      if (!this.savedPaths || this.savedPaths.length === 0) {
+        this.message = 'No saved paths to scan. Please add some paths first.';
+        this.errorHandler.handleWarning('No saved paths to scan. Please add some paths first.');
+        return;
+      }
+      
+      // Cancel any existing scan operation
+      this.cancelPendingOperation(operationId);
+      
+      this.startOperation(operationId);
+      this.scanStatus = 'scanning';
+      this.message = 'Scanning...';
       this.checkedFiles = [];
-      this.scanStatus = '';
-      this.activeTab = 'present'; // Reset to first tab
+      
       try {
-        const response = await fetch('http://localhost:3000/api/start-scan', { method: 'POST' });
-        const data = await response.json();
-        if (data.results) {
+        const signal = this.createOperationController(operationId);
+        const response = await apiService.startScan({ signal });
+        
+        console.log('Scan API response:', response);
+        
+        // Update results if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
           this.scanStatus = 'done';
-          await this.checkFilesInDb(data.results);
-        } else {
-          this.message = data.error || 'Failed to start scan.';
+          this.message = 'Scan completed!';
+          
+          // Handle the correct response structure: { results: [...] }
+          const scanData = response.results || response;
+          console.log('Starting checkFilesInDb with data:', scanData);
+          await this.checkFilesInDb(scanData);
+          console.log('After checkFilesInDb, checkedFiles:', this.checkedFiles);
         }
+        
       } catch (error) {
-        this.message = 'Error: ' + error.message;
+        if (error.name === 'AbortError') {
+          console.log('Scan operation was cancelled');
+          return;
+        }
+        this.errorHandler.handleError(error, 'starting scan');
+        this.scanStatus = 'error';
+        this.message = 'Scan failed!';
+      } finally {
+        this.endOperation(operationId);
+        this.removeOperationController(operationId);
       }
     },
     async checkFilesInDb(scanResults) {
+      const operationId = 'checkFilesInDb';
+      
+      if (this.isOperationInProgress(operationId)) {
+        console.log('File check operation already in progress, skipping...');
+        return;
+      }
+      
+      // Cancel any existing check operation
+      this.cancelPendingOperation(operationId);
+      
+      this.startOperation(operationId);
+      
+      console.log('checkFilesInDb received scanResults:', scanResults);
+      
       // Get files from the scan results
       let files = [];
       if (scanResults && Array.isArray(scanResults)) {
@@ -287,45 +370,62 @@ export default {
         }
       }
       
+      console.log('Extracted files from scanResults:', files);
+      
       if (!files.length) {
+        console.log('No files found, setting empty checkedFiles');
         this.checkedFiles = [];
+        this.endOperation(operationId);
         return;
       }
+      
       try {
-        const response = await fetch('http://localhost:3000/api/check-files-in-db', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files })
-        });
-        const data = await response.json();
-        if (Array.isArray(data.results)) {
-          this.checkedFiles = data.results;
-        } else {
-          this.checkedFiles = [];
+        const signal = this.createOperationController(operationId);
+        const data = await apiService.checkFilesInDb(files, { signal });
+        
+        console.log('checkFilesInDb API response:', data);
+        
+        // Update results if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
+          if (Array.isArray(data.results)) {
+            this.checkedFiles = data.results;
+            console.log('Updated checkedFiles with results:', this.checkedFiles);
+          } else {
+            this.checkedFiles = [];
+            console.log('No results array, setting empty checkedFiles');
+          }
         }
       } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('File check operation was cancelled');
+          return;
+        }
+        this.errorHandler.handleError(error, 'checking files in database', { showNotification: false });
         this.checkedFiles = [];
+      } finally {
+        this.endOperation(operationId);
+        this.removeOperationController(operationId);
       }
     },
     async markDownloaded() {
       this.markingDownloaded = true;
       this.markDownloadedMsg = '';
       try {
-        const response = await fetch('http://localhost:3000/api/mark-downloaded', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: this.checkedFiles })
-        });
-        const data = await response.json();
-        if (response.ok && typeof data.updated === 'number') {
+        const data = await apiService.markDownloaded(this.checkedFiles);
+        if (typeof data.updated === 'number') {
           this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
+          this.errorHandler.handleSuccess(`Updated ${data.updated} row(s) in database`);
           if (data.errors && data.errors.length) {
             this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+            this.errorHandler.handleWarning(`Some files had errors: ${data.errors.length} errors encountered`);
           }
         } else {
-          this.markDownloadedMsg = data.error || 'Failed to update DB.';
+          const errorMsg = data.error || 'Failed to update DB.';
+          this.markDownloadedMsg = errorMsg;
+          this.errorHandler.handleError(new Error(errorMsg), 'marking files as downloaded');
         }
       } catch (error) {
+        this.errorHandler.handleError(error, 'marking files as downloaded');
         this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {
         this.markingDownloaded = false;
@@ -336,24 +436,20 @@ export default {
       this.markDownloadedMsg = '';
       this.validationResults = null; // Clear previous results
       try {
-        const response = await fetch('http://localhost:3000/api/validate-downloaded-files', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await response.json();
-        if (response.ok) {
-          this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
-          if (data.mismatches && data.mismatches.length > 0) {
-            this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
-          }
-          if (data.errors && data.errors.length > 0) {
-            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-          }
-          this.validationResults = data; // Store the full validation results
-        } else {
-          this.markDownloadedMsg = data.error || 'Failed to validate files.';
+        const data = await apiService.validateDownloadedFiles();
+        this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
+        this.errorHandler.handleSuccess(`Validation completed: ${data.validated} files validated`);
+        if (data.mismatches && data.mismatches.length > 0) {
+          this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
+          this.errorHandler.handleWarning(`Found ${data.mismatches.length} file mismatches`);
         }
+        if (data.errors && data.errors.length > 0) {
+          this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
+          this.errorHandler.handleWarning(`Validation encountered ${data.errors.length} errors`);
+        }
+        this.validationResults = data; // Store the full validation results
       } catch (error) {
+        this.errorHandler.handleError(error, 'validating downloaded files');
         this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {
         this.validatingFiles = false;
@@ -363,6 +459,19 @@ export default {
   mounted() {
     this.fetchSavedPaths();
   },
+  beforeUnmount() {
+    // Cancel all pending operations
+    this.pendingOperations.forEach((controller, operationId) => {
+      controller.abort();
+      console.log(`Cancelled pending operation: ${operationId}`);
+    });
+    this.pendingOperations.clear();
+    
+    // Clear concurrent operations
+    this.concurrentOperations.clear();
+    
+    console.log('FileScanner component unmounted, all cleanup completed');
+  }
 };
 </script>
 
@@ -543,5 +652,12 @@ progress {
 .error-message {
   color: #d9534f;
   font-weight: bold;
+}
+.no-paths-message {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f9f9f9;
+  border-radius: 5px;
+  text-align: center;
 }
 </style> 

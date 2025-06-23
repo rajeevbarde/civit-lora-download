@@ -1,0 +1,70 @@
+const express = require('express');
+const router = express.Router();
+const databaseService = require('../../services/databaseService');
+const { validatePagination, validateModelVersionId } = require('../../middleware/validation');
+
+// Get models with pagination and filters
+router.get('/', validatePagination, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 20;
+        const filters = {
+            basemodel: req.query.basemodel,
+            isDownloaded: req.query.isDownloaded,
+            modelVersionId: req.query.modelVersionId
+        };
+
+        const result = await databaseService.getModels(page, limit, filters);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get model detail by modelVersionId
+router.get('/detail/:id', validateModelVersionId, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const model = await databaseService.getModelDetail(id);
+        
+        if (!model) {
+            return res.status(404).json({ error: 'Model not found' });
+        }
+        
+        res.json(model);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all base models
+router.get('/basemodels', async (req, res) => {
+    try {
+        const result = await databaseService.getBaseModels();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get summary matrix
+router.get('/summary-matrix', async (req, res) => {
+    try {
+        const result = await databaseService.getSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get downloaded summary matrix
+router.get('/summary-matrix-downloaded', async (req, res) => {
+    try {
+        const result = await databaseService.getDownloadedSummaryMatrix();
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+module.exports = router; 

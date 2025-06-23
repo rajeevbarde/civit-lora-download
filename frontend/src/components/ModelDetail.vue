@@ -41,11 +41,14 @@
 
 
 <script>
-
-import axios from 'axios';
-
+import { useRoute } from 'vue-router';
+import { apiService } from '@/utils/api.js';
 
 export default {
+  setup() {
+    const route = useRoute();
+    return { route };
+  },
   data() {
     return {
       model: null,
@@ -59,14 +62,14 @@ export default {
   methods: {
     async fetchModelDetails() {
       try {
-        const id = Number(this.$route.params.id);
+        const id = Number(this.route.params.id);
         if (isNaN(id)) {
           throw new Error("Invalid model ID");
         }
 
         // Fetch from your API
-        const response = await axios.get(`http://localhost:3000/api/modeldetail/${id}`);
-        this.model = response.data;
+        const response = await apiService.getModelDetail(id);
+        this.model = response;
 
       } catch (err) {
         console.error(err);

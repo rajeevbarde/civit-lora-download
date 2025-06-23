@@ -36,7 +36,7 @@ WHERE
     AND m.type = 'LORA'
      --AND t.tag LIKE '%family guy%'
     -- AND mv.basemodeltype != 'Standard'
-    -- AND m.nsfw = 1
+    -- AND m.nsfw = 0
     ORDER BY mv.downloadCount DESC, mv.model_id DESC   
 ) AS temp_table
 JOIN new_tags_table t ON temp_table.modelId = t.model_id
@@ -82,6 +82,6 @@ WHERE
     f.type NOT IN ('Training Data', 'Archive', 'Config', 'Text Encoder')
     AND f.format NOT IN ('pt', 'ONNX', 'Diffusers', 'Core ML')
    -- AND f.modelVersion_id = 1213
-    AND t.tag LIKE '%sex%';
+    AND t.tag LIKE '%test%';
     
     */

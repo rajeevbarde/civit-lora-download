@@ -1,0 +1,474 @@
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { ALLOWED_EXTENSIONS, PATHS } = require('../config/constants');
+const logger = require('../utils/logger');
+
+class FileService {
+    // Check if file has allowed extension
+    hasAllowedExt(filename) {
+        const ext = path.extname(filename).replace('.', '');
+        return ALLOWED_EXTENSIONS.some(e => e.toLowerCase() === ext.toLowerCase());
+    }
+
+    // Recursively get all files from directory with proper error handling
+    getAllFiles(dirPath, arrayOfFiles = []) {
+        try {
+            // Check if directory exists and is accessible
+            if (!fs.existsSync(dirPath)) {
+                logger.warn('Directory does not exist', { path: dirPath });
+                return arrayOfFiles;
+            }
+
+            const stats = fs.statSync(dirPath);
+            if (!stats.isDirectory()) {
+                logger.warn('Path is not a directory', { path: dirPath });
+                return arrayOfFiles;
+            }
+
+            const files = fs.readdirSync(dirPath);
+            
+            for (const file of files) {
+                try {
+                    const fullPath = path.join(dirPath, file);
+                    const fileStats = fs.statSync(fullPath);
+                    
+                    if (fileStats.isDirectory()) {
+                        this.getAllFiles(fullPath, arrayOfFiles);
+                    } else {
+                        if (this.hasAllowedExt(fullPath)) {
+                            arrayOfFiles.push(fullPath);
+                        }
+                    }
+                } catch (fileError) {
+                    logger.warn('Error processing file in directory', { 
+                        file, 
+                        directory: dirPath, 
+                        error: fileError.message 
+                    });
+                    // Continue with other files
+                }
+            }
+        } catch (error) {
+            logger.error('Error reading directory', { 
+                path: dirPath, 
+                error: error.message 
+            });
+        }
+        return arrayOfFiles;
+    }
+
+    // Validate Windows path format
+    isValidWindowsPath(pathStr) {
+        return /^[a-zA-Z]:\\/.test(pathStr);
+    }
+
+    // Check if path exists and is directory with proper error handling
+    validatePath(pathStr) {
+        try {
+            if (!this.isValidWindowsPath(pathStr)) {
+                return { valid: false, error: 'Invalid full path format (should be like C:\\folder\\...)' };
+            }
+            
+            if (!fs.existsSync(pathStr)) {
+                return { valid: false, error: 'Directory does not exist' };
+            }
+            
+            const stats = fs.statSync(pathStr);
+            if (!stats.isDirectory()) {
+                return { valid: false, error: 'Path is not a directory' };
+            }
+            
+            // Check if directory is readable
+            try {
+                fs.accessSync(pathStr, fs.constants.R_OK);
+            } catch (accessError) {
+                return { valid: false, error: 'Directory is not readable (permission denied)' };
+            }
+            
+            return { valid: true };
+        } catch (error) {
+            return { valid: false, error: `Path validation failed: ${error.message}` };
+        }
+    }
+
+    // Scan directories for files with proper error handling
+    async scanDirectories(paths) {
+        logger.info('Starting directory scan', { pathCount: paths.length });
+
+        const results = paths.map((p, pathIndex) => {
+            logger.info(`Scanning path ${pathIndex + 1}/${paths.length}`, { path: p });
+            
+            let result = { path: p, files: [], error: null };
+            
+            const validation = this.validatePath(p);
+            if (!validation.valid) {
+                result.error = validation.error;
+                logger.warn('Path validation failed', { path: p, error: validation.error });
+            } else {
+                logger.debug('Path is valid, scanning for files', { path: p });
+                result.files = this.getAllFiles(p, []);
+                logger.info('Scan completed for path', { 
+                    path: p, 
+                    fileCount: result.files.length 
+                });
+            }
+            return result;
+        });
+
+        const totalFilesFound = results.reduce((sum, result) => sum + (result.files ? result.files.length : 0), 0);
+        const successfulPaths = results.filter(r => !r.error).length;
+        const failedPaths = results.filter(r => r.error).length;
+
+        logger.info('Directory scan completed', {
+            totalPaths: paths.length,
+            successfulPaths,
+            failedPaths,
+            totalFilesFound
+        });
+
+        return results;
+    }
+
+    // Check files against database with proper error handling
+    async checkFilesInDatabase(files, dbFileNames) {
+        logger.info('Checking files against database', { fileCount: files.length });
+
+        const results = files.map((f, index) => {
+            try {
+                const lowerBase = (f.baseName || '').toLowerCase();
+                let status = '';
+                if (dbFileNames.includes(lowerBase)) {
+                    status = 'Present';
+                }
+
+                // Log progress every 100 files
+                if ((index + 1) % 100 === 0 || index === files.length - 1) {
+                    logger.debug('Database check progress', { 
+                        processed: index + 1, 
+                        total: files.length 
+                    });
+                }
+
+                return {
+                    fullPath: f.fullPath,
+                    baseName: f.baseName,
+                    status
+                };
+            } catch (error) {
+                logger.error('Error processing file in database check', { 
+                    file: f.baseName, 
+                    error: error.message 
+                });
+                return {
+                    fullPath: f.fullPath,
+                    baseName: f.baseName,
+                    status: '',
+                    error: error.message
+                };
+            }
+        });
+
+        const presentCount = results.filter(r => r.status === 'Present').length;
+        const notFoundCount = results.filter(r => !r.status || r.status === '').length;
+
+        logger.info('Database check completed', {
+            totalFiles: files.length,
+            presentInDB: presentCount,
+            notFoundInDB: notFoundCount
+        });
+
+        return results;
+    }
+
+    // Validate downloaded files with proper error handling
+    async validateDownloadedFiles(downloadedFiles) {
+        logger.info('Validating downloaded files', { fileCount: downloadedFiles.length });
+
+        let validated = 0;
+        let mismatches = [];
+        let errors = [];
+
+        // Process each file
+        for (let index = 0; index < downloadedFiles.length; index++) {
+            const row = downloadedFiles[index];
+            const { fileName, file_path, modelVersionId } = row;
+
+            try {
+                // Check if file_path exists
+                if (!file_path) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        issue: 'No file path in database'
+                    });
+                    continue;
+                }
+
+                if (!fs.existsSync(file_path)) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        issue: 'File not found on disk'
+                    });
+                    continue;
+                }
+
+                // Get the actual filename from the file_path
+                const actualFileName = path.basename(file_path);
+
+                // Check if the filename in DB matches the actual filename
+                if (fileName !== actualFileName) {
+                    mismatches.push({
+                        fileName,
+                        modelVersionId,
+                        file_path,
+                        actualFileName,
+                        issue: 'Filename mismatch'
+                    });
+                    continue;
+                }
+
+                validated++;
+
+                // Log progress every 100 files
+                if ((index + 1) % 100 === 0 || index === downloadedFiles.length - 1) {
+                    logger.debug('File validation progress', { 
+                        validated: index + 1, 
+                        total: downloadedFiles.length 
+                    });
+                }
+
+            } catch (error) {
+                errors.push({
+                    fileName,
+                    modelVersionId,
+                    error: error.message
+                });
+                logger.error('Error validating file', { 
+                    fileName, 
+                    modelVersionId, 
+                    error: error.message 
+                });
+            }
+        }
+
+        logger.info('File validation completed', {
+            totalFiles: downloadedFiles.length,
+            validated,
+            mismatches: mismatches.length,
+            errors: errors.length
+        });
+
+        return {
+            validated,
+            mismatches,
+            errors,
+            total: downloadedFiles.length
+        };
+    }
+
+    // Find missing files with proper error handling
+    async findMissingFiles(paths, dbFileNames) {
+        logger.info('Finding missing files', { pathCount: paths.length });
+
+        if (!paths.length) {
+            logger.error('No saved paths to scan');
+            throw new Error('No saved paths to scan.');
+        }
+
+        // Get all files from the scanned paths
+        const allFiles = [];
+        const scanErrors = [];
+
+        for (let pathIndex = 0; pathIndex < paths.length; pathIndex++) {
+            const p = paths[pathIndex];
+            logger.info(`Scanning path ${pathIndex + 1}/${paths.length}`, { path: p });
+
+            const validation = this.validatePath(p);
+            if (!validation.valid) {
+                scanErrors.push({ path: p, error: validation.error });
+                logger.warn('Path validation failed', { path: p, error: validation.error });
+                continue;
+            }
+
+            logger.debug('Path is valid, scanning for files', { path: p });
+            const pathFiles = this.getAllFiles(p, []);
+            allFiles.push(...pathFiles);
+            logger.info('Path scan completed', { path: p, fileCount: pathFiles.length });
+        }
+
+        logger.info('File scanning completed', { 
+            totalFiles: allFiles.length, 
+            scanErrors: scanErrors.length 
+        });
+
+        if (allFiles.length === 0) {
+            logger.warn('No files found to check against database');
+            return {
+                missingFiles: [],
+                scanErrors,
+                totalScanned: 0,
+                totalMissing: 0
+            };
+        }
+
+        // Find files that are not in the database
+        const missingFiles = [];
+        for (let index = 0; index < allFiles.length; index++) {
+            try {
+                const filePath = allFiles[index];
+                const fileName = path.basename(filePath);
+                const lowerFileName = fileName.toLowerCase();
+
+                if (!dbFileNames.includes(lowerFileName)) {
+                    missingFiles.push({
+                        fullPath: filePath,
+                        fileName: fileName,
+                        directory: path.dirname(filePath)
+                    });
+                }
+
+                // Log progress every 100 files
+                if ((index + 1) % 100 === 0 || index === allFiles.length - 1) {
+                    logger.debug('Missing files check progress', { 
+                        processed: index + 1, 
+                        total: allFiles.length 
+                    });
+                }
+            } catch (error) {
+                logger.error('Error processing file in missing files check', { 
+                    file: allFiles[index], 
+                    error: error.message 
+                });
+            }
+        }
+
+        logger.info('Missing files check completed', {
+            filesScanned: allFiles.length,
+            filesInDatabase: dbFileNames.length,
+            missingFiles: missingFiles.length,
+            scanErrors: scanErrors.length
+        });
+
+        return {
+            missingFiles,
+            scanErrors,
+            totalScanned: allFiles.length,
+            totalMissing: missingFiles.length,
+            totalInDatabase: dbFileNames.length
+        };
+    }
+
+    // Compute SHA256 hash of a file with proper error handling
+    async computeFileHash(filePath) {
+        logger.info('Computing file hash', { filePath });
+
+        try {
+            // Check if file exists
+            if (!fs.existsSync(filePath)) {
+                logger.error('File does not exist', { filePath });
+                throw new Error('File not found');
+            }
+
+            // Check if file is readable
+            try {
+                fs.accessSync(filePath, fs.constants.R_OK);
+            } catch (accessError) {
+                logger.error('File is not readable', { filePath, error: accessError.message });
+                throw new Error('File is not readable (permission denied)');
+            }
+
+            // Get file stats to check size
+            const stats = fs.statSync(filePath);
+            if (stats.size === 0) {
+                logger.warn('File is empty', { filePath });
+                throw new Error('File is empty');
+            }
+
+            // Read file and compute SHA256 hash
+            const fileBuffer = fs.readFileSync(filePath);
+            const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+            logger.info('Hash computed successfully', { 
+                fileName: path.basename(filePath),
+                fileSize: stats.size,
+                hash: hash.substring(0, 16) + '...' // Log only first 16 chars for security
+            });
+
+            return { hash };
+        } catch (error) {
+            logger.error('Hash computation failed', { filePath, error: error.message });
+            throw new Error('Hash computation failed: ' + error.message);
+        }
+    }
+
+    // Fix file by renaming and updating database with proper error handling
+    async fixFile(modelVersionId, filePath, dbFileName) {
+        logger.info('Fixing file', { modelVersionId, filePath, dbFileName });
+
+        try {
+            // Check if the file exists
+            if (!fs.existsSync(filePath)) {
+                logger.error('File does not exist', { filePath });
+                throw new Error('File not found on disk');
+            }
+
+            // Check if file is writable
+            try {
+                fs.accessSync(filePath, fs.constants.W_OK);
+            } catch (accessError) {
+                logger.error('File is not writable', { filePath, error: accessError.message });
+                throw new Error('File is not writable (permission denied)');
+            }
+
+            // Get directory and extension from the original file
+            const dir = path.dirname(filePath);
+            const ext = path.extname(filePath);
+
+            // Construct new file path with DB filename
+            const newFilePath = path.join(dir, dbFileName);
+
+            // Check if target file already exists
+            if (fs.existsSync(newFilePath)) {
+                logger.error('Target file already exists', { newFilePath });
+                throw new Error('Target file already exists');
+            }
+
+            // Check if target directory is writable
+            try {
+                fs.accessSync(dir, fs.constants.W_OK);
+            } catch (accessError) {
+                logger.error('Target directory is not writable', { dir, error: accessError.message });
+                throw new Error('Target directory is not writable (permission denied)');
+            }
+
+            // Rename the file
+            fs.renameSync(filePath, newFilePath);
+            
+            logger.info('File renamed successfully', { 
+                oldPath: filePath, 
+                newPath: newFilePath 
+            });
+
+            return {
+                success: true,
+                message: 'File renamed successfully',
+                oldPath: filePath,
+                newPath: newFilePath,
+                dbFileName: dbFileName
+            };
+        } catch (error) {
+            logger.error('File rename failed', { 
+                filePath, 
+                dbFileName, 
+                error: error.message 
+            });
+            throw new Error('File rename failed: ' + error.message);
+        }
+    }
+}
+
+module.exports = new FileService(); 

@@ -85,43 +85,126 @@
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
+import { useErrorHandler } from '@/composables/useErrorHandler.js';
+
 export default {
   name: 'CivitDataFetcher',
+  setup() {
+    const errorHandler = useErrorHandler();
+    return { errorHandler };
+  },
   data() {
     return {
       isScanning: false,
-      scanResults: null
+      scanResults: null,
+      // Race condition protection
+      processingFiles: new Set(),
+      pendingOperations: new Map(),
+      concurrentOperations: new Set()
     }
   },
   methods: {
+    // Race condition protection methods
+    cancelPendingOperation(operationId) {
+      const controller = this.pendingOperations.get(operationId);
+      if (controller) {
+        controller.abort();
+        this.pendingOperations.delete(operationId);
+        console.log(`Cancelled pending operation: ${operationId}`);
+      }
+    },
+    
+    createOperationController(operationId) {
+      const controller = new AbortController();
+      this.pendingOperations.set(operationId, controller);
+      return controller.signal;
+    },
+    
+    removeOperationController(operationId) {
+      this.pendingOperations.delete(operationId);
+    },
+    
+    isOperationInProgress(operationId) {
+      return this.concurrentOperations.has(operationId);
+    },
+    
+    startOperation(operationId) {
+      if (this.concurrentOperations.has(operationId)) {
+        throw new Error(`Operation ${operationId} is already in progress`);
+      }
+      this.concurrentOperations.add(operationId);
+    },
+    
+    endOperation(operationId) {
+      this.concurrentOperations.delete(operationId);
+    },
+    
+    isFileProcessing(filePath) {
+      return this.processingFiles.has(filePath);
+    },
+    
+    startFileProcessing(filePath) {
+      if (this.processingFiles.has(filePath)) {
+        throw new Error(`File ${filePath} is already being processed`);
+      }
+      this.processingFiles.add(filePath);
+    },
+    
+    endFileProcessing(filePath) {
+      this.processingFiles.delete(filePath);
+    },
+    
     async scanForMissingFiles() {
+      const operationId = 'scanForMissingFiles';
+      
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Scan operation already in progress, skipping...');
+        return;
+      }
+      
+      // Cancel any existing scan operation
+      this.cancelPendingOperation(operationId);
+      
+      this.startOperation(operationId);
       this.isScanning = true;
       this.scanResults = null;
       
       try {
-        const response = await fetch('http://localhost:3000/api/find-missing-files', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+        const signal = this.createOperationController(operationId);
+        const data = await apiService.findMissingFiles({ signal });
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        console.log('Find missing files API response:', data);
+        
+        // Update results if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
+          this.scanResults = data;
+          this.errorHandler.handleSuccess('Scan completed successfully');
+          console.log('Scan results updated:', this.scanResults);
         }
         
-        const data = await response.json();
-        this.scanResults = data;
-        
       } catch (error) {
-        console.error('Error scanning for missing files:', error);
-        alert('Error scanning for missing files: ' + error.message);
+        if (error.name === 'AbortError') {
+          console.log('Scan operation was cancelled');
+          return;
+        }
+        this.errorHandler.handleError(error, 'scanning for missing files');
       } finally {
         this.isScanning = false;
+        this.removeOperationController(operationId);
+        this.endOperation(operationId);
       }
     },
     
     async fixFile(file) {
+      // Prevent concurrent operations on the same file
+      if (this.isFileProcessing(file.fullPath)) {
+        console.log(`File ${file.fileName} is already being processed, skipping...`);
+        return;
+      }
+      
+      this.startFileProcessing(file.fullPath);
+      
       // Set processing status
       file.status = 'processing';
       
@@ -135,56 +218,35 @@ export default {
         console.log(`Model Version ID for ${file.fileName}: ${modelVersionId}`);
         
         // Step 3: Call the fix-file API
-        const response = await fetch('http://localhost:3000/api/fix-file', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            modelVersionId: modelVersionId,
-            filePath: file.fullPath
-          })
+        const result = await apiService.fixFile({
+          modelVersionId: modelVersionId,
+          filePath: file.fullPath
         });
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
         console.log('File fixed successfully:', result);
         
         // Set success status
         file.status = 'success';
+        this.errorHandler.handleSuccess(`File ${file.fileName} fixed successfully`);
         
       } catch (error) {
         console.error('Error fixing file:', error);
         file.status = 'error';
         file.errorMessage = error.message;
+        this.errorHandler.handleError(error, `fixing file ${file.fileName}`, { showNotification: false });
+      } finally {
+        this.endFileProcessing(file.fullPath);
       }
     },
     
     async computeFileHash(filePath) {
       try {
         // Use backend endpoint to compute hash
-        const response = await fetch('http://localhost:3000/api/compute-file-hash', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ filePath })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+        const data = await apiService.computeFileHash(filePath);
         return data.hash;
         
       } catch (error) {
-        console.error('Error computing hash:', error);
+        this.errorHandler.handleError(error, 'computing file hash');
         throw new Error(`Failed to compute file hash: ${error.message}`);
       }
     },
@@ -210,10 +272,26 @@ export default {
         return modelVersionId;
         
       } catch (error) {
-        console.error('Error fetching model version ID:', error);
+        this.errorHandler.handleError(error, 'fetching model version ID from CivitAI');
         throw new Error(`Failed to fetch model version ID: ${error.message}`);
       }
     }
+  },
+  beforeUnmount() {
+    // Cancel all pending operations
+    this.pendingOperations.forEach((controller, operationId) => {
+      controller.abort();
+      console.log(`Cancelled pending operation: ${operationId}`);
+    });
+    this.pendingOperations.clear();
+    
+    // Clear processing states
+    this.processingFiles.clear();
+    
+    // Clear concurrent operations
+    this.concurrentOperations.clear();
+    
+    console.log('CivitDataFetcher component unmounted, all cleanup completed');
   }
 }
 </script>
