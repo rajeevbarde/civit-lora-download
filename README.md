@@ -1,5 +1,7 @@
 # civit-lora-download
 
+civit-lora-download is a Node.js-based application for managing and interacting with a SQLite database of model data (ALLCivitData). It provides both backend and frontend components, enabling users to fetch, view, and manage model information through a web interface. Setup involves downloading a pre-existing SQLite database, running a provided SQL script to prepare the required table, and launching both servers via a single batch file for streamlined operation.
+
 ## Prerequisites
 - Node.js v20 must be installed on your system. [Download Node.js here](https://nodejs.org/en/download)
 

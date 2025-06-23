@@ -42,6 +42,10 @@ WHERE
 JOIN new_tags_table t ON temp_table.modelId = t.model_id
 ORDER BY temp_table.modelVersionDownloadCount DESC;
 
+-- Add new columns after table creation
+ALTER TABLE ALLCivitData ADD COLUMN isDownloaded INTEGER;
+ALTER TABLE ALLCivitData ADD COLUMN file_path TEXT;
+
 /*
 SELECT 
     f.id,
