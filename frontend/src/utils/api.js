@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with default configuration
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: 'http://localhost:3000/api/v1',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -72,14 +72,14 @@ export const apiService = {
   },
 
   async getModelDetail(modelVersionId, options = {}) {
-    const response = await api.get(`/modeldetail/${modelVersionId}`, {
+    const response = await api.get(`/models/detail/${modelVersionId}`, {
       signal: options.signal
     });
     return response.data;
   },
 
   async getBaseModels(options = {}) {
-    const response = await api.get('/basemodels', {
+    const response = await api.get('/models/basemodels', {
       signal: options.signal
     });
     return response.data;
@@ -87,14 +87,14 @@ export const apiService = {
 
   // Downloads
   async downloadModelFile(downloadData, options = {}) {
-    const response = await api.post('/download-model-file', downloadData, {
+    const response = await api.post('/downloads', downloadData, {
       signal: options.signal
     });
     return response.data;
   },
 
   async getDownloadStatus(options = {}) {
-    const response = await api.get('/download-status', {
+    const response = await api.get('/downloads/status', {
       signal: options.signal
     });
     return response.data;
@@ -102,21 +102,21 @@ export const apiService = {
 
   // File operations
   async findMissingFiles(options = {}) {
-    const response = await api.post('/find-missing-files', {}, {
+    const response = await api.post('/files/find-missing', {}, {
       signal: options.signal
     });
     return response.data;
   },
 
   async fixFile(fixData, options = {}) {
-    const response = await api.post('/fix-file', fixData, {
+    const response = await api.post('/files/fix', fixData, {
       signal: options.signal
     });
     return response.data;
   },
 
   async computeFileHash(filePath, options = {}) {
-    const response = await api.post('/compute-file-hash', { filePath }, {
+    const response = await api.post('/files/compute-hash', { filePath }, {
       signal: options.signal
     });
     return response.data;
@@ -146,43 +146,43 @@ export const apiService = {
   },
 
   async scanPaths(options = {}) {
-    const response = await api.post('/scan-paths', {}, {
+    const response = await api.post('/files/scan', {}, {
       signal: options.signal
     });
     return response.data;
   },
 
   async markDownloaded(files, options = {}) {
-    const response = await api.post('/mark-downloaded', { files }, {
+    const response = await api.post('/files/mark-downloaded', { files }, {
       signal: options.signal
     });
     return response.data;
   },
 
   async validateDownloadedFiles(options = {}) {
-    const response = await api.post('/validate-downloaded-files', {}, {
+    const response = await api.post('/files/validate', {}, {
       signal: options.signal
     });
     return response.data;
   },
 
-  // Additional methods for FileScanner
+  // Additional methods for FileScanner - updated to use v1 routes
   async savePathLegacy(path, options = {}) {
-    const response = await api.post('/save-path', { path }, {
+    const response = await api.post('/paths', { path }, {
       signal: options.signal
     });
     return response.data;
   },
 
   async getSavedPathsLegacy(options = {}) {
-    const response = await api.get('/saved-path', {
+    const response = await api.get('/paths', {
       signal: options.signal
     });
     return response.data;
   },
 
   async deletePathLegacy(path, options = {}) {
-    const response = await api.delete('/saved-path', { 
+    const response = await api.delete('/paths', { 
       data: { path },
       signal: options.signal
     });
@@ -190,14 +190,14 @@ export const apiService = {
   },
 
   async startScan(options = {}) {
-    const response = await api.post('/start-scan', {}, {
+    const response = await api.post('/files/scan', {}, {
       signal: options.signal
     });
     return response.data;
   },
 
   async checkFilesInDb(files, options = {}) {
-    const response = await api.post('/check-files-in-db', { files }, {
+    const response = await api.post('/files/check', { files }, {
       signal: options.signal
     });
     return response.data;
@@ -205,14 +205,14 @@ export const apiService = {
 
   // Summary
   async getSummaryMatrix(options = {}) {
-    const response = await api.get('/summary-matrix', {
+    const response = await api.get('/models/summary-matrix', {
       signal: options.signal
     });
     return response.data;
   },
 
   async getSummaryMatrixDownloaded(options = {}) {
-    const response = await api.get('/summary-matrix-downloaded', {
+    const response = await api.get('/models/summary-matrix-downloaded', {
       signal: options.signal
     });
     return response.data;
