@@ -1,6 +1,9 @@
 <template>
   <div class="civit-data-fetcher">
-    <h1>Civit Data Fetcher</h1>
+    <h1>Orphan Lora Identifier</h1>
+    <p class="page-summary">
+      This page scans your folders for files not yet registered in the database. It lists these untracked files and allows you to fetch their metadata from Civitai. If metadata is found, the file is automatically renamed to match the database and the table is updated, ensuring your local files and database stay in sync.
+    </p>
     
     <div class="controls">
       <button 
@@ -8,7 +11,7 @@
         :disabled="isScanning"
         class="scan-button"
       >
-        {{ isScanning ? 'Scanning...' : 'Scan for Missing Files' }}
+        {{ isScanning ? 'Scanning...' : 'Scan for Orphan Files' }}
       </button>
       
       <div v-if="isScanning" class="scan-progress">
@@ -29,7 +32,7 @@
             <span class="value">{{ scanResults.totalInDatabase }}</span>
           </div>
           <div class="stat">
-            <span class="label">Missing Files:</span>
+            <span class="label">Orphan Files:</span>
             <span class="value missing">{{ scanResults.totalMissing }}</span>
           </div>
         </div>
@@ -45,7 +48,10 @@
       </div>
 
       <div v-if="scanResults.missingFiles && scanResults.missingFiles.length > 0" class="missing-files">
-        <h3>Files Not Found in Database</h3>
+        <h3>Orphan Files Not Found in Database</h3>
+        <p class="warning-message" style="color: #b26a00; margin-bottom: 1em;">
+          <strong>Warning:</strong> 'Find and Fix' will search Civitai for metadata. If found, the file will be renamed to match the database entry.
+        </p>
         <div class="file-list">
           <div v-for="file in scanResults.missingFiles" :key="file.fullPath" class="file-item">
             <div class="file-info">
@@ -54,7 +60,7 @@
               <div v-if="file.status" class="file-status" :class="file.status">
                 {{ file.status === 'processing' ? 'Processing...' : 
                    file.status === 'success' ? '✅ Fixed' : 
-                   file.status === 'error' ? '❌ Error' : '' }}
+                   file.status === 'error' ? '❌ Metadata Not found' : '' }}
               </div>
             </div>
             <div class="file-actions">
@@ -70,7 +76,7 @@
               >
                 {{ file.status === 'processing' ? 'Processing...' : 
                    file.status === 'success' ? '✅ Fixed' : 
-                   file.status === 'error' ? '❌ Error' : 'Fix File' }}
+                   file.status === 'error' ? '❌ Error' : 'Find and Fix' }}
               </button>
             </div>
           </div>
@@ -304,6 +310,7 @@ export default {
 }
 
 .controls {
+  margin-top: 2.5rem;
   margin-bottom: 2rem;
 }
 
