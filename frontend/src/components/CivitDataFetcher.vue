@@ -2,7 +2,7 @@
   <div class="civit-data-fetcher">
     <h1>Orphan LORA Identifier</h1>
     <p class="page-summary">
-      This page scans your folders for files not yet registered in the database. It lists these untracked files and allows you to fetch their metadata from Civitai. If metadata is found, the file is automatically renamed to match the database and the table is updated, ensuring your local files and database stay in sync.
+      Attempt to check with Civitai, update database and rename file.
     </p>
     
     <div class="controls">
