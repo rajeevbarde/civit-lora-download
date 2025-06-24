@@ -22,32 +22,31 @@
         </select>
       </div>
       <div class="filter-group">
-        <label for="downloadedSelect">Downloaded:</label>
+        <label for="downloadedSelect">Download Status:</label>
         <select id="downloadedSelect" v-model="selectedDownloaded">
           <option value="">All</option>
           <option value="0">Not Downloaded</option>
           <option value="1">Downloaded</option>
-          <option value="2">Downloading</option>
           <option value="3">Failed</option>
         </select>
       </div>
       <div class="filter-group">
-        <label for="modelNsfwSelect">Model NSFW:</label>
+        <label for="modelNsfwSelect">Model Content:</label>
         <select id="modelNsfwSelect" v-model="selectedModelNsfw">
           <option value="">All</option>
-          <option value="0">0 (Not NSFW)</option>
-          <option value="1">1 (NSFW)</option>
+          <option value="0">SFW</option>
+          <option value="1">NSFW</option>
         </select>
       </div>
       <div class="filter-group">
-        <label for="versionNsfwLevelSelect">Version NSFW Level:</label>
+        <label for="versionNsfwLevelSelect">Model Version Content:</label>
         <select id="versionNsfwLevelSelect" v-model="selectedVersionNsfwLevelRange">
           <option value="">All</option>
-          <option value="0">0 (Safe)</option>
-          <option value="1-15">1 – 15 (Mild)</option>
-          <option value="16-31">16 – 31 (Moderate)</option>
-          <option value="32-47">32 – 47 (NSFW)</option>
-          <option value="48-63">48 – 63 (Extreme NSFW)</option>
+          <option value="0">Safe</option>
+          <option value="1-15">Mild</option>
+          <option value="16-31">Moderate</option>
+          <option value="32-47">NSFW</option>
+          <option value="48-63">Extreme NSFW</option>
         </select>
       </div>
     </div>
@@ -80,12 +79,19 @@
         <table>
           <thead>
             <tr>
-              <th>Model Name / Version</th>
+              <th>Model / Version Name</th>
               <th>Base Model (Type)</th>
               <th>File Name</th>
-              <th>File Download URL</th>
+              <th>Download URL</th>
+              <th class="checkbox-header">
+                <input type="checkbox"
+                       :checked="isAllSelected"
+                       :indeterminate.prop="isIndeterminate"
+                       @change="toggleSelectAll"
+                       class="checkbox-select-all" />
+              </th>
               <th>Size (GB)</th>
-              <th>Version Download Count</th>
+              <th>Download Count</th>
               <th>File Path</th>
               <th>Published At</th>
             </tr>
@@ -120,6 +126,13 @@
                 </button>
                 <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
                 <span v-else>-</span>
+              </td>
+              <td class="checkbox-cell">
+                <input type="checkbox"
+                       :value="model.modelId"
+                       v-model="selectedModels"
+                       :disabled="!canSelectModel(model)"
+                       class="checkbox-model" />
               </td>
               <td>{{ model.size_in_gb }}</td>
               <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
