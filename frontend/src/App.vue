@@ -3,7 +3,7 @@
     <nav class="main-nav">
       <router-link to="/summary">Summary</router-link>
       <router-link to="/file-scanner">File Scanner</router-link>
-      <router-link to="/civit-data-fetcher">Orphan Lora</router-link>
+      <router-link to="/civit-data-fetcher">Orphan LORA</router-link>
       <router-link to="/lora-hub">LORA Hub</router-link>
     </nav>
     <main class="main-content">

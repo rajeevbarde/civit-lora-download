@@ -1,6 +1,6 @@
 <template>
   <div class="civit-data-fetcher">
-    <h1>Orphan Lora Identifier</h1>
+    <h1>Orphan LORA Identifier</h1>
     <p class="page-summary">
       This page scans your folders for files not yet registered in the database. It lists these untracked files and allows you to fetch their metadata from Civitai. If metadata is found, the file is automatically renamed to match the database and the table is updated, ensuring your local files and database stay in sync.
     </p>
@@ -13,6 +13,9 @@
       >
         {{ isScanning ? 'Scanning...' : 'Scan for Orphan Files' }}
       </button>
+      <span v-if="isScanning || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+        {{ scanTimer.toFixed(2) }}s
+      </span>
       
       <div v-if="isScanning" class="scan-progress">
         <p>Scanning directories for files not found in database...</p>
@@ -104,6 +107,9 @@ export default {
     return {
       isScanning: false,
       scanResults: null,
+      scanTimer: 0,
+      scanStartTime: null,
+      scanInterval: null,
       // Race condition protection
       processingFiles: new Set(),
       pendingOperations: new Map(),
@@ -175,6 +181,15 @@ export default {
       this.startOperation(operationId);
       this.isScanning = true;
       this.scanResults = null;
+      // Start timer
+      this.scanStartTime = performance.now();
+      this.scanTimer = 0;
+      if (this.scanInterval) clearInterval(this.scanInterval);
+      this.scanInterval = setInterval(() => {
+        if (this.isScanning && this.scanStartTime) {
+          this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        }
+      }, 10);
       
       try {
         const signal = this.createOperationController(operationId);
@@ -197,6 +212,10 @@ export default {
         this.errorHandler.handleError(error, 'scanning for missing files');
       } finally {
         this.isScanning = false;
+        if (this.scanInterval) clearInterval(this.scanInterval);
+        if (this.scanStartTime) this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        this.scanInterval = null;
+        this.scanStartTime = null;
         this.removeOperationController(operationId);
         this.endOperation(operationId);
       }
