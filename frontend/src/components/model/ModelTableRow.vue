@@ -30,7 +30,15 @@
         :disabled="isModelDownloading(model.modelId)"
         :class="{ 'loading': isModelDownloading(model.modelId) }"
       >
-        {{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}
+        <template v-if="isModelDownloading(model.modelId)">
+          <span class="downloading-text">Downloading...</span>
+          <span class="progress-bar-container">
+            <span class="progress-bar"></span>
+          </span>
+        </template>
+        <template v-else>
+          Download
+        </template>
       </button>
       <button 
         v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
@@ -138,7 +146,43 @@ export default {
 }
 
 .btn-download.loading {
-  background-color: #6c757d;
+  background-color: #007bff;
+  color: #fff;
+  position: relative;
+}
+
+.downloading-text {
+  color: #fff;
+  font-weight: 500;
+  font-size: 12px;
+  margin-right: 8px;
+}
+
+.progress-bar-container {
+  display: inline-block;
+  vertical-align: middle;
+  height: 4px;
+  width: 48px;
+  background: #cce3fa;
+  border-radius: 2px;
+  margin-left: 0;
+  margin-top: 0;
+  position: relative;
+  top: 2px;
+}
+
+.progress-bar {
+  display: block;
+  height: 100%;
+  width: 60%; /* Simulate progress visually, can be animated if desired */
+  background: linear-gradient(90deg, #007bff 60%, #90caf9 100%);
+  border-radius: 2px;
+  animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 0; }
 }
 
 .btn-retry {
