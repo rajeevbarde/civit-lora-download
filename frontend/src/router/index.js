@@ -8,8 +8,7 @@ import CivitDataFetcher from '../components/CivitDataFetcher.vue';
 const routes = [
   {
     path: '/',
-    name: 'ModelTable',
-    component: ModelTable,
+    redirect: '/summary'
   },
   {
     path: '/model/:id',
@@ -30,6 +29,11 @@ const routes = [
     path: '/civit-data-fetcher',
     name: 'CivitDataFetcher',
     component: CivitDataFetcher,
+  },
+  {
+    path: '/lora-hub',
+    name: 'ModelTable',
+    component: ModelTable,
   }
 ];
 
