@@ -39,6 +39,17 @@
           <option value="1">1 (NSFW)</option>
         </select>
       </div>
+      <div class="filter-group">
+        <label for="versionNsfwLevelSelect">Version NSFW Level:</label>
+        <select id="versionNsfwLevelSelect" v-model="selectedVersionNsfwLevelRange">
+          <option value="">All</option>
+          <option value="0">0 (Safe)</option>
+          <option value="1-15">1 – 15 (Mild)</option>
+          <option value="16-31">16 – 31 (Moderate)</option>
+          <option value="32-47">32 – 47 (NSFW)</option>
+          <option value="48-63">48 – 63 (Extreme NSFW)</option>
+        </select>
+      </div>
     </div>
     
     <!-- Bulk Download Controls -->
@@ -71,11 +82,8 @@
             <tr>
               <th>Model ID</th>
               <th>Model Name / Version</th>
-              <th>Model NSFW</th>
-              <th>Model NSFW Level</th>
               <th>Base Model</th>
               <th>Base Model Type</th>
-              <th>Version NSFW Level</th>
               <th>Version Download Count</th>
               <th>File Name</th>
               <th>File Download URL</th>
@@ -105,11 +113,8 @@
                   {{ model.modelName }} / {{ model.modelVersionName }}
                 </a>
               </td>
-              <td>{{ model.modelNsfw }}</td>
-              <td>{{ model.modelNsfwLevel }}</td>
               <td>{{ model.basemodel }}</td>
               <td>{{ model.basemodeltype }}</td>
-              <td>{{ model.modelVersionNsfwLevel }}</td>
               <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
               <td>{{ model.fileName }}</td>
               <td>
@@ -184,6 +189,7 @@ export default {
       selectedBaseModel: '',
       selectedDownloaded: '',
       selectedModelNsfw: '',
+      selectedVersionNsfwLevelRange: '',
       baseModelOptions: [],
       isFetchingBaseModels: false,
       isChangingPage: false,
@@ -221,6 +227,11 @@ export default {
       this.fetchModels();
     },
     selectedModelNsfw() {
+      this.currentPage = 1;
+      this.selectedModels = [];
+      this.fetchModels();
+    },
+    selectedVersionNsfwLevelRange() {
       this.currentPage = 1;
       this.selectedModels = [];
       this.fetchModels();
@@ -378,6 +389,7 @@ export default {
         if (this.selectedBaseModel) params.basemodel = this.selectedBaseModel;
         if (this.selectedDownloaded !== '') params.isDownloaded = this.selectedDownloaded;
         if (this.selectedModelNsfw !== '') params.modelNsfw = this.selectedModelNsfw;
+        if (this.selectedVersionNsfwLevelRange !== '') params.versionNsfwLevelRange = this.selectedVersionNsfwLevelRange;
         
         const signal = this.createRequestController(operationId);
         const response = await apiService.getModels(params, { signal });

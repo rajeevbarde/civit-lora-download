@@ -23,6 +23,15 @@ class DatabaseService {
             baseWhere.push('modelNsfw = ?');
             params.push(Number(filters.modelNsfw));
         }
+        if (filters.versionNsfwLevelRange !== undefined && filters.versionNsfwLevelRange !== "") {
+            if (filters.versionNsfwLevelRange === "0") {
+                baseWhere.push('modelVersionNsfwLevel = 0');
+            } else if (filters.versionNsfwLevelRange.includes('-')) {
+                const [min, max] = filters.versionNsfwLevelRange.split('-').map(Number);
+                baseWhere.push('modelVersionNsfwLevel >= ? AND modelVersionNsfwLevel <= ?');
+                params.push(min, max);
+            }
+        }
 
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
 
