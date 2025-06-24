@@ -46,6 +46,12 @@ ORDER BY temp_table.modelVersionDownloadCount DESC;
 ALTER TABLE ALLCivitData ADD COLUMN isDownloaded INTEGER;
 ALTER TABLE ALLCivitData ADD COLUMN file_path TEXT;
 
+CREATE INDEX idx_modelVersionId ON ALLCivitData(modelVersionId);
+CREATE INDEX idx_basemodel ON ALLCivitData(basemodel);
+CREATE INDEX idx_isDownloaded ON ALLCivitData(isDownloaded);
+CREATE INDEX idx_fileName ON ALLCivitData(fileName);
+CREATE INDEX idx_modelNsfw ON ALLCivitData(modelNsfw);
+
 /*
 SELECT 
     f.id,

@@ -11,7 +11,8 @@ router.get('/', validatePagination, async (req, res) => {
         const filters = {
             basemodel: req.query.basemodel,
             isDownloaded: req.query.isDownloaded,
-            modelVersionId: req.query.modelVersionId
+            modelVersionId: req.query.modelVersionId,
+            modelNsfw: req.query.modelNsfw
         };
 
         const result = await databaseService.getModels(page, limit, filters);

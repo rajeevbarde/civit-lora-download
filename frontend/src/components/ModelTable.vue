@@ -31,6 +31,14 @@
           <option value="3">Failed</option>
         </select>
       </div>
+      <div class="filter-group">
+        <label for="modelNsfwSelect">Model NSFW:</label>
+        <select id="modelNsfwSelect" v-model="selectedModelNsfw">
+          <option value="">All</option>
+          <option value="0">0 (Not NSFW)</option>
+          <option value="1">1 (NSFW)</option>
+        </select>
+      </div>
     </div>
     
     <!-- Bulk Download Controls -->
@@ -175,6 +183,7 @@ export default {
       selectedModels: [],
       selectedBaseModel: '',
       selectedDownloaded: '',
+      selectedModelNsfw: '',
       baseModelOptions: [],
       isFetchingBaseModels: false,
       isChangingPage: false,
@@ -209,6 +218,11 @@ export default {
     selectedDownloaded() {
       this.currentPage = 1;
       this.selectedModels = []; // Clear selection when filters change
+      this.fetchModels();
+    },
+    selectedModelNsfw() {
+      this.currentPage = 1;
+      this.selectedModels = [];
       this.fetchModels();
     }
   },
@@ -363,6 +377,7 @@ export default {
         };
         if (this.selectedBaseModel) params.basemodel = this.selectedBaseModel;
         if (this.selectedDownloaded !== '') params.isDownloaded = this.selectedDownloaded;
+        if (this.selectedModelNsfw !== '') params.modelNsfw = this.selectedModelNsfw;
         
         const signal = this.createRequestController(operationId);
         const response = await apiService.getModels(params, { signal });

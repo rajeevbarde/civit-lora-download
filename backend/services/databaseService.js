@@ -19,6 +19,10 @@ class DatabaseService {
             baseWhere.push('modelVersionId = ?');
             params.push(filters.modelVersionId);
         }
+        if (filters.modelNsfw !== undefined && filters.modelNsfw !== "") {
+            baseWhere.push('modelNsfw = ?');
+            params.push(Number(filters.modelNsfw));
+        }
 
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
 
