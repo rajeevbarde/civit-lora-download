@@ -51,6 +51,7 @@ CREATE INDEX idx_basemodel ON ALLCivitData(basemodel);
 CREATE INDEX idx_isDownloaded ON ALLCivitData(isDownloaded);
 CREATE INDEX idx_fileName ON ALLCivitData(fileName);
 CREATE INDEX idx_modelNsfw ON ALLCivitData(modelNsfw);
+CREATE INDEX idx_modelversionnsfwlevel ON ALLCivitData(modelVersionNsfwLevel);
 
 /*
 SELECT 

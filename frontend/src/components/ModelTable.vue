@@ -80,30 +80,18 @@
         <table>
           <thead>
             <tr>
-              <th>Model ID</th>
               <th>Model Name / Version</th>
-              <th>Base Model</th>
-              <th>Base Model Type</th>
-              <th>Version Download Count</th>
+              <th>Base Model (Type)</th>
               <th>File Name</th>
               <th>File Download URL</th>
-              <th class="checkbox-header">
-                <input 
-                  type="checkbox" 
-                  :checked="isAllSelected" 
-                  :indeterminate="isIndeterminate"
-                  @change="toggleSelectAll"
-                  class="checkbox-select-all"
-                >
-              </th>
               <th>Size (GB)</th>
-              <th>Published At</th>
+              <th>Version Download Count</th>
               <th>File Path</th>
+              <th>Published At</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="model in models" :key="model.modelId">
-              <td>{{ model.modelId }}</td>
               <td>
                 <a 
                   :href="`http://localhost:5173/model/${model.modelVersionId}`" 
@@ -113,9 +101,7 @@
                   {{ model.modelName }} / {{ model.modelVersionName }}
                 </a>
               </td>
-              <td>{{ model.basemodel }}</td>
-              <td>{{ model.basemodeltype }}</td>
-              <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
+              <td>{{ model.basemodel }}<span v-if="model.basemodeltype"> ({{ model.basemodeltype }})</span></td>
               <td>{{ model.fileName }}</td>
               <td>
                 <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
@@ -135,18 +121,10 @@
                 <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
                 <span v-else>-</span>
               </td>
-              <td class="checkbox-cell">
-                <input 
-                  type="checkbox" 
-                  :value="model.modelId"
-                  v-model="selectedModels"
-                  :disabled="!canSelectModel(model)"
-                  class="checkbox-model"
-                >
-              </td>
               <td>{{ model.size_in_gb }}</td>
-              <td>{{ formatDate(model.publishedAt) }}</td>
+              <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
               <td>{{ model.file_path }}</td>
+              <td>{{ formatDate(model.publishedAt) }}</td>
             </tr>
           </tbody>
         </table>
