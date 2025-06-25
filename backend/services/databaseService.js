@@ -15,10 +15,6 @@ class DatabaseService {
             baseWhere.push('isDownloaded = ?');
             params.push(Number(filters.isDownloaded));
         }
-        if (filters.modelVersionId) {
-            baseWhere.push('modelVersionId = ?');
-            params.push(filters.modelVersionId);
-        }
         if (filters.modelNsfw !== undefined && filters.modelNsfw !== "") {
             baseWhere.push('modelNsfw = ?');
             params.push(Number(filters.modelNsfw));
