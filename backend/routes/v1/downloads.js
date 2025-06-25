@@ -31,14 +31,4 @@ router.get('/status', (req, res) => {
     }
 });
 
-// Clear download errors
-router.post('/clear-errors', (req, res) => {
-    try {
-        downloadQueue.clearErrors();
-        res.json({ message: 'Download errors cleared successfully' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 module.exports = router; 
