@@ -92,7 +92,10 @@ class DatabaseService {
         let connection;
         try {
             connection = await dbPool.getConnection();
-            const rows = await dbPool.runQuery(connection, 'SELECT DISTINCT basemodel FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" ORDER BY basemodel ASC');
+            const rows = await dbPool.runQuery(
+                connection,
+                'SELECT basemodel, COUNT(basemodel) as count FROM ALLCivitData WHERE basemodel IS NOT NULL AND basemodel != "" GROUP BY basemodel ORDER BY count DESC'
+            );
             const baseModels = rows.map(r => r.basemodel);
             return { baseModels };
         } finally {
