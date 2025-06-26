@@ -540,11 +540,28 @@ class FileService {
             return true;
         });
 
-        logger.info('Found unique loras', { uniqueCount: uniqueFiles.length });
+        // Find non-unique files (files with duplicates)
+        const nonUniqueFiles = allDiskFiles.filter(file => {
+            const baseName = file.baseName;
+            
+            // Must exist in database
+            if (!dbFileNames.includes(baseName)) {
+                return false;
+            }
+            
+            // Must be a duplicate on disk OR in database
+            if (diskDuplicates.has(baseName) || dbDuplicates.has(baseName)) {
+                return true;
+            }
+            
+            return false;
+        });
 
-        // Get isDownloaded values for unique files
-        const uniqueFileNames = uniqueFiles.map(f => f.baseName);
-        const dbRecords = await databaseService.getFileRecordsByNames(uniqueFileNames);
+        logger.info('Found unique loras', { uniqueCount: uniqueFiles.length, nonUniqueCount: nonUniqueFiles.length });
+
+        // Get isDownloaded values for all files (unique + non-unique)
+        const allFileNames = [...uniqueFiles, ...nonUniqueFiles].map(f => f.baseName);
+        const dbRecords = await databaseService.getFileRecordsByNames(allFileNames);
         
         // Create a map for quick lookup - use lowercase for both keys and values
         const dbRecordMap = {};
@@ -553,23 +570,50 @@ class FileService {
             dbRecordMap[lowerFileName] = record;
         });
 
+        // Process unique files
+        const processedUniqueFiles = uniqueFiles.map(f => {
+            const dbRecord = dbRecordMap[f.baseName];
+            const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
+            
+            return {
+                fullPath: f.fullPath,
+                baseName: f.baseName,
+                status: 'Unique',
+                isDownloaded: isDownloaded
+            };
+        });
+
+        // Process non-unique files
+        const processedNonUniqueFiles = nonUniqueFiles.map(f => {
+            const dbRecord = dbRecordMap[f.baseName];
+            const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
+            
+            // Determine the reason for non-uniqueness
+            let status = 'Duplicate Issue';
+            if (diskDuplicates.has(f.baseName) && dbDuplicates.has(f.baseName)) {
+                status = 'Duplicate on Disk & DB';
+            } else if (diskDuplicates.has(f.baseName)) {
+                status = 'Duplicate on Disk';
+            } else if (dbDuplicates.has(f.baseName)) {
+                status = 'Duplicate in DB';
+            }
+            
+            return {
+                fullPath: f.fullPath,
+                baseName: f.baseName,
+                status: status,
+                isDownloaded: isDownloaded
+            };
+        });
+
         return {
-            uniqueFiles: uniqueFiles.map(f => {
-                const dbRecord = dbRecordMap[f.baseName];
-                const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
-                
-                return {
-                    fullPath: f.fullPath,
-                    baseName: f.baseName,
-                    status: 'Unique',
-                    isDownloaded: isDownloaded
-                };
-            }),
+            uniqueFiles: [...processedUniqueFiles, ...processedNonUniqueFiles],
             stats: {
                 totalDiskFiles: allDiskFiles.length,
                 diskDuplicates: diskDuplicates.size,
                 dbDuplicates: dbDuplicates.size,
-                uniqueCount: uniqueFiles.length
+                uniqueCount: uniqueFiles.length,
+                nonUniqueCount: nonUniqueFiles.length
             }
         };
     }

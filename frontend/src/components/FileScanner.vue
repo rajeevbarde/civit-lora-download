@@ -104,36 +104,50 @@
         <p><strong>Unique loras found:</strong> {{ uniqueLorasResults.stats.uniqueCount }}</p>
       </div>
       
-      <div v-if="uniqueLorasResults.uniqueFiles.length > 0" class="unique-files-section">
-        <h3>Unique Files</h3>
-        <table class="unique-loras-table">
-          <thead>
-            <tr>
-              <th>Full Path</th>
-              <th>Base Name</th>
-              <th>Status</th>
-              <th>Downloaded</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(file, idx) in uniqueLorasResults.uniqueFiles" :key="file.fullPath + idx">
-              <td>{{ file.fullPath }}</td>
-              <td>{{ file.baseName }}</td>
-              <td>
-                <span :class="getStatusClass(file.status)">{{ file.status }}</span>
-              </td>
-              <td>
-                <span :class="getDownloadedClass(file.isDownloaded)">
-                  {{ file.isDownloaded }}
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- Tab Navigation -->
+      <div class="unique-tab-navigation">
+        <button 
+          v-for="tab in uniqueTabs" 
+          :key="tab.key"
+          @click="activeUniqueTab = tab.key"
+          :class="['unique-tab-button', { active: activeUniqueTab === tab.key }]"
+        >
+          {{ tab.label }} ({{ getUniqueTabCount(tab.key) }})
+        </button>
       </div>
       
-      <div v-else class="no-unique-files">
-        <p>No unique loras found. All files either have duplicates on disk or in the database.</p>
+      <!-- Tab Content -->
+      <div class="unique-tab-content">
+        <div v-for="tab in uniqueTabs" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
+          <h3>{{ tab.label }} Files</h3>
+          <div v-if="getUniqueTabFiles(tab.key).length === 0" class="no-unique-files">
+            No {{ tab.label.toLowerCase() }} files found.
+          </div>
+          <table v-else class="unique-loras-table">
+            <thead>
+              <tr>
+                <th>Full Path</th>
+                <th>Base Name</th>
+                <th>Status</th>
+                <th>Downloaded</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(file, idx) in getUniqueTabFiles(tab.key)" :key="file.fullPath + idx">
+                <td>{{ file.fullPath }}</td>
+                <td>{{ file.baseName }}</td>
+                <td>
+                  <span :class="getStatusClass(file.status)">{{ file.status }}</span>
+                </td>
+                <td>
+                  <span :class="getDownloadedClass(file.isDownloaded)">
+                    {{ file.isDownloaded }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
       
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
@@ -234,7 +248,13 @@ export default {
       pendingOperations: new Map(),
       concurrentOperations: new Set(),
       scanningUniqueLoras: false,
-      uniqueLorasResults: null
+      uniqueLorasResults: null,
+      activeUniqueTab: 'unique-downloaded',
+      uniqueTabs: [
+        { key: 'unique-downloaded', label: 'Registered in DB' },
+        { key: 'unique-not-downloaded', label: 'Not Registered in DB' },
+        { key: 'duplicate-issues', label: 'Duplicate Issues' }
+      ]
     };
   },
   methods: {
@@ -298,6 +318,8 @@ export default {
         return 'status-not-present';
       } else if (status === 'Unique') {
         return 'status-unique';
+      } else if (status === 'Duplicate Issue' || status === 'Duplicate on Disk' || status === 'Duplicate in DB' || status === 'Duplicate on Disk & DB') {
+        return 'status-non-unique';
       }
       return 'status-unknown';
     },
@@ -565,6 +587,27 @@ export default {
         this.scanningUniqueLoras = false;
       }
     },
+    getUniqueTabFiles(tabKey) {
+      if (!this.uniqueLorasResults || !this.uniqueLorasResults.uniqueFiles) {
+        return [];
+      }
+      
+      return this.uniqueLorasResults.uniqueFiles.filter(file => {
+        switch (tabKey) {
+          case 'unique-downloaded':
+            return file.status === 'Unique' && file.isDownloaded === 1;
+          case 'unique-not-downloaded':
+            return file.status === 'Unique' && file.isDownloaded === 0;
+          case 'duplicate-issues':
+            return file.status !== 'Unique';
+          default:
+            return false;
+        }
+      });
+    },
+    getUniqueTabCount(tabKey) {
+      return this.getUniqueTabFiles(tabKey).length;
+    },
   },
   mounted() {
     this.fetchSavedPaths();
@@ -680,6 +723,10 @@ button {
 }
 .status-unique {
   color: #5bc0de;
+  font-weight: bold;
+}
+.status-non-unique {
+  color: #f0ad4e;
   font-weight: bold;
 }
 .status-downloaded {
@@ -806,8 +853,45 @@ progress {
   margin-bottom: 1rem;
   color: #333;
 }
-.unique-files-section {
+.unique-tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #ddd;
   margin-bottom: 1rem;
+}
+.unique-tab-button {
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  padding: 0.75rem 1.5rem;
+  margin-right: 0.25rem;
+  cursor: pointer;
+  border-radius: 5px 5px 0 0;
+  font-weight: 500;
+}
+.unique-tab-button.active {
+  background: #fff;
+  border-bottom: 2px solid #fff;
+  margin-bottom: -2px;
+  font-weight: bold;
+}
+.unique-tab-button:hover:not(.active) {
+  background: #e9e9e9;
+}
+.unique-tab-content {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0 0 5px 5px;
+}
+.unique-tab-panel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #333;
+}
+.no-unique-files {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
 }
 .unique-loras-table {
   width: 100%;
@@ -821,11 +905,5 @@ progress {
 .unique-loras-table th {
   background: #f8f8f8;
   font-weight: bold;
-}
-.no-unique-files {
-  text-align: center;
-  color: #666;
-  font-style: italic;
-  padding: 2rem;
 }
 </style> 
