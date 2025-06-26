@@ -136,4 +136,21 @@ router.post('/fix', validateFixFileRequest, async (req, res) => {
     }
 });
 
+// Scan for unique loras
+router.post('/scan-unique-loras', async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        
+        if (!paths.length) {
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        
+        const dbFileNames = await databaseService.getAllFileNames();
+        const result = await fileService.scanUniqueLoras(paths, dbFileNames);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

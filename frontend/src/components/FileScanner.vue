@@ -23,6 +23,13 @@
     <button @click="savePath">Save Path</button>
     <button @click="startScan">Scan All Saved Paths</button>
     <button 
+      @click="scanUniqueLoras" 
+      :disabled="scanningUniqueLoras"
+      class="scan-unique-btn"
+    >
+      Scan Unique Loras
+    </button>
+    <button 
       v-if="checkedFiles.length" 
       @click="markDownloaded" 
       :disabled="markingDownloaded"
@@ -81,6 +88,52 @@
             </tbody>
           </table>
         </div>
+      </div>
+      
+      <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
+    </div>
+    
+    <!-- Unique Loras Results Display -->
+    <div v-if="uniqueLorasResults" class="unique-loras-container">
+      <h2>Unique Loras Results</h2>
+      
+      <div class="unique-loras-summary">
+        <p><strong>Total files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
+        <p><strong>Duplicate files on disk:</strong> {{ uniqueLorasResults.stats.diskDuplicates }}</p>
+        <p><strong>Duplicate files in database:</strong> {{ uniqueLorasResults.stats.dbDuplicates }}</p>
+        <p><strong>Unique loras found:</strong> {{ uniqueLorasResults.stats.uniqueCount }}</p>
+      </div>
+      
+      <div v-if="uniqueLorasResults.uniqueFiles.length > 0" class="unique-files-section">
+        <h3>Unique Files</h3>
+        <table class="unique-loras-table">
+          <thead>
+            <tr>
+              <th>Full Path</th>
+              <th>Base Name</th>
+              <th>Status</th>
+              <th>Downloaded</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(file, idx) in uniqueLorasResults.uniqueFiles" :key="file.fullPath + idx">
+              <td>{{ file.fullPath }}</td>
+              <td>{{ file.baseName }}</td>
+              <td>
+                <span :class="getStatusClass(file.status)">{{ file.status }}</span>
+              </td>
+              <td>
+                <span :class="getDownloadedClass(file.isDownloaded)">
+                  {{ file.isDownloaded }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div v-else class="no-unique-files">
+        <p>No unique loras found. All files either have duplicates on disk or in the database.</p>
       </div>
       
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
@@ -179,7 +232,9 @@ export default {
       validationResults: null,
       // Race condition protection
       pendingOperations: new Map(),
-      concurrentOperations: new Set()
+      concurrentOperations: new Set(),
+      scanningUniqueLoras: false,
+      uniqueLorasResults: null
     };
   },
   methods: {
@@ -241,8 +296,14 @@ export default {
         return 'status-present';
       } else if (!status || status === '') {
         return 'status-not-present';
+      } else if (status === 'Unique') {
+        return 'status-unique';
       }
       return 'status-unknown';
+    },
+    
+    getDownloadedClass(isDownloaded) {
+      return isDownloaded ? 'status-downloaded' : 'status-not-downloaded';
     },
     
     async savePath() {
@@ -455,6 +516,55 @@ export default {
         this.validatingFiles = false;
       }
     },
+    async scanUniqueLoras() {
+      const operationId = 'scanUniqueLoras';
+      
+      if (this.isOperationInProgress(operationId)) {
+        console.log('Unique loras scan operation already in progress, skipping...');
+        return;
+      }
+      
+      // Check if there are saved paths to scan
+      if (!this.savedPaths || this.savedPaths.length === 0) {
+        this.message = 'No saved paths to scan. Please add some paths first.';
+        this.errorHandler.handleWarning('No saved paths to scan. Please add some paths first.');
+        return;
+      }
+      
+      // Cancel any existing scan operation
+      this.cancelPendingOperation(operationId);
+      
+      this.startOperation(operationId);
+      this.scanningUniqueLoras = true;
+      this.message = 'Scanning for unique loras...';
+      this.uniqueLorasResults = null;
+      
+      try {
+        const signal = this.createOperationController(operationId);
+        const data = await apiService.scanUniqueLoras({ signal });
+        
+        console.log('Unique loras scan API response:', data);
+        
+        // Update results if this operation is still active
+        if (this.concurrentOperations.has(operationId)) {
+          this.uniqueLorasResults = data;
+          this.message = `Unique loras scan completed! Found ${data.uniqueFiles.length} unique files.`;
+          this.errorHandler.handleSuccess(`Found ${data.uniqueFiles.length} unique loras`);
+        }
+        
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          console.log('Unique loras scan operation was cancelled');
+          return;
+        }
+        this.errorHandler.handleError(error, 'scanning unique loras');
+        this.message = 'Unique loras scan failed!';
+      } finally {
+        this.endOperation(operationId);
+        this.removeOperationController(operationId);
+        this.scanningUniqueLoras = false;
+      }
+    },
   },
   mounted() {
     this.fetchSavedPaths();
@@ -568,6 +678,18 @@ button {
   color: #d9534f;
   font-weight: bold;
 }
+.status-unique {
+  color: #5bc0de;
+  font-weight: bold;
+}
+.status-downloaded {
+  color: #5cb85c;
+  font-weight: bold;
+}
+.status-not-downloaded {
+  color: #d9534f;
+  font-weight: bold;
+}
 .error {
   color: #d9534f;
   font-weight: bold;
@@ -659,5 +781,51 @@ progress {
   background: #f9f9f9;
   border-radius: 5px;
   text-align: center;
+}
+.scan-unique-btn {
+  background: #337ab7;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 1rem;
+}
+.scan-unique-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.unique-loras-container {
+  margin-top: 2rem;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 5px;
+}
+.unique-loras-summary {
+  margin-bottom: 1rem;
+  color: #333;
+}
+.unique-files-section {
+  margin-bottom: 1rem;
+}
+.unique-loras-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.unique-loras-table th, .unique-loras-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.unique-loras-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.no-unique-files {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
 }
 </style> 

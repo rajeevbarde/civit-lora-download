@@ -184,6 +184,31 @@ class DatabaseService {
         }
     }
 
+    // Get file records by filenames
+    async getFileRecordsByNames(fileNames) {
+        if (!fileNames || fileNames.length === 0) {
+            return [];
+        }
+
+        // Use LOWER() function for case-insensitive comparison
+        const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
+        const query = `
+            SELECT fileName, isDownloaded
+            FROM ALLCivitData
+            WHERE LOWER(fileName) IN (${placeholders})
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query, fileNames);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
     // Get downloaded files for validation
     async getDownloadedFiles() {
         const query = `
