@@ -47,67 +47,21 @@
     <p v-if="message">{{ message }}</p>
     
     <!-- Tabbed Results Display -->
-    <div v-if="scanStatus === 'done' && checkedFiles.length" class="scan-results-container">
-      <h2>Scan Results</h2>
-      
-      <!-- Tab Navigation -->
-      <div class="tab-navigation">
-        <button 
-          v-for="tab in tabs" 
-          :key="tab.key"
-          @click="activeTab = tab.key"
-          :class="['tab-button', { active: activeTab === tab.key }]"
-        >
-          {{ tab.label }} ({{ getTabCount(tab.key) }})
-        </button>
-      </div>
-      
-      <!-- Tab Content -->
-      <div class="tab-content">
-        <div v-for="tab in tabs" :key="tab.key" v-show="activeTab === tab.key" class="tab-panel">
-          <h3>{{ tab.label }} Files</h3>
-          <div v-if="getTabFiles(tab.key).length === 0" class="no-files">
-            No {{ tab.label.toLowerCase() }} files found.
-          </div>
-          <table v-else class="scan-table">
-            <thead>
-              <tr>
-                <th>Full Path</th>
-                <th>Status</th>
-                <th>Base Name</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(file, idx) in getTabFiles(tab.key)" :key="file.fullPath + idx">
-                <td>{{ file.fullPath }}</td>
-                <td>
-                  <span :class="getStatusClass(file.status)">{{ file.status }}</span>
-                </td>
-                <td>{{ file.baseName }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
-    </div>
+    <!-- Removed as per instructions -->
     
     <!-- Unique Loras Results Display -->
-    <div v-if="uniqueLorasResults" class="unique-loras-container">
+    <div v-if="uniqueLorasResults || orphanFiles.length" class="unique-loras-container">
       <h2>Unique Loras Results</h2>
-      
-      <div class="unique-loras-summary">
+      <div class="unique-loras-summary" v-if="uniqueLorasResults && uniqueLorasResults.stats">
         <p><strong>Total files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
         <p><strong>Duplicate files on disk:</strong> {{ uniqueLorasResults.stats.diskDuplicates }}</p>
         <p><strong>Duplicate files in database:</strong> {{ uniqueLorasResults.stats.dbDuplicates }}</p>
         <p><strong>Unique loras found:</strong> {{ uniqueLorasResults.stats.uniqueCount }}</p>
       </div>
-      
       <!-- Tab Navigation -->
       <div class="unique-tab-navigation">
         <button 
-          v-for="tab in uniqueTabs" 
+          v-for="tab in uniqueTabsWithOrphan" 
           :key="tab.key"
           @click="activeUniqueTab = tab.key"
           :class="['unique-tab-button', { active: activeUniqueTab === tab.key }]"
@@ -115,10 +69,9 @@
           {{ tab.label }} ({{ getUniqueTabCount(tab.key) }})
         </button>
       </div>
-      
       <!-- Tab Content -->
       <div class="unique-tab-content">
-        <div v-for="tab in uniqueTabs" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
+        <div v-for="tab in uniqueTabsWithOrphan" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
           <h3>{{ tab.label }} Files</h3>
           <div v-if="getUniqueTabFiles(tab.key).length === 0" class="no-unique-files">
             No {{ tab.label.toLowerCase() }} files found.
@@ -127,29 +80,30 @@
             <thead>
               <tr>
                 <th>Full Path</th>
-                <th>Base Name</th>
-                <th>Status</th>
-                <th>Downloaded</th>
+                <th v-if="tab.key !== 'orphan'">Base Name</th>
+                <th v-if="tab.key !== 'orphan'">Status</th>
+                <th v-if="tab.key !== 'orphan'">Downloaded</th>
+                <th v-if="tab.key === 'orphan'">Base Name</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(file, idx) in getUniqueTabFiles(tab.key)" :key="file.fullPath + idx">
                 <td>{{ file.fullPath }}</td>
-                <td>{{ file.baseName }}</td>
-                <td>
+                <td v-if="tab.key !== 'orphan'">{{ file.baseName }}</td>
+                <td v-if="tab.key !== 'orphan'">
                   <span :class="getStatusClass(file.status)">{{ file.status }}</span>
                 </td>
-                <td>
+                <td v-if="tab.key !== 'orphan'">
                   <span :class="getDownloadedClass(file.isDownloaded)">
                     {{ file.isDownloaded }}
                   </span>
                 </td>
+                <td v-if="tab.key === 'orphan'">{{ file.baseName }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      
       <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
     
@@ -240,8 +194,12 @@ export default {
       activeTab: 'present', // Default active tab
       tabs: [
         { key: 'present', label: 'Present' },
-        { key: 'not-present', label: 'Not Present' }
+        { key: 'not-present', label: 'Not Present' },
+        { key: 'unique', label: 'Unique Loras' },
+        { key: 'orphan', label: 'Orphan Files' }
       ],
+      orphanFiles: [], // Store orphan files
+      orphanScanStatus: '',
       validatingFiles: false,
       validationResults: null,
       // Race condition protection
@@ -295,6 +253,12 @@ export default {
     
     // New methods for tab functionality
     getTabFiles(tabKey) {
+      if (tabKey === 'unique') {
+        return (this.uniqueLorasResults && this.uniqueLorasResults.uniqueFiles) ? this.uniqueLorasResults.uniqueFiles : [];
+      }
+      if (tabKey === 'orphan') {
+        return this.orphanFiles;
+      }
       return this.checkedFiles.filter(file => {
         switch (tabKey) {
           case 'present':
@@ -540,40 +504,31 @@ export default {
     },
     async scanUniqueLoras() {
       const operationId = 'scanUniqueLoras';
-      
       if (this.isOperationInProgress(operationId)) {
         console.log('Unique loras scan operation already in progress, skipping...');
         return;
       }
-      
-      // Check if there are saved paths to scan
       if (!this.savedPaths || this.savedPaths.length === 0) {
         this.message = 'No saved paths to scan. Please add some paths first.';
         this.errorHandler.handleWarning('No saved paths to scan. Please add some paths first.');
         return;
       }
-      
-      // Cancel any existing scan operation
       this.cancelPendingOperation(operationId);
-      
       this.startOperation(operationId);
       this.scanningUniqueLoras = true;
       this.message = 'Scanning for unique loras...';
       this.uniqueLorasResults = null;
-      
       try {
         const signal = this.createOperationController(operationId);
         const data = await apiService.scanUniqueLoras({ signal });
-        
         console.log('Unique loras scan API response:', data);
-        
-        // Update results if this operation is still active
         if (this.concurrentOperations.has(operationId)) {
           this.uniqueLorasResults = data;
           this.message = `Unique loras scan completed! Found ${data.uniqueFiles.length} unique files.`;
           this.errorHandler.handleSuccess(`Found ${data.uniqueFiles.length} unique loras`);
+          // Trigger orphan scan after unique loras scan
+          await this.scanOrphanFiles();
         }
-        
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('Unique loras scan operation was cancelled');
@@ -589,9 +544,14 @@ export default {
     },
     getUniqueTabFiles(tabKey) {
       if (!this.uniqueLorasResults || !this.uniqueLorasResults.uniqueFiles) {
+        if (tabKey === 'orphan') {
+          return this.orphanFiles;
+        }
         return [];
       }
-      
+      if (tabKey === 'orphan') {
+        return this.orphanFiles;
+      }
       return this.uniqueLorasResults.uniqueFiles.filter(file => {
         switch (tabKey) {
           case 'unique-downloaded':
@@ -607,6 +567,33 @@ export default {
     },
     getUniqueTabCount(tabKey) {
       return this.getUniqueTabFiles(tabKey).length;
+    },
+    async scanOrphanFiles() {
+      this.orphanScanStatus = 'scanning';
+      this.orphanFiles = [];
+      try {
+        const data = await apiService.findMissingFiles();
+        if (data && Array.isArray(data.missingFiles)) {
+          this.orphanFiles = data.missingFiles.map(f => ({
+            fullPath: f.fullPath,
+            baseName: f.fileName
+          }));
+        } else {
+          this.orphanFiles = [];
+        }
+        this.orphanScanStatus = 'done';
+      } catch (error) {
+        this.errorHandler.handleError(error, 'scanning orphan files');
+        this.orphanScanStatus = 'error';
+      }
+    },
+  },
+  computed: {
+    uniqueTabsWithOrphan() {
+      return [
+        ...this.uniqueTabs,
+        { key: 'orphan', label: 'Orphan Files' }
+      ];
     },
   },
   mounted() {
