@@ -9,22 +9,6 @@ const {
     validateFixFileRequest 
 } = require('../../middleware/validation');
 
-// Scan directories for files
-router.post('/scan', async (req, res) => {
-    try {
-        const paths = await pathService.readSavedPaths();
-        
-        if (!paths.length) {
-            return res.status(400).json({ error: 'No saved paths to scan.' });
-        }
-        
-        const results = await fileService.scanDirectories(paths);
-        res.json({ results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Check files against database
 router.post('/check', validateFilesArray, async (req, res) => {
     try {
@@ -32,35 +16,6 @@ router.post('/check', validateFilesArray, async (req, res) => {
         const dbFileNames = await databaseService.getAllFileNames();
         const results = await fileService.checkFilesInDatabase(files, dbFileNames);
         res.json({ results });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Mark files as downloaded
-router.post('/mark-downloaded', validateFilesArray, async (req, res) => {
-    try {
-        const { files } = req.body;
-        
-        const dbFileNamesToUpdate = [];
-        files.forEach(f => {
-            let isDownloaded = 0;
-            let dbFileName = null;
-            if (f.status === 'Present') {
-                isDownloaded = 1;
-                dbFileName = f.baseName;
-            }
-            if (isDownloaded && dbFileName) {
-                dbFileNamesToUpdate.push({ dbFileName, isDownloaded, fullPath: f.fullPath });
-            }
-        });
-        
-        if (dbFileNamesToUpdate.length === 0) {
-            return res.json({ updated: 0, errors: [] });
-        }
-        
-        const result = await databaseService.batchUpdateFilesAsDownloaded(dbFileNamesToUpdate);
-        res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

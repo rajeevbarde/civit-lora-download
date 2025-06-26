@@ -93,44 +93,6 @@ class FileService {
         }
     }
 
-    // Scan directories for files with proper error handling
-    async scanDirectories(paths) {
-        logger.info('Starting directory scan', { pathCount: paths.length });
-
-        const results = paths.map((p, pathIndex) => {
-            logger.info(`Scanning path ${pathIndex + 1}/${paths.length}`, { path: p });
-            
-            let result = { path: p, files: [], error: null };
-            
-            const validation = this.validatePath(p);
-            if (!validation.valid) {
-                result.error = validation.error;
-                logger.warn('Path validation failed', { path: p, error: validation.error });
-            } else {
-                logger.debug('Path is valid, scanning for files', { path: p });
-                result.files = this.getAllFiles(p, []);
-                logger.info('Scan completed for path', { 
-                    path: p, 
-                    fileCount: result.files.length 
-                });
-            }
-            return result;
-        });
-
-        const totalFilesFound = results.reduce((sum, result) => sum + (result.files ? result.files.length : 0), 0);
-        const successfulPaths = results.filter(r => !r.error).length;
-        const failedPaths = results.filter(r => r.error).length;
-
-        logger.info('Directory scan completed', {
-            totalPaths: paths.length,
-            successfulPaths,
-            failedPaths,
-            totalFilesFound
-        });
-
-        return results;
-    }
-
     // Check files against database with proper error handling
     async checkFilesInDatabase(files, dbFileNames) {
         logger.info('Checking files against database', { fileCount: files.length });

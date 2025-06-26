@@ -21,7 +21,6 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button @click="startScan">Scan All Saved Paths</button>
     <button 
       @click="scanUniqueLoras" 
       :disabled="scanningUniqueLoras"
@@ -30,19 +29,11 @@
       Scan Unique Loras
     </button>
     <button 
-      v-if="checkedFiles.length" 
-      @click="markDownloaded" 
-      :disabled="markingDownloaded"
-      class="mark-btn"
-    >
-      Mark Downloaded in DB
-    </button>
-    <button 
       @click="validateDownloadedFiles" 
       :disabled="validatingFiles"
       class="validate-btn"
     >
-      Validate Downloaded Files
+      Validate Registered LoRA
     </button>
     <p v-if="message">{{ message }}</p>
     
@@ -104,7 +95,6 @@
           </table>
         </div>
       </div>
-      <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
     
     <!-- Validation Results Display -->
@@ -187,19 +177,6 @@ export default {
       directoryPath: '',
       message: '',
       savedPaths: [],
-      scanStatus: '',
-      checkedFiles: [], // [{ fullPath, baseName, status }]
-      markingDownloaded: false,
-      markDownloadedMsg: '',
-      activeTab: 'present', // Default active tab
-      tabs: [
-        { key: 'present', label: 'Present' },
-        { key: 'not-present', label: 'Not Present' },
-        { key: 'unique', label: 'Unique Loras' },
-        { key: 'orphan', label: 'Orphan Files' }
-      ],
-      orphanFiles: [], // Store orphan files
-      orphanScanStatus: '',
       validatingFiles: false,
       validationResults: null,
       // Race condition protection
@@ -212,7 +189,9 @@ export default {
         { key: 'unique-downloaded', label: 'Registered in DB' },
         { key: 'unique-not-downloaded', label: 'Not Registered in DB' },
         { key: 'duplicate-issues', label: 'Duplicate Issues' }
-      ]
+      ],
+      orphanFiles: [], // Store orphan files
+      orphanScanStatus: '',
     };
   },
   methods: {
@@ -335,169 +314,14 @@ export default {
         this.message = 'Error: ' + error.message;
       }
     },
-    async startScan() {
-      const operationId = 'startScan';
-      
-      if (this.isOperationInProgress(operationId)) {
-        console.log('Scan operation already in progress, skipping...');
-        return;
-      }
-      
-      // Check if there are saved paths to scan
-      if (!this.savedPaths || this.savedPaths.length === 0) {
-        this.message = 'No saved paths to scan. Please add some paths first.';
-        this.errorHandler.handleWarning('No saved paths to scan. Please add some paths first.');
-        return;
-      }
-      
-      // Cancel any existing scan operation
-      this.cancelPendingOperation(operationId);
-      
-      this.startOperation(operationId);
-      this.scanStatus = 'scanning';
-      this.message = 'Scanning...';
-      this.checkedFiles = [];
-      
-      try {
-        const signal = this.createOperationController(operationId);
-        const response = await apiService.startScan({ signal });
-        
-        console.log('Scan API response:', response);
-        
-        // Update results if this operation is still active
-        if (this.concurrentOperations.has(operationId)) {
-          this.scanStatus = 'done';
-          this.message = 'Scan completed!';
-          
-          // Handle the correct response structure: { results: [...] }
-          const scanData = response.results || response;
-          console.log('Starting checkFilesInDb with data:', scanData);
-          await this.checkFilesInDb(scanData);
-          console.log('After checkFilesInDb, checkedFiles:', this.checkedFiles);
-        }
-        
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('Scan operation was cancelled');
-          return;
-        }
-        this.errorHandler.handleError(error, 'starting scan');
-        this.scanStatus = 'error';
-        this.message = 'Scan failed!';
-      } finally {
-        this.endOperation(operationId);
-        this.removeOperationController(operationId);
-      }
-    },
-    async checkFilesInDb(scanResults) {
-      const operationId = 'checkFilesInDb';
-      
-      if (this.isOperationInProgress(operationId)) {
-        console.log('File check operation already in progress, skipping...');
-        return;
-      }
-      
-      // Cancel any existing check operation
-      this.cancelPendingOperation(operationId);
-      
-      this.startOperation(operationId);
-      
-      console.log('checkFilesInDb received scanResults:', scanResults);
-      
-      // Get files from the scan results
-      let files = [];
-      if (scanResults && Array.isArray(scanResults)) {
-        for (const result of scanResults) {
-          if (result && Array.isArray(result.files)) {
-            files = files.concat(result.files.map(f => ({
-              fullPath: f,
-              baseName: f.split(/\\|\//).pop() || f
-            })));
-          }
-        }
-      }
-      
-      console.log('Extracted files from scanResults:', files);
-      
-      if (!files.length) {
-        console.log('No files found, setting empty checkedFiles');
-        this.checkedFiles = [];
-        this.endOperation(operationId);
-        return;
-      }
-      
-      try {
-        const signal = this.createOperationController(operationId);
-        const data = await apiService.checkFilesInDb(files, { signal });
-        
-        console.log('checkFilesInDb API response:', data);
-        
-        // Update results if this operation is still active
-        if (this.concurrentOperations.has(operationId)) {
-          if (Array.isArray(data.results)) {
-            this.checkedFiles = data.results;
-            console.log('Updated checkedFiles with results:', this.checkedFiles);
-          } else {
-            this.checkedFiles = [];
-            console.log('No results array, setting empty checkedFiles');
-          }
-        }
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('File check operation was cancelled');
-          return;
-        }
-        this.errorHandler.handleError(error, 'checking files in database', { showNotification: false });
-        this.checkedFiles = [];
-      } finally {
-        this.endOperation(operationId);
-        this.removeOperationController(operationId);
-      }
-    },
-    async markDownloaded() {
-      this.markingDownloaded = true;
-      this.markDownloadedMsg = '';
-      try {
-        const data = await apiService.markDownloaded(this.checkedFiles);
-        if (typeof data.updated === 'number') {
-          this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
-          this.errorHandler.handleSuccess(`Updated ${data.updated} row(s) in database`);
-          if (data.errors && data.errors.length) {
-            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-            this.errorHandler.handleWarning(`Some files had errors: ${data.errors.length} errors encountered`);
-          }
-        } else {
-          const errorMsg = data.error || 'Failed to update DB.';
-          this.markDownloadedMsg = errorMsg;
-          this.errorHandler.handleError(new Error(errorMsg), 'marking files as downloaded');
-        }
-      } catch (error) {
-        this.errorHandler.handleError(error, 'marking files as downloaded');
-        this.markDownloadedMsg = 'Error: ' + error.message;
-      } finally {
-        this.markingDownloaded = false;
-      }
-    },
     async validateDownloadedFiles() {
       this.validatingFiles = true;
-      this.markDownloadedMsg = '';
       this.validationResults = null; // Clear previous results
       try {
         const data = await apiService.validateDownloadedFiles();
-        this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
-        this.errorHandler.handleSuccess(`Validation completed: ${data.validated} files validated`);
-        if (data.mismatches && data.mismatches.length > 0) {
-          this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
-          this.errorHandler.handleWarning(`Found ${data.mismatches.length} file mismatches`);
-        }
-        if (data.errors && data.errors.length > 0) {
-          this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-          this.errorHandler.handleWarning(`Validation encountered ${data.errors.length} errors`);
-        }
         this.validationResults = data; // Store the full validation results
       } catch (error) {
         this.errorHandler.handleError(error, 'validating downloaded files');
-        this.markDownloadedMsg = 'Error: ' + error.message;
       } finally {
         this.validatingFiles = false;
       }

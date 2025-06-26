@@ -152,13 +152,6 @@ export const apiService = {
     return response.data;
   },
 
-  async markDownloaded(files, options = {}) {
-    const response = await api.post('/files/mark-downloaded', { files }, {
-      signal: options.signal
-    });
-    return response.data;
-  },
-
   async validateDownloadedFiles(options = {}) {
     const response = await api.post('/files/validate', {}, {
       signal: options.signal
@@ -191,13 +184,6 @@ export const apiService = {
   async deletePathLegacy(path, options = {}) {
     const response = await api.delete('/paths', { 
       data: { path },
-      signal: options.signal
-    });
-    return response.data;
-  },
-
-  async startScan(options = {}) {
-    const response = await api.post('/files/scan', {}, {
       signal: options.signal
     });
     return response.data;

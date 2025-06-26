@@ -267,32 +267,6 @@ class DatabaseService {
         }
     }
 
-    // Batch update files as downloaded
-    async batchUpdateFilesAsDownloaded(files) {
-        let connection;
-        try {
-            connection = await dbPool.getConnection();
-            
-            let updated = 0;
-            let errors = [];
-
-            for (const item of files) {
-                try {
-                    await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?', [item.isDownloaded, item.fullPath, item.dbFileName]);
-                    updated++;
-                } catch (error) {
-                    errors.push({ fileName: item.dbFileName, error: error.message });
-                }
-            }
-
-            return { updated, errors };
-        } finally {
-            if (connection) {
-                dbPool.releaseConnection(connection);
-            }
-        }
-    }
-
     // Get database pool statistics
     getPoolStats() {
         return dbPool.getStats();
