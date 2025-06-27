@@ -41,7 +41,7 @@ app.use((req, res, next) => {
 });
 
 // Versioned API routes
-app.use('/api/v1', timeoutMiddleware.normal, v1Routes);
+app.use('/api/v1', v1Routes);
 
 // API root endpoint
 app.get('/api', (req, res) => {

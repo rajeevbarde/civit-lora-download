@@ -184,6 +184,31 @@ class DatabaseService {
         }
     }
 
+    // Get file records by filenames
+    async getFileRecordsByNames(fileNames) {
+        if (!fileNames || fileNames.length === 0) {
+            return [];
+        }
+
+        // Use LOWER() function for case-insensitive comparison
+        const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
+        const query = `
+            SELECT fileName, isDownloaded
+            FROM ALLCivitData
+            WHERE LOWER(fileName) IN (${placeholders})
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query, fileNames);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
     // Get downloaded files for validation
     async getDownloadedFiles() {
         const query = `
@@ -242,35 +267,46 @@ class DatabaseService {
         }
     }
 
-    // Batch update files as downloaded
-    async batchUpdateFilesAsDownloaded(files) {
+    // Get database pool statistics
+    getPoolStats() {
+        return dbPool.getStats();
+    }
+
+    // Batch register unregistered files
+    async batchRegisterUnregisteredFiles(files) {
         let connection;
         try {
             connection = await dbPool.getConnection();
-            
             let updated = 0;
             let errors = [];
-
-            for (const item of files) {
+            console.log(`[Register] Starting batch update for ${files.length} files...`);
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
                 try {
-                    await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = ?, file_path = ? WHERE fileName = ?', [item.isDownloaded, item.fullPath, item.dbFileName]);
-                    updated++;
-                } catch (error) {
-                    errors.push({ fileName: item.dbFileName, error: error.message });
+                    console.log(`[Register] Processing file ${i + 1}/${files.length}: ${file.baseName}`);
+                    const result = await dbPool.runUpdate(
+                        connection,
+                        'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE LOWER(fileName) = LOWER(?)',
+                        [file.fullPath, file.baseName]
+                    );
+                    if (result && result.changes > 0) {
+                        updated += result.changes;
+                        console.log(`[Register] ✓ Updated ${result.changes} row(s) for: ${file.baseName}`);
+                    } else {
+                        console.log(`[Register] ✗ No rows updated for: ${file.baseName}`);
+                    }
+                } catch (err) {
+                    console.error(`[Register] ✗ Error updating ${file.baseName}:`, err.message);
+                    errors.push({ fileName: file.baseName, error: err.message });
                 }
             }
-
+            console.log(`[Register] Batch complete. Total updated: ${updated}, Total errors: ${errors.length}`);
             return { updated, errors };
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);
             }
         }
-    }
-
-    // Get database pool statistics
-    getPoolStats() {
-        return dbPool.getStats();
     }
 }
 

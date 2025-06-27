@@ -1,7 +1,6 @@
 <template>
-  <div class="file-scanner-page">
-    <h1>File Scanner Page</h1>
-    <p>This is the file scanner page. Add your file scanning features here.</p>
+  <div class="lora-scanner-page">
+    <h2>LoRA Folders</h2>
     <div v-if="savedPaths.length" class="saved-path-display">
       <strong>Saved paths:</strong>
       <ul>
@@ -21,69 +20,113 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button @click="startScan">Scan All Saved Paths</button>
-    <button 
-      v-if="checkedFiles.length" 
-      @click="markDownloaded" 
-      :disabled="markingDownloaded"
-      class="mark-btn"
-    >
-      Mark Downloaded in DB
-    </button>
-    <button 
-      @click="validateDownloadedFiles" 
-      :disabled="validatingFiles"
-      class="validate-btn"
-    >
-      Validate Downloaded Files
-    </button>
+    <hr style="margin: 1.5rem 0;" />
+    <h2 style="margin-top:2.5rem;">Scan, Validate and Register</h2>
+    <div class="lora-actions">
+      <button 
+        @click="scanUniqueLoras" 
+        :disabled="scanningUniqueLoras"
+        class="scan-unique-btn"
+      >
+        {{ scanningUniqueLoras ? 'Scanning...' : 'Scan' }}
+      </button>
+      <span v-if="scanningUniqueLoras || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+        {{ scanTimer.toFixed(2) }}s
+      </span>
+      <button 
+        @click="validateDownloadedFiles" 
+        :disabled="validatingFiles"
+        class="validate-btn"
+      >
+        Validate
+      </button>
+    </div>
     <p v-if="message">{{ message }}</p>
     
     <!-- Tabbed Results Display -->
-    <div v-if="scanStatus === 'done' && checkedFiles.length" class="scan-results-container">
-      <h2>Scan Results</h2>
-      
+    <!-- Removed as per instructions -->
+    
+    <!-- Unique Loras Results Display -->
+    <div v-if="uniqueLorasResults || orphanFiles.length" class="unique-loras-container">
+      <div class="unique-loras-summary" v-if="uniqueLorasResults && uniqueLorasResults.stats">
+        <p><strong>Total LoRA files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
+      </div>
       <!-- Tab Navigation -->
-      <div class="tab-navigation">
+      <div class="unique-tab-navigation">
         <button 
-          v-for="tab in tabs" 
+          v-for="tab in uniqueTabsWithOrphan" 
           :key="tab.key"
-          @click="activeTab = tab.key"
-          :class="['tab-button', { active: activeTab === tab.key }]"
+          @click="activeUniqueTab = tab.key"
+          :class="['unique-tab-button', { active: activeUniqueTab === tab.key }]"
         >
-          {{ tab.label }} ({{ getTabCount(tab.key) }})
+          {{ tab.label }} ({{ getUniqueTabCount(tab.key) }})
         </button>
       </div>
-      
       <!-- Tab Content -->
-      <div class="tab-content">
-        <div v-for="tab in tabs" :key="tab.key" v-show="activeTab === tab.key" class="tab-panel">
-          <h3>{{ tab.label }} Files</h3>
-          <div v-if="getTabFiles(tab.key).length === 0" class="no-files">
+      <div class="unique-tab-content">
+        <div v-for="tab in uniqueTabsWithOrphan" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
+          <template v-if="tab.key === 'unique-downloaded'">
+            <div style="font-weight: 500; margin-bottom: 1rem; color: #2d3748;">
+              LoRA files are registered with Civitai db. They do not have duplicate issues.
+            </div>
+          </template>
+          <template v-else-if="tab.key === 'unique-not-downloaded'">
+            <div style="font-weight: 500; margin-bottom: 1rem; color: #2d3748;">
+              LoRA files are present in your hdd but not registered with db. They do not have duplicate issues.
+            </div>
+          </template>
+          <template v-else-if="tab.key === 'duplicate-issues'">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-weight: 500; color: #2d3748;">
+              <span>Wierd duplicate Issues</span>
+              <router-link to="/civit-data-fetcher" style="color: #337ab7; text-decoration: underline; font-weight: 500;">Fix it.</router-link>
+            </div>
+          </template>
+          <template v-else-if="tab.key === 'orphan'">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-weight: 500; color: #2d3748;">
+              <span>LoRA files present in harddrive but does not exist in Civitai db.</span>
+              <router-link to="/civit-data-fetcher" style="color: #337ab7; text-decoration: underline; font-weight: 500;">Fix it.</router-link>
+            </div>
+          </template>
+          <div v-if="tab.key === 'unique-not-downloaded' && getUniqueTabFiles(tab.key).length">
+            <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
+              Register
+            </button>
+            <span v-if="registering || registerTimer > 0" class="register-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+              {{ registerTimer.toFixed(2) }}s elapsed
+              <span v-if="registerPredictedSeconds > 0"> | Predicted: {{ Math.floor(registerPredictedSeconds / 60) }}m {{ (registerPredictedSeconds % 60) }}s</span>
+            </span>
+            <div v-if="registerResult" class="register-result">
+              <span v-if="registerResult.updated > 0">{{ registerResult.updated }} file(s) registered successfully.</span>
+              <span v-if="registerResult.errors && registerResult.errors.length > 0" style="color: #d9534f;"> {{ registerResult.errors.length }} error(s) occurred.</span>
+            </div>
+          </div>
+          <div v-if="getUniqueTabFiles(tab.key).length === 0" class="no-unique-files">
             No {{ tab.label.toLowerCase() }} files found.
           </div>
-          <table v-else class="scan-table">
+          <table v-else class="unique-loras-table">
             <thead>
               <tr>
-                <th>Full Path</th>
-                <th>Status</th>
-                <th>Base Name</th>
+                <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">Full path in harddrive</th>
+                <th v-else>Full Path</th>
+                <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">File name in db</th>
+                <th v-else-if="tab.key === 'duplicate-issues'">File name</th>
+                <th v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">Status</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(file, idx) in getTabFiles(tab.key)" :key="file.fullPath + idx">
-                <td>{{ file.fullPath }}</td>
-                <td>
+              <tr v-for="(file, idx) in getUniqueTabFiles(tab.key)" :key="file.fullPath + idx">
+                <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.fullPath }}</td>
+                <td v-else>{{ file.fullPath }}</td>
+                <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.baseName }}</td>
+                <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
+                <td v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">
                   <span :class="getStatusClass(file.status)">{{ file.status }}</span>
                 </td>
-                <td>{{ file.baseName }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      
-      <div v-if="markDownloadedMsg" class="mark-msg">{{ markDownloadedMsg }}</div>
     </div>
     
     <!-- Validation Results Display -->
@@ -156,7 +199,7 @@ import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
 
 export default {
-  name: 'FileScanner',
+  name: 'LoRAScanner',
   setup() {
     const errorHandler = useErrorHandler();
     return { errorHandler };
@@ -166,20 +209,31 @@ export default {
       directoryPath: '',
       message: '',
       savedPaths: [],
-      scanStatus: '',
-      checkedFiles: [], // [{ fullPath, baseName, status }]
-      markingDownloaded: false,
-      markDownloadedMsg: '',
-      activeTab: 'present', // Default active tab
-      tabs: [
-        { key: 'present', label: 'Present' },
-        { key: 'not-present', label: 'Not Present' }
-      ],
       validatingFiles: false,
       validationResults: null,
       // Race condition protection
       pendingOperations: new Map(),
-      concurrentOperations: new Set()
+      concurrentOperations: new Set(),
+      scanningUniqueLoras: false,
+      uniqueLorasResults: null,
+      activeUniqueTab: 'unique-downloaded',
+      uniqueTabs: [
+        { key: 'unique-downloaded', label: 'LoRA Registered with Civitai db' },
+        { key: 'unique-not-downloaded', label: 'LoRA not Registered' },
+        { key: 'duplicate-issues', label: 'Duplicate Issues' }
+      ],
+      orphanFiles: [], // Store orphan files
+      orphanScanStatus: '',
+      registering: false,
+      registerResult: null,
+      scanTimer: 0,
+      scanStartTime: null,
+      scanInterval: null,
+      // Registration timer and prediction
+      registerTimer: 0,
+      registerStartTime: null,
+      registerInterval: null,
+      registerPredictedSeconds: 0,
     };
   },
   methods: {
@@ -220,6 +274,12 @@ export default {
     
     // New methods for tab functionality
     getTabFiles(tabKey) {
+      if (tabKey === 'unique') {
+        return (this.uniqueLorasResults && this.uniqueLorasResults.uniqueFiles) ? this.uniqueLorasResults.uniqueFiles : [];
+      }
+      if (tabKey === 'orphan') {
+        return this.orphanFiles;
+      }
       return this.checkedFiles.filter(file => {
         switch (tabKey) {
           case 'present':
@@ -241,8 +301,16 @@ export default {
         return 'status-present';
       } else if (!status || status === '') {
         return 'status-not-present';
+      } else if (status === 'Unique') {
+        return 'status-unique';
+      } else if (status === 'Duplicate Issue' || status === 'Duplicate on Disk' || status === 'Duplicate in DB' || status === 'Duplicate on Disk & DB') {
+        return 'status-non-unique';
       }
       return 'status-unknown';
+    },
+    
+    getDownloadedClass(isDownloaded) {
+      return isDownloaded ? 'status-downloaded' : 'status-not-downloaded';
     },
     
     async savePath() {
@@ -288,172 +356,168 @@ export default {
         this.message = 'Error: ' + error.message;
       }
     },
-    async startScan() {
-      const operationId = 'startScan';
-      
+    async validateDownloadedFiles() {
+      this.uniqueLorasResults = null;
+      this.orphanFiles = [];
+      this.validatingFiles = true;
+      this.validationResults = null; // Clear previous results
+      try {
+        const data = await apiService.validateDownloadedFiles();
+        this.validationResults = data; // Store the full validation results
+      } catch (error) {
+        this.errorHandler.handleError(error, 'validating downloaded files');
+      } finally {
+        this.validatingFiles = false;
+      }
+    },
+    async scanUniqueLoras() {
+      this.validationResults = null;
+      const operationId = 'scanUniqueLoras';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Scan operation already in progress, skipping...');
+        console.log('Unique loras scan operation already in progress, skipping...');
         return;
       }
-      
-      // Check if there are saved paths to scan
       if (!this.savedPaths || this.savedPaths.length === 0) {
         this.message = 'No saved paths to scan. Please add some paths first.';
         this.errorHandler.handleWarning('No saved paths to scan. Please add some paths first.');
         return;
       }
-      
-      // Cancel any existing scan operation
       this.cancelPendingOperation(operationId);
-      
       this.startOperation(operationId);
-      this.scanStatus = 'scanning';
-      this.message = 'Scanning...';
-      this.checkedFiles = [];
-      
+      this.scanningUniqueLoras = true;
+      this.message = 'Scanning for unique loras...';
+      this.uniqueLorasResults = null;
+      // Start timer
+      this.scanStartTime = performance.now();
+      this.scanTimer = 0;
+      if (this.scanInterval) clearInterval(this.scanInterval);
+      this.scanInterval = setInterval(() => {
+        if (this.scanningUniqueLoras && this.scanStartTime) {
+          this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        }
+      }, 10);
       try {
         const signal = this.createOperationController(operationId);
-        const response = await apiService.startScan({ signal });
-        
-        console.log('Scan API response:', response);
-        
-        // Update results if this operation is still active
+        const data = await apiService.scanUniqueLoras({ signal });
+        console.log('Unique loras scan API response:', data);
         if (this.concurrentOperations.has(operationId)) {
-          this.scanStatus = 'done';
-          this.message = 'Scan completed!';
-          
-          // Handle the correct response structure: { results: [...] }
-          const scanData = response.results || response;
-          console.log('Starting checkFilesInDb with data:', scanData);
-          await this.checkFilesInDb(scanData);
-          console.log('After checkFilesInDb, checkedFiles:', this.checkedFiles);
-        }
-        
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('Scan operation was cancelled');
-          return;
-        }
-        this.errorHandler.handleError(error, 'starting scan');
-        this.scanStatus = 'error';
-        this.message = 'Scan failed!';
-      } finally {
-        this.endOperation(operationId);
-        this.removeOperationController(operationId);
-      }
-    },
-    async checkFilesInDb(scanResults) {
-      const operationId = 'checkFilesInDb';
-      
-      if (this.isOperationInProgress(operationId)) {
-        console.log('File check operation already in progress, skipping...');
-        return;
-      }
-      
-      // Cancel any existing check operation
-      this.cancelPendingOperation(operationId);
-      
-      this.startOperation(operationId);
-      
-      console.log('checkFilesInDb received scanResults:', scanResults);
-      
-      // Get files from the scan results
-      let files = [];
-      if (scanResults && Array.isArray(scanResults)) {
-        for (const result of scanResults) {
-          if (result && Array.isArray(result.files)) {
-            files = files.concat(result.files.map(f => ({
-              fullPath: f,
-              baseName: f.split(/\\|\//).pop() || f
-            })));
-          }
-        }
-      }
-      
-      console.log('Extracted files from scanResults:', files);
-      
-      if (!files.length) {
-        console.log('No files found, setting empty checkedFiles');
-        this.checkedFiles = [];
-        this.endOperation(operationId);
-        return;
-      }
-      
-      try {
-        const signal = this.createOperationController(operationId);
-        const data = await apiService.checkFilesInDb(files, { signal });
-        
-        console.log('checkFilesInDb API response:', data);
-        
-        // Update results if this operation is still active
-        if (this.concurrentOperations.has(operationId)) {
-          if (Array.isArray(data.results)) {
-            this.checkedFiles = data.results;
-            console.log('Updated checkedFiles with results:', this.checkedFiles);
-          } else {
-            this.checkedFiles = [];
-            console.log('No results array, setting empty checkedFiles');
-          }
+          this.uniqueLorasResults = data;
+          // Trigger orphan scan after unique loras scan
+          await this.scanOrphanFiles();
         }
       } catch (error) {
         if (error.name === 'AbortError') {
-          console.log('File check operation was cancelled');
+          console.log('Unique loras scan operation was cancelled');
           return;
         }
-        this.errorHandler.handleError(error, 'checking files in database', { showNotification: false });
-        this.checkedFiles = [];
+        this.errorHandler.handleError(error, 'scanning unique loras');
+        this.message = 'Unique loras scan failed!';
       } finally {
         this.endOperation(operationId);
         this.removeOperationController(operationId);
+        this.scanningUniqueLoras = false;
+        // Stop timer
+        if (this.scanInterval) clearInterval(this.scanInterval);
+        if (this.scanStartTime) this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        this.scanInterval = null;
+        this.scanStartTime = null;
+        // Clear message if not an error
+        if (this.message === 'Scanning for unique loras...') {
+          this.message = '';
+        }
       }
     },
-    async markDownloaded() {
-      this.markingDownloaded = true;
-      this.markDownloadedMsg = '';
+    getUniqueTabFiles(tabKey) {
+      if (!this.uniqueLorasResults || !this.uniqueLorasResults.uniqueFiles) {
+        if (tabKey === 'orphan') {
+          return this.orphanFiles;
+        }
+        return [];
+      }
+      if (tabKey === 'orphan') {
+        return this.orphanFiles;
+      }
+      return this.uniqueLorasResults.uniqueFiles.filter(file => {
+        switch (tabKey) {
+          case 'unique-downloaded':
+            return file.status === 'Unique' && file.isDownloaded === 1;
+          case 'unique-not-downloaded':
+            return file.status === 'Unique' && file.isDownloaded === 0;
+          case 'duplicate-issues':
+            return file.status !== 'Unique';
+          default:
+            return false;
+        }
+      });
+    },
+    getUniqueTabCount(tabKey) {
+      return this.getUniqueTabFiles(tabKey).length;
+    },
+    async scanOrphanFiles() {
+      this.orphanScanStatus = 'scanning';
+      this.orphanFiles = [];
       try {
-        const data = await apiService.markDownloaded(this.checkedFiles);
-        if (typeof data.updated === 'number') {
-          this.markDownloadedMsg = `Updated ${data.updated} row(s) in DB.`;
-          this.errorHandler.handleSuccess(`Updated ${data.updated} row(s) in database`);
-          if (data.errors && data.errors.length) {
-            this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-            this.errorHandler.handleWarning(`Some files had errors: ${data.errors.length} errors encountered`);
-          }
+        const data = await apiService.findMissingFiles();
+        if (data && Array.isArray(data.missingFiles)) {
+          this.orphanFiles = data.missingFiles.map(f => ({
+            fullPath: f.fullPath,
+            baseName: f.fileName
+          }));
         } else {
-          const errorMsg = data.error || 'Failed to update DB.';
-          this.markDownloadedMsg = errorMsg;
-          this.errorHandler.handleError(new Error(errorMsg), 'marking files as downloaded');
+          this.orphanFiles = [];
         }
+        this.orphanScanStatus = 'done';
       } catch (error) {
-        this.errorHandler.handleError(error, 'marking files as downloaded');
-        this.markDownloadedMsg = 'Error: ' + error.message;
-      } finally {
-        this.markingDownloaded = false;
+        this.errorHandler.handleError(error, 'scanning orphan files');
+        this.orphanScanStatus = 'error';
       }
     },
-    async validateDownloadedFiles() {
-      this.validatingFiles = true;
-      this.markDownloadedMsg = '';
-      this.validationResults = null; // Clear previous results
+    async registerUnregisteredFiles() {
+      this.registering = true;
+      this.registerResult = null;
+      // Timer logic
+      this.registerTimer = 0;
+      this.registerStartTime = performance.now();
+      if (this.registerInterval) clearInterval(this.registerInterval);
+      this.registerInterval = setInterval(() => {
+        if (this.registering && this.registerStartTime) {
+          this.registerTimer = (performance.now() - this.registerStartTime) / 1000;
+        }
+      }, 10);
       try {
-        const data = await apiService.validateDownloadedFiles();
-        this.markDownloadedMsg = `Validation completed. ${data.validated} files validated.`;
-        this.errorHandler.handleSuccess(`Validation completed: ${data.validated} files validated`);
-        if (data.mismatches && data.mismatches.length > 0) {
-          this.markDownloadedMsg += ` Found ${data.mismatches.length} mismatches.`;
-          this.errorHandler.handleWarning(`Found ${data.mismatches.length} file mismatches`);
+        const files = this.getUniqueTabFiles('unique-not-downloaded');
+        const payload = files.map(f => ({ baseName: f.baseName, fullPath: f.fullPath }));
+        // Prediction: 1 file = 1 sec
+        this.registerPredictedSeconds = files.length;
+        const result = await apiService.registerUnregisteredFiles(payload);
+        if (result && result.updated > 0) {
+          this.errorHandler.handleSuccess(`Registered ${result.updated} files successfully.`);
+          this.registerResult = { updated: result.updated, errors: result.errors };
+          // Refresh unique loras after registration
+          await this.scanUniqueLoras();
+        } else {
+          this.errorHandler.handleWarning('No files were registered.');
+          this.registerResult = { updated: 0, errors: result && result.errors ? result.errors : [] };
         }
-        if (data.errors && data.errors.length > 0) {
-          this.markDownloadedMsg += ' Errors: ' + data.errors.map(e => e.fileName + ': ' + e.error).join('; ');
-          this.errorHandler.handleWarning(`Validation encountered ${data.errors.length} errors`);
-        }
-        this.validationResults = data; // Store the full validation results
       } catch (error) {
-        this.errorHandler.handleError(error, 'validating downloaded files');
-        this.markDownloadedMsg = 'Error: ' + error.message;
+        this.errorHandler.handleError(error, 'registering unregistered files');
+        this.registerResult = { updated: 0, errors: [{ error: error.message }] };
       } finally {
-        this.validatingFiles = false;
+        this.registering = false;
+        // Stop timer
+        if (this.registerInterval) clearInterval(this.registerInterval);
+        if (this.registerStartTime) this.registerTimer = (performance.now() - this.registerStartTime) / 1000;
+        this.registerInterval = null;
+        this.registerStartTime = null;
       }
+    },
+  },
+  computed: {
+    uniqueTabsWithOrphan() {
+      return [
+        ...this.uniqueTabs,
+        { key: 'orphan', label: 'Orphan Files' }
+      ];
     },
   },
   mounted() {
@@ -470,13 +534,19 @@ export default {
     // Clear concurrent operations
     this.concurrentOperations.clear();
     
-    console.log('FileScanner component unmounted, all cleanup completed');
+    // Clear timer interval
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+      this.scanInterval = null;
+    }
+    
+    console.log('LoRAScanner component unmounted, all cleanup completed');
   }
 };
 </script>
 
 <style scoped>
-.file-scanner-page {
+.lora-scanner-page {
   padding: 2rem;
 }
 .directory-input {
@@ -565,6 +635,22 @@ button {
   font-weight: bold;
 }
 .status-not-present {
+  color: #d9534f;
+  font-weight: bold;
+}
+.status-unique {
+  color: #5bc0de;
+  font-weight: bold;
+}
+.status-non-unique {
+  color: #f0ad4e;
+  font-weight: bold;
+}
+.status-downloaded {
+  color: #5cb85c;
+  font-weight: bold;
+}
+.status-not-downloaded {
   color: #d9534f;
   font-weight: bold;
 }
@@ -659,5 +745,114 @@ progress {
   background: #f9f9f9;
   border-radius: 5px;
   text-align: center;
+}
+.scan-unique-btn {
+  background: #337ab7;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-left: 1rem;
+}
+.scan-unique-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.unique-loras-container {
+  margin-top: 2rem;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 5px;
+}
+.unique-loras-summary {
+  margin-bottom: 1rem;
+  color: #333;
+}
+.unique-tab-navigation {
+  display: flex;
+  border-bottom: 2px solid #ddd;
+  margin-bottom: 1rem;
+}
+.unique-tab-button {
+  background: #f8f8f8;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  padding: 0.75rem 1.5rem;
+  margin-right: 0.25rem;
+  cursor: pointer;
+  border-radius: 5px 5px 0 0;
+  font-weight: 500;
+}
+.unique-tab-button.active {
+  background: #fff;
+  border-bottom: 2px solid #fff;
+  margin-bottom: -2px;
+  font-weight: bold;
+}
+.unique-tab-button:hover:not(.active) {
+  background: #e9e9e9;
+}
+.unique-tab-content {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0 0 5px 5px;
+}
+.unique-tab-panel h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  color: #333;
+}
+.no-unique-files {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
+}
+.unique-loras-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.unique-loras-table th, .unique-loras-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.unique-loras-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.register-btn {
+  background: #5cb85c;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+.register-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.register-result {
+  margin-top: 0.5rem;
+  font-weight: bold;
+}
+.scan-timer {
+  display: inline-block;
+  margin-left: 1.5rem;
+  font-size: 1.1em;
+  color: #007bff;
+  min-width: 120px;
+}
+.register-timer {
+  display: inline-block;
+  margin-left: 1.5rem;
+  font-size: 1.1em;
+  color: #007bff;
+  min-width: 120px;
 }
 </style> 

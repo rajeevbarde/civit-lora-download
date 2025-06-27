@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { ALLOWED_EXTENSIONS, PATHS } = require('../config/constants');
 const logger = require('../utils/logger');
+const databaseService = require('../services/databaseService');
 
 class FileService {
     // Check if file has allowed extension
@@ -90,44 +91,6 @@ class FileService {
         } catch (error) {
             return { valid: false, error: `Path validation failed: ${error.message}` };
         }
-    }
-
-    // Scan directories for files with proper error handling
-    async scanDirectories(paths) {
-        logger.info('Starting directory scan', { pathCount: paths.length });
-
-        const results = paths.map((p, pathIndex) => {
-            logger.info(`Scanning path ${pathIndex + 1}/${paths.length}`, { path: p });
-            
-            let result = { path: p, files: [], error: null };
-            
-            const validation = this.validatePath(p);
-            if (!validation.valid) {
-                result.error = validation.error;
-                logger.warn('Path validation failed', { path: p, error: validation.error });
-            } else {
-                logger.debug('Path is valid, scanning for files', { path: p });
-                result.files = this.getAllFiles(p, []);
-                logger.info('Scan completed for path', { 
-                    path: p, 
-                    fileCount: result.files.length 
-                });
-            }
-            return result;
-        });
-
-        const totalFilesFound = results.reduce((sum, result) => sum + (result.files ? result.files.length : 0), 0);
-        const successfulPaths = results.filter(r => !r.error).length;
-        const failedPaths = results.filter(r => r.error).length;
-
-        logger.info('Directory scan completed', {
-            totalPaths: paths.length,
-            successfulPaths,
-            failedPaths,
-            totalFilesFound
-        });
-
-        return results;
     }
 
     // Check files against database with proper error handling
@@ -433,8 +396,27 @@ class FileService {
 
             // Check if target file already exists
             if (fs.existsSync(newFilePath)) {
-                logger.error('Target file already exists', { newFilePath });
-                throw new Error('Target file already exists');
+                // Target file exists, create a subfolder named after modelVersionId
+                const newFolder = path.join(dir, String(modelVersionId));
+                if (!fs.existsSync(newFolder)) {
+                    fs.mkdirSync(newFolder);
+                }
+                // Move the original file to the new folder and rename
+                const movedFilePath = path.join(newFolder, dbFileName);
+                fs.renameSync(filePath, movedFilePath);
+                logger.info('File moved and renamed to subfolder', {
+                    oldPath: filePath,
+                    newPath: movedFilePath,
+                    subfolder: newFolder
+                });
+                return {
+                    success: true,
+                    message: 'File moved to subfolder and renamed successfully',
+                    oldPath: filePath,
+                    newPath: movedFilePath,
+                    dbFileName: dbFileName,
+                    subfolder: newFolder
+                };
             }
 
             // Check if target directory is writable
@@ -468,6 +450,149 @@ class FileService {
             });
             throw new Error('File rename failed: ' + error.message);
         }
+    }
+
+    // Scan for unique loras - files that exist on disk and in database, excluding duplicates
+    async scanUniqueLoras(paths, dbFileNames) {
+        logger.info('Scanning for unique loras', { pathCount: paths.length });
+
+        // First, get all files from disk
+        const allDiskFiles = [];
+        for (const p of paths) {
+            const validation = this.validatePath(p);
+            if (validation.valid) {
+                const files = this.getAllFiles(p, []);
+                allDiskFiles.push(...files.map(f => ({
+                    fullPath: f,
+                    baseName: path.basename(f).toLowerCase()
+                })));
+            }
+        }
+
+        logger.info('Found files on disk', { totalFiles: allDiskFiles.length });
+
+        // Find duplicates on disk
+        const diskFileCounts = {};
+        allDiskFiles.forEach(file => {
+            diskFileCounts[file.baseName] = (diskFileCounts[file.baseName] || 0) + 1;
+        });
+
+        const diskDuplicates = new Set(
+            Object.entries(diskFileCounts)
+                .filter(([filename, count]) => count > 1)
+                .map(([filename]) => filename)
+        );
+
+        logger.info('Found disk duplicates', { duplicateCount: diskDuplicates.size });
+
+        // Find duplicates in database
+        const dbFileCounts = {};
+        dbFileNames.forEach(filename => {
+            dbFileCounts[filename] = (dbFileCounts[filename] || 0) + 1;
+        });
+
+        const dbDuplicates = new Set(
+            Object.entries(dbFileCounts)
+                .filter(([filename, count]) => count > 1)
+                .map(([filename]) => filename)
+        );
+
+        logger.info('Found database duplicates', { duplicateCount: dbDuplicates.size });
+
+        // Find unique files that exist both on disk and in database
+        const uniqueFiles = allDiskFiles.filter(file => {
+            const baseName = file.baseName;
+            
+            // Must exist in database
+            if (!dbFileNames.includes(baseName)) {
+                return false;
+            }
+            
+            // Must not be a duplicate on disk
+            if (diskDuplicates.has(baseName)) {
+                return false;
+            }
+            
+            // Must not be a duplicate in database
+            if (dbDuplicates.has(baseName)) {
+                return false;
+            }
+            
+            return true;
+        });
+
+        // Find non-unique files (files with duplicates)
+        const nonUniqueFiles = allDiskFiles.filter(file => {
+            const baseName = file.baseName;
+            
+            // Must exist in database
+            if (!dbFileNames.includes(baseName)) {
+                return false;
+            }
+            
+            // Must be a duplicate on disk OR in database
+            if (diskDuplicates.has(baseName) || dbDuplicates.has(baseName)) {
+                return true;
+            }
+            
+            return false;
+        });
+
+        logger.info('Found unique loras', { uniqueCount: uniqueFiles.length, nonUniqueCount: nonUniqueFiles.length });
+
+        // Get isDownloaded values for all files (unique + non-unique)
+        const allFileNames = [...uniqueFiles, ...nonUniqueFiles].map(f => f.baseName);
+        const dbRecords = await databaseService.getFileRecordsByNames(allFileNames);
+        
+        // Create a map for quick lookup - use lowercase for both keys and values
+        const dbRecordMap = {};
+        dbRecords.forEach(record => {
+            const lowerFileName = record.fileName.toLowerCase();
+            dbRecordMap[lowerFileName] = record;
+        });
+
+        // Process unique files
+        const processedUniqueFiles = uniqueFiles.map(f => {
+            const dbRecord = dbRecordMap[f.baseName];
+            const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
+            
+            return {
+                fullPath: f.fullPath,
+                baseName: f.baseName,
+                status: 'Unique',
+                isDownloaded: isDownloaded
+            };
+        });
+
+        // Process non-unique files
+        const processedNonUniqueFiles = nonUniqueFiles.map(f => {
+            const dbRecord = dbRecordMap[f.baseName];
+            const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
+            
+            // Determine the reason for non-uniqueness
+            let status = 'Duplicate Issue';
+            if (diskDuplicates.has(f.baseName) && dbDuplicates.has(f.baseName)) {
+                status = 'Duplicate on Disk & DB';
+            } else if (diskDuplicates.has(f.baseName)) {
+                status = 'Duplicate on Disk';
+            } else if (dbDuplicates.has(f.baseName)) {
+                status = 'Duplicate in DB';
+            }
+            
+            return {
+                fullPath: f.fullPath,
+                baseName: f.baseName,
+                status: status,
+                isDownloaded: isDownloaded
+            };
+        });
+
+        return {
+            uniqueFiles: [...processedUniqueFiles, ...processedNonUniqueFiles],
+            stats: {
+                totalDiskFiles: allDiskFiles.length
+            }
+        };
     }
 }
 

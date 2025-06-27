@@ -3,7 +3,6 @@ import axios from 'axios';
 // Create axios instance with default configuration
 const api = axios.create({
   baseURL: 'http://localhost:3000/api/v1',
-  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -152,15 +151,15 @@ export const apiService = {
     return response.data;
   },
 
-  async markDownloaded(files, options = {}) {
-    const response = await api.post('/files/mark-downloaded', { files }, {
+  async validateDownloadedFiles(options = {}) {
+    const response = await api.post('/files/validate', {}, {
       signal: options.signal
     });
     return response.data;
   },
 
-  async validateDownloadedFiles(options = {}) {
-    const response = await api.post('/files/validate', {}, {
+  async scanUniqueLoras(options = {}) {
+    const response = await api.post('/files/scan-unique-loras', {}, {
       signal: options.signal
     });
     return response.data;
@@ -189,13 +188,6 @@ export const apiService = {
     return response.data;
   },
 
-  async startScan(options = {}) {
-    const response = await api.post('/files/scan', {}, {
-      signal: options.signal
-    });
-    return response.data;
-  },
-
   async checkFilesInDb(files, options = {}) {
     const response = await api.post('/files/check', { files }, {
       signal: options.signal
@@ -213,6 +205,13 @@ export const apiService = {
 
   async getSummaryMatrixDownloaded(options = {}) {
     const response = await api.get('/models/summary-matrix-downloaded', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async registerUnregisteredFiles(files, options = {}) {
+    const response = await api.post('/files/register-unregistered', { files }, {
       signal: options.signal
     });
     return response.data;
