@@ -396,8 +396,27 @@ class FileService {
 
             // Check if target file already exists
             if (fs.existsSync(newFilePath)) {
-                logger.error('Target file already exists', { newFilePath });
-                throw new Error('Target file already exists');
+                // Target file exists, create a subfolder named after modelVersionId
+                const newFolder = path.join(dir, String(modelVersionId));
+                if (!fs.existsSync(newFolder)) {
+                    fs.mkdirSync(newFolder);
+                }
+                // Move the original file to the new folder and rename
+                const movedFilePath = path.join(newFolder, dbFileName);
+                fs.renameSync(filePath, movedFilePath);
+                logger.info('File moved and renamed to subfolder', {
+                    oldPath: filePath,
+                    newPath: movedFilePath,
+                    subfolder: newFolder
+                });
+                return {
+                    success: true,
+                    message: 'File moved to subfolder and renamed successfully',
+                    oldPath: filePath,
+                    newPath: movedFilePath,
+                    dbFileName: dbFileName,
+                    subfolder: newFolder
+                };
             }
 
             // Check if target directory is writable
