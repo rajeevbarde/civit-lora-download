@@ -55,16 +55,39 @@
             <table class="unique-loras-table">
               <thead>
                 <tr>
-                  <th>Full Path</th>
                   <th>File Name</th>
+                  <th>File Paths</th>
+                  <th>Hash Check</th>
+                  <th>Identify Metadata</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(file, idx) in duplicateOnDisk" :key="file.fullPath + idx">
-                  <td>{{ file.fullPath }}</td>
-                  <td>{{ file.baseName }}</td>
+                <tr v-for="(group, idx) in duplicateOnDiskGrouped" :key="group.filename + idx">
+                  <td>{{ group.filename }}</td>
+                  <td>
+                    <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="file-path-item">
+                      {{ path }}
+                    </div>
+                  </td>
+                  <td>
+                    <button 
+                      @click="checkHashForGroup(group.filename)"
+                      :disabled="hashCheckLoading[group.filename]"
+                      class="hash-check-btn"
+                    >
+                      {{ hashCheckLoading[group.filename] ? 'Calculating...' : 'Check Hash' }}
+                    </button>
+                    <div v-if="hashResults[group.filename]" class="hash-result">
+                      {{ hashResults[group.filename] }}
+                    </div>
+                  </td>
+                  <td>
+                    <div class="metadata-placeholder">
+                      Metadata info will be displayed here
+                    </div>
+                  </td>
                 </tr>
-                <tr v-if="duplicateOnDisk.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk found.</td></tr>
+                <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="4" class="no-unique-files">No duplicates on disk found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -209,6 +232,9 @@ export default {
       duplicateInterval: null,
       // Tab state for duplicate issues
       activeDuplicateTab: 'disk',
+      // Hash check state
+      hashCheckLoading: {},
+      hashResults: {},
     }
   },
   methods: {
@@ -456,7 +482,51 @@ export default {
         return 'status-non-unique';
       }
       return 'status-unknown';
-    }
+    },
+    async checkHashForGroup(filename) {
+      if (this.hashCheckLoading[filename]) return;
+      
+      this.hashCheckLoading[filename] = true;
+      this.hashResults[filename] = null;
+      
+      try {
+        const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        if (!group) return;
+        
+        const hashPromises = group.paths.map(async (path) => {
+          try {
+            const data = await apiService.computeFileHash(path);
+            return { path, hash: data.hash };
+          } catch (error) {
+            return { path, hash: null, error: error.message };
+          }
+        });
+        
+        const results = await Promise.all(hashPromises);
+        const hashes = results.map(r => r.hash).filter(h => h !== null);
+        const errors = results.filter(r => r.error);
+        
+        let resultText = '';
+        if (errors.length > 0) {
+          resultText = `Error: ${errors.length} file(s) failed to hash`;
+        } else if (hashes.length === 0) {
+          resultText = 'No valid hashes computed';
+        } else {
+          const uniqueHashes = new Set(hashes);
+          if (uniqueHashes.size === 1) {
+            resultText = '✅ Identical ';
+          } else {
+            resultText = `❌ Files have different hashes (${uniqueHashes.size} unique hashes)`;
+          }
+        }
+        
+        this.hashResults[filename] = resultText;
+      } catch (error) {
+        this.hashResults[filename] = `Error: ${error.message}`;
+      } finally {
+        this.hashCheckLoading[filename] = false;
+      }
+    },
   },
   computed: {
     duplicateOnDisk() {
@@ -467,6 +537,18 @@ export default {
     },
     duplicateOnDiskAndDb() {
       return (this.duplicateIssues || []).filter(f => f.status === 'Duplicate on Disk & DB');
+    },
+    duplicateOnDiskGrouped() {
+      const grouped = {};
+      this.duplicateOnDisk.forEach(file => {
+        if (!grouped[file.baseName]) {
+          grouped[file.baseName] = [];
+        }
+        grouped[file.baseName].push(file.fullPath);
+      });
+      return Object.entries(grouped)
+        .map(([filename, paths]) => ({ filename, paths: paths.sort() }))
+        .sort((a, b) => a.filename.localeCompare(b.filename));
     },
   },
   beforeUnmount() {
@@ -790,5 +872,42 @@ h3 {
   background: #fff;
   padding: 1rem;
   border-radius: 0 0 5px 5px;
+}
+.file-path-item {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #eee;
+}
+.file-path-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.hash-check-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+  margin-bottom: 0.5rem;
+}
+.hash-check-btn:hover:not(:disabled) {
+  background: #218838;
+}
+.hash-check-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+.hash-result {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0.25rem 0;
+}
+.metadata-placeholder {
+  color: #666;
+  font-style: italic;
+  font-size: 12px;
 }
 </style> 
