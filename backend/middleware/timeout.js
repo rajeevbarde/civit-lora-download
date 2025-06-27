@@ -3,6 +3,10 @@ const logger = require('../utils/logger');
 // Request timeout middleware
 function createTimeoutMiddleware(timeoutMs = 30000) { // Default 30 seconds
     return (req, res, next) => {
+        // If timeout is 0, null, or Infinity, do not set a timeout
+        if (!timeoutMs || timeoutMs === Infinity) {
+            return next();
+        }
         // Set a timeout for the request
         const timeout = setTimeout(() => {
             if (!res.headersSent) {

@@ -213,8 +213,7 @@ export const apiService = {
 
   async registerUnregisteredFiles(files, options = {}) {
     const response = await api.post('/files/register-unregistered', { files }, {
-      signal: options.signal,
-      timeout: 300000 // 5 minutes timeout for batch registration
+      signal: options.signal
     });
     return response.data;
   },

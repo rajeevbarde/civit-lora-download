@@ -11,7 +11,7 @@ const {
 const { createTimeoutMiddleware } = require('../../middleware/timeout');
 
 // Create a longer timeout for the register endpoint
-const registerTimeout = createTimeoutMiddleware(300000); // 5 minutes
+const registerTimeout = createTimeoutMiddleware(1200000); // 20 minutes
 
 // Check files against database
 router.post('/check', validateFilesArray, async (req, res) => {
