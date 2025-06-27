@@ -65,7 +65,19 @@
       <!-- Tab Content -->
       <div class="unique-tab-content">
         <div v-for="tab in uniqueTabsWithOrphan" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
-          <h3>{{ tab.label }} LoRA Files</h3>
+          <template v-if="tab.key === 'unique-downloaded'">
+            <div style="font-weight: 500; margin-bottom: 1rem; color: #2d3748;">
+              LoRA files are registered with Civitai db. They do not have duplicate issues.
+            </div>
+          </template>
+          <template v-else-if="tab.key === 'unique-not-downloaded'">
+            <div style="font-weight: 500; margin-bottom: 1rem; color: #2d3748;">
+              LoRA files are present in your hdd but not registered with db. They do not have duplicate issues.
+            </div>
+          </template>
+          <template v-else>
+            <h3>{{ tab.label }} LoRA Files</h3>
+          </template>
           <div v-if="tab.key === 'unique-not-downloaded' && getUniqueTabFiles(tab.key).length">
             <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
               Register
@@ -201,8 +213,8 @@ export default {
       uniqueLorasResults: null,
       activeUniqueTab: 'unique-downloaded',
       uniqueTabs: [
-        { key: 'unique-downloaded', label: 'Registered in DB' },
-        { key: 'unique-not-downloaded', label: 'Not Registered in DB' },
+        { key: 'unique-downloaded', label: 'LoRA Registered with Civitai db' },
+        { key: 'unique-not-downloaded', label: 'LoRA not Registered' },
         { key: 'duplicate-issues', label: 'Duplicate Issues' }
       ],
       orphanFiles: [], // Store orphan files
@@ -340,6 +352,8 @@ export default {
       }
     },
     async validateDownloadedFiles() {
+      this.uniqueLorasResults = null;
+      this.orphanFiles = [];
       this.validatingFiles = true;
       this.validationResults = null; // Clear previous results
       try {
@@ -352,6 +366,7 @@ export default {
       }
     },
     async scanUniqueLoras() {
+      this.validationResults = null;
       const operationId = 'scanUniqueLoras';
       if (this.isOperationInProgress(operationId)) {
         console.log('Unique loras scan operation already in progress, skipping...');
