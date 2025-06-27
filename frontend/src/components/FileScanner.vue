@@ -67,6 +67,10 @@
             <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
               Register
             </button>
+            <span v-if="registering || registerTimer > 0" class="register-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+              {{ registerTimer.toFixed(2) }}s elapsed
+              <span v-if="registerPredictedSeconds > 0"> | Predicted: {{ Math.floor(registerPredictedSeconds / 60) }}m {{ (registerPredictedSeconds % 60) }}s</span>
+            </span>
             <div v-if="registerResult" class="register-result">
               <span v-if="registerResult.updated > 0">{{ registerResult.updated }} file(s) registered successfully.</span>
               <span v-if="registerResult.errors && registerResult.errors.length > 0" style="color: #d9534f;"> {{ registerResult.errors.length }} error(s) occurred.</span>
@@ -205,6 +209,11 @@ export default {
       scanTimer: 0,
       scanStartTime: null,
       scanInterval: null,
+      // Registration timer and prediction
+      registerTimer: 0,
+      registerStartTime: null,
+      registerInterval: null,
+      registerPredictedSeconds: 0,
     };
   },
   methods: {
@@ -443,9 +452,20 @@ export default {
     async registerUnregisteredFiles() {
       this.registering = true;
       this.registerResult = null;
+      // Timer logic
+      this.registerTimer = 0;
+      this.registerStartTime = performance.now();
+      if (this.registerInterval) clearInterval(this.registerInterval);
+      this.registerInterval = setInterval(() => {
+        if (this.registering && this.registerStartTime) {
+          this.registerTimer = (performance.now() - this.registerStartTime) / 1000;
+        }
+      }, 10);
       try {
         const files = this.getUniqueTabFiles('unique-not-downloaded');
         const payload = files.map(f => ({ baseName: f.baseName, fullPath: f.fullPath }));
+        // Prediction: 1 file = 1 sec
+        this.registerPredictedSeconds = files.length;
         const result = await apiService.registerUnregisteredFiles(payload);
         if (result && result.updated > 0) {
           this.errorHandler.handleSuccess(`Registered ${result.updated} files successfully.`);
@@ -461,6 +481,11 @@ export default {
         this.registerResult = { updated: 0, errors: [{ error: error.message }] };
       } finally {
         this.registering = false;
+        // Stop timer
+        if (this.registerInterval) clearInterval(this.registerInterval);
+        if (this.registerStartTime) this.registerTimer = (performance.now() - this.registerStartTime) / 1000;
+        this.registerInterval = null;
+        this.registerStartTime = null;
       }
     },
   },
@@ -794,6 +819,13 @@ progress {
   font-weight: bold;
 }
 .scan-timer {
+  display: inline-block;
+  margin-left: 1.5rem;
+  font-size: 1.1em;
+  color: #007bff;
+  min-width: 120px;
+}
+.register-timer {
   display: inline-block;
   margin-left: 1.5rem;
   font-size: 1.1em;
