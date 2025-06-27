@@ -33,31 +33,76 @@
       </div>
     </div>
 
-    <!-- Duplicate Issues Table -->
+    <!-- Duplicate Issues Tabs -->
     <div v-if="showDuplicateIssues" class="duplicate-issues-section">
       <h2>Duplicate Issues</h2>
       <div v-if="duplicateIssuesLoading">Loading duplicate issues...</div>
       <div v-else-if="duplicateIssuesError" class="error">{{ duplicateIssuesError }}</div>
       <div v-else>
-        <div v-if="duplicateIssues && duplicateIssues.length > 0">
-          <table class="unique-loras-table">
-            <thead>
-              <tr>
-                <th>Full Path</th>
-                <th>File Name</th>
-                <th style="width: 240px;">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(file, idx) in duplicateIssues" :key="file.fullPath + idx">
-                <td>{{ file.fullPath }}</td>
-                <td>{{ file.baseName }}</td>
-                <td><span :class="getStatusClass(file.status)">{{ file.status }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="duplicate-tabs">
+          <button :class="['duplicate-tab', { active: activeDuplicateTab === 'disk' }]" @click="activeDuplicateTab = 'disk'">
+            Duplicate on Disk ({{ duplicateOnDisk.length }})
+          </button>
+          <button :class="['duplicate-tab', { active: activeDuplicateTab === 'db' }]" @click="activeDuplicateTab = 'db'">
+            Duplicate in DB ({{ duplicateInDb.length }})
+          </button>
+          <button :class="['duplicate-tab', { active: activeDuplicateTab === 'diskdb' }]" @click="activeDuplicateTab = 'diskdb'">
+            Duplicate on Disk & DB ({{ duplicateOnDiskAndDb.length }})
+          </button>
         </div>
-        <div v-else class="no-unique-files">No duplicate issues found.</div>
+        <div class="duplicate-tab-content">
+          <div v-show="activeDuplicateTab === 'disk'">
+            <table class="unique-loras-table">
+              <thead>
+                <tr>
+                  <th>Full Path</th>
+                  <th>File Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(file, idx) in duplicateOnDisk" :key="file.fullPath + idx">
+                  <td>{{ file.fullPath }}</td>
+                  <td>{{ file.baseName }}</td>
+                </tr>
+                <tr v-if="duplicateOnDisk.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk found.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-show="activeDuplicateTab === 'db'">
+            <table class="unique-loras-table">
+              <thead>
+                <tr>
+                  <th>Full Path</th>
+                  <th>File Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(file, idx) in duplicateInDb" :key="file.fullPath + idx">
+                  <td>{{ file.fullPath }}</td>
+                  <td>{{ file.baseName }}</td>
+                </tr>
+                <tr v-if="duplicateInDb.length === 0"><td colspan="2" class="no-unique-files">No duplicates in DB found.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-show="activeDuplicateTab === 'diskdb'">
+            <table class="unique-loras-table">
+              <thead>
+                <tr>
+                  <th>Full Path</th>
+                  <th>File Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(file, idx) in duplicateOnDiskAndDb" :key="file.fullPath + idx">
+                  <td>{{ file.fullPath }}</td>
+                  <td>{{ file.baseName }}</td>
+                </tr>
+                <tr v-if="duplicateOnDiskAndDb.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -161,7 +206,9 @@ export default {
       // Duplicate issues timer
       duplicateTimer: 0,
       duplicateStartTime: null,
-      duplicateInterval: null
+      duplicateInterval: null,
+      // Tab state for duplicate issues
+      activeDuplicateTab: 'disk',
     }
   },
   methods: {
@@ -368,6 +415,7 @@ export default {
       this.duplicateIssuesLoading = true;
       this.duplicateIssuesError = null;
       this.showDuplicateIssues = false;
+      this.activeDuplicateTab = 'disk';
       // Start timer
       this.duplicateStartTime = performance.now();
       this.duplicateTimer = 0;
@@ -409,6 +457,17 @@ export default {
       }
       return 'status-unknown';
     }
+  },
+  computed: {
+    duplicateOnDisk() {
+      return (this.duplicateIssues || []).filter(f => f.status === 'Duplicate on Disk');
+    },
+    duplicateInDb() {
+      return (this.duplicateIssues || []).filter(f => f.status === 'Duplicate in DB');
+    },
+    duplicateOnDiskAndDb() {
+      return (this.duplicateIssues || []).filter(f => f.status === 'Duplicate on Disk & DB');
+    },
   },
   beforeUnmount() {
     // Cancel all pending operations
@@ -703,5 +762,33 @@ h3 {
   color: #666;
   font-style: italic;
   padding: 2rem;
+}
+.duplicate-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.duplicate-tab {
+  background: #f8f8f8;
+  border: 1px solid #007bff;
+  color: #007bff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 5px 5px 0 0;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.duplicate-tab.active {
+  background: #007bff;
+  color: #fff;
+  font-weight: bold;
+}
+.duplicate-tab:hover:not(.active) {
+  background: #e9e9e9;
+}
+.duplicate-tab-content {
+  background: #fff;
+  padding: 1rem;
+  border-radius: 0 0 5px 5px;
 }
 </style> 

@@ -21,7 +21,7 @@
     />
     <button @click="savePath">Save Path</button>
     <hr style="margin: 1.5rem 0;" />
-    <h2 style="margin-top:2.5rem;">Scan, Validate and Register</h2>
+    <h2 style="margin-top:2.5rem;">Scan and Register LoRA. Validate Existing LoRA.</h2>
     <div class="lora-actions">
       <button 
         @click="scanUniqueLoras" 
