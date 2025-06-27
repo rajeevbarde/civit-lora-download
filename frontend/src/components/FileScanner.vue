@@ -1,7 +1,6 @@
 <template>
-  <div class="file-scanner-page">
-    <h1>File Scanner Page</h1>
-    <p>This is the file scanner page. Add your file scanning features here.</p>
+  <div class="lora-scanner-page">
+    <h2>LoRA Folders</h2>
     <div v-if="savedPaths.length" class="saved-path-display">
       <strong>Saved paths:</strong>
       <ul>
@@ -21,23 +20,27 @@
       class="directory-input"
     />
     <button @click="savePath">Save Path</button>
-    <button 
-      @click="scanUniqueLoras" 
-      :disabled="scanningUniqueLoras"
-      class="scan-unique-btn"
-    >
-      {{ scanningUniqueLoras ? 'Scanning...' : 'Scan Unique Loras' }}
-    </button>
-    <span v-if="scanningUniqueLoras || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
-      {{ scanTimer.toFixed(2) }}s
-    </span>
-    <button 
-      @click="validateDownloadedFiles" 
-      :disabled="validatingFiles"
-      class="validate-btn"
-    >
-      Validate Registered LoRA
-    </button>
+    <hr style="margin: 1.5rem 0;" />
+    <h2 style="margin-top:2.5rem;">Scan, Validate and Register</h2>
+    <div class="lora-actions">
+      <button 
+        @click="scanUniqueLoras" 
+        :disabled="scanningUniqueLoras"
+        class="scan-unique-btn"
+      >
+        {{ scanningUniqueLoras ? 'Scanning...' : 'Scan' }}
+      </button>
+      <span v-if="scanningUniqueLoras || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+        {{ scanTimer.toFixed(2) }}s
+      </span>
+      <button 
+        @click="validateDownloadedFiles" 
+        :disabled="validatingFiles"
+        class="validate-btn"
+      >
+        Validate
+      </button>
+    </div>
     <p v-if="message">{{ message }}</p>
     
     <!-- Tabbed Results Display -->
@@ -46,7 +49,7 @@
     <!-- Unique Loras Results Display -->
     <div v-if="uniqueLorasResults || orphanFiles.length" class="unique-loras-container">
       <div class="unique-loras-summary" v-if="uniqueLorasResults && uniqueLorasResults.stats">
-        <p><strong>Total files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
+        <p><strong>Total LoRA files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
       </div>
       <!-- Tab Navigation -->
       <div class="unique-tab-navigation">
@@ -62,7 +65,7 @@
       <!-- Tab Content -->
       <div class="unique-tab-content">
         <div v-for="tab in uniqueTabsWithOrphan" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
-          <h3>{{ tab.label }} Files</h3>
+          <h3>{{ tab.label }} LoRA Files</h3>
           <div v-if="tab.key === 'unique-not-downloaded' && getUniqueTabFiles(tab.key).length">
             <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
               Register
@@ -179,7 +182,7 @@ import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
 
 export default {
-  name: 'FileScanner',
+  name: 'LoRAScanner',
   setup() {
     const errorHandler = useErrorHandler();
     return { errorHandler };
@@ -517,13 +520,13 @@ export default {
       this.scanInterval = null;
     }
     
-    console.log('FileScanner component unmounted, all cleanup completed');
+    console.log('LoRAScanner component unmounted, all cleanup completed');
   }
 };
 </script>
 
 <style scoped>
-.file-scanner-page {
+.lora-scanner-page {
   padding: 2rem;
 }
 .directory-input {

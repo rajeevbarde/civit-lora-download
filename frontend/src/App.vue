@@ -1,8 +1,8 @@
 <template>
   <div id="app">
     <nav class="main-nav">
-      <router-link to="/summary">Summary</router-link>
-      <router-link to="/file-scanner">File Scanner</router-link>
+      <router-link to="/summary">LoRA Summary</router-link>
+      <router-link to="/file-scanner">LoRA Scanner</router-link>
       <router-link to="/civit-data-fetcher">Orphan LORA</router-link>
       <router-link to="/lora-hub">LoRA Hub</router-link>
     </nav>

@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import ModelTable from '../components/ModelTable.vue';
 import ModelDetail from '../components/ModelDetail.vue';
-import Summary from '../components/Summary.vue';
-import FileScanner from '../components/FileScanner.vue';
+import LoRASummary from '../components/Summary.vue';
+import LoRAScanner from '../components/FileScanner.vue';
 import CivitDataFetcher from '../components/CivitDataFetcher.vue';
 
 const routes = [
@@ -17,13 +17,13 @@ const routes = [
   },
   {
     path: '/summary',
-    name: 'Summary',
-    component: Summary,
+    name: 'LoRASummary',
+    component: LoRASummary,
   },
   {
     path: '/file-scanner',
-    name: 'FileScanner',
-    component: FileScanner,
+    name: 'LoRAScanner',
+    component: LoRAScanner,
   },
   {
     path: '/civit-data-fetcher',

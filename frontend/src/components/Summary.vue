@@ -1,7 +1,7 @@
 <template>
-  <div class="summary-page">
-    <h1>Summary Page</h1>
-    <p>This is the summary page. Add your summary content here.</p>
+  <div class="lora-summary-page">
+    <h1>LoRA Summary Page</h1>
+    <p>This is the LoRA summary page. Add your LoRA summary content here.</p>
     <div v-if="loading || loadingDownloaded" class="loading">Loading matrix...</div>
     <div v-else>
       <!-- Downloaded Matrix -->
@@ -76,7 +76,7 @@ import { getGreenGradientStyle, calculateMatrixTotal, findGlobalMax } from '@/ut
 import { COLORS } from '@/utils/constants.js';
 
 export default {
-  name: 'Summary',
+  name: 'LoRASummary',
   data() {
     return {
       baseModels: [],
@@ -174,7 +174,7 @@ export default {
 </script>
 
 <style scoped>
-.summary-page {
+.lora-summary-page {
   width: 100%;
   padding: 16px;
 }
@@ -275,7 +275,7 @@ p {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .summary-page {
+  .lora-summary-page {
     padding: 8px;
   }
   
