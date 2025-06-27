@@ -695,6 +695,9 @@ h3 {
   background: #f8f8f8;
   font-weight: bold;
 }
+.unique-loras-table td:last-child {
+  white-space: nowrap;
+}
 .no-unique-files {
   text-align: center;
   color: #666;
