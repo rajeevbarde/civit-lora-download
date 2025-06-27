@@ -16,9 +16,48 @@
       <span v-if="isScanning || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
         {{ scanTimer.toFixed(2) }}s
       </span>
+      <button 
+        @click="onDuplicateIssuesClick"
+        :disabled="duplicateIssuesLoading"
+        class="scan-button"
+        style="margin-left: 1rem; background: #007bff; color: white;"
+      >
+        {{ duplicateIssuesLoading ? 'Scanning...' : 'Duplicate issues' }}
+      </button>
+      <span v-if="duplicateIssuesLoading || duplicateTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+        {{ duplicateTimer.toFixed(2) }}s
+      </span>
       
       <div v-if="isScanning" class="scan-progress">
         <p>Scanning directories for files not found in database...</p>
+      </div>
+    </div>
+
+    <!-- Duplicate Issues Table -->
+    <div v-if="showDuplicateIssues" class="duplicate-issues-section">
+      <h2>Duplicate Issues</h2>
+      <div v-if="duplicateIssuesLoading">Loading duplicate issues...</div>
+      <div v-else-if="duplicateIssuesError" class="error">{{ duplicateIssuesError }}</div>
+      <div v-else>
+        <div v-if="duplicateIssues && duplicateIssues.length > 0">
+          <table class="unique-loras-table">
+            <thead>
+              <tr>
+                <th>Full Path</th>
+                <th>File Name</th>
+                <th style="width: 240px;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(file, idx) in duplicateIssues" :key="file.fullPath + idx">
+                <td>{{ file.fullPath }}</td>
+                <td>{{ file.baseName }}</td>
+                <td><span :class="getStatusClass(file.status)">{{ file.status }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-else class="no-unique-files">No duplicate issues found.</div>
       </div>
     </div>
 
@@ -113,7 +152,16 @@ export default {
       // Race condition protection
       processingFiles: new Set(),
       pendingOperations: new Map(),
-      concurrentOperations: new Set()
+      concurrentOperations: new Set(),
+      // Duplicate issues state
+      duplicateIssuesLoading: false,
+      duplicateIssues: null,
+      duplicateIssuesError: null,
+      showDuplicateIssues: false,
+      // Duplicate issues timer
+      duplicateTimer: 0,
+      duplicateStartTime: null,
+      duplicateInterval: null
     }
   },
   methods: {
@@ -169,15 +217,22 @@ export default {
     
     async scanForMissingFiles() {
       const operationId = 'scanForMissingFiles';
-      
       if (this.isOperationInProgress(operationId)) {
         console.log('Scan operation already in progress, skipping...');
         return;
       }
-      
+      // Clear duplicate issues result when scanning for orphans
+      this.duplicateIssues = null;
+      this.duplicateIssuesError = null;
+      this.showDuplicateIssues = false;
+      this.duplicateTimer = 0;
+      this.duplicateStartTime = null;
+      if (this.duplicateInterval) {
+        clearInterval(this.duplicateInterval);
+        this.duplicateInterval = null;
+      }
       // Cancel any existing scan operation
       this.cancelPendingOperation(operationId);
-      
       this.startOperation(operationId);
       this.isScanning = true;
       this.scanResults = null;
@@ -190,20 +245,16 @@ export default {
           this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
         }
       }, 10);
-      
       try {
         const signal = this.createOperationController(operationId);
         const data = await apiService.findMissingFiles({ signal });
-        
         console.log('Find missing files API response:', data);
-        
         // Update results if this operation is still active
         if (this.concurrentOperations.has(operationId)) {
           this.scanResults = data;
           this.errorHandler.handleSuccess('Scan completed successfully');
           console.log('Scan results updated:', this.scanResults);
         }
-        
       } catch (error) {
         if (error.name === 'AbortError') {
           console.log('Scan operation was cancelled');
@@ -300,6 +351,63 @@ export default {
         this.errorHandler.handleError(error, 'fetching model version ID from CivitAI');
         throw new Error(`Failed to fetch model version ID: ${error.message}`);
       }
+    },
+    onDuplicateIssuesClick() {
+      // Clear orphan scan result when scanning for duplicates
+      this.scanResults = null;
+      this.isScanning = false;
+      this.scanTimer = 0;
+      this.scanStartTime = null;
+      if (this.scanInterval) {
+        clearInterval(this.scanInterval);
+        this.scanInterval = null;
+      }
+      this.fetchDuplicateIssues();
+    },
+    async fetchDuplicateIssues() {
+      this.duplicateIssuesLoading = true;
+      this.duplicateIssuesError = null;
+      this.showDuplicateIssues = false;
+      // Start timer
+      this.duplicateStartTime = performance.now();
+      this.duplicateTimer = 0;
+      if (this.duplicateInterval) clearInterval(this.duplicateInterval);
+      this.duplicateInterval = setInterval(() => {
+        if (this.duplicateIssuesLoading && this.duplicateStartTime) {
+          this.duplicateTimer = (performance.now() - this.duplicateStartTime) / 1000;
+        }
+      }, 10);
+      try {
+        const data = await apiService.scanUniqueLoras();
+        if (data && Array.isArray(data.uniqueFiles)) {
+          this.duplicateIssues = data.uniqueFiles.filter(f => f.status !== 'Unique');
+        } else {
+          this.duplicateIssues = [];
+        }
+        this.showDuplicateIssues = true;
+      } catch (error) {
+        this.duplicateIssuesError = error.message || 'Failed to fetch duplicate issues.';
+        this.duplicateIssues = [];
+        this.showDuplicateIssues = true;
+      } finally {
+        this.duplicateIssuesLoading = false;
+        if (this.duplicateInterval) clearInterval(this.duplicateInterval);
+        if (this.duplicateStartTime) this.duplicateTimer = (performance.now() - this.duplicateStartTime) / 1000;
+        this.duplicateInterval = null;
+        this.duplicateStartTime = null;
+      }
+    },
+    getStatusClass(status) {
+      if (status === 'Present') {
+        return 'status-present';
+      } else if (!status || status === '') {
+        return 'status-not-present';
+      } else if (status === 'Unique') {
+        return 'status-unique';
+      } else if (status === 'Duplicate Issue' || status === 'Duplicate on Disk' || status === 'Duplicate in DB' || status === 'Duplicate on Disk & DB') {
+        return 'status-non-unique';
+      }
+      return 'status-unknown';
     }
   },
   beforeUnmount() {
@@ -545,5 +653,52 @@ h1 {
 
 h3 {
   margin-bottom: 1rem;
+}
+
+.status-present {
+  color: #5cb85c;
+  font-weight: bold;
+}
+.status-not-present {
+  color: #d9534f;
+  font-weight: bold;
+}
+.status-unique {
+  color: #5bc0de;
+  font-weight: bold;
+}
+.status-non-unique {
+  color: #f0ad4e;
+  font-weight: bold;
+}
+.status-unknown {
+  color: #888;
+  font-weight: bold;
+}
+.duplicate-issues-section {
+  margin-top: 2rem;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 5px;
+}
+.unique-loras-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.unique-loras-table th, .unique-loras-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+.unique-loras-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.no-unique-files {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
 }
 </style> 
