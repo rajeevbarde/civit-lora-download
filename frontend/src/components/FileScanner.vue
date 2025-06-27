@@ -26,8 +26,11 @@
       :disabled="scanningUniqueLoras"
       class="scan-unique-btn"
     >
-      Scan Unique Loras
+      {{ scanningUniqueLoras ? 'Scanning...' : 'Scan Unique Loras' }}
     </button>
+    <span v-if="scanningUniqueLoras || scanTimer > 0" class="scan-timer" style="display:inline-block;margin-left:1.5rem;font-size:1.1em;color:#007bff;min-width:120px;">
+      {{ scanTimer.toFixed(2) }}s
+    </span>
     <button 
       @click="validateDownloadedFiles" 
       :disabled="validatingFiles"
@@ -42,12 +45,8 @@
     
     <!-- Unique Loras Results Display -->
     <div v-if="uniqueLorasResults || orphanFiles.length" class="unique-loras-container">
-      <h2>Unique Loras Results</h2>
       <div class="unique-loras-summary" v-if="uniqueLorasResults && uniqueLorasResults.stats">
         <p><strong>Total files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
-        <p><strong>Duplicate files on disk:</strong> {{ uniqueLorasResults.stats.diskDuplicates }}</p>
-        <p><strong>Duplicate files in database:</strong> {{ uniqueLorasResults.stats.dbDuplicates }}</p>
-        <p><strong>Unique loras found:</strong> {{ uniqueLorasResults.stats.uniqueCount }}</p>
       </div>
       <!-- Tab Navigation -->
       <div class="unique-tab-navigation">
@@ -203,6 +202,9 @@ export default {
       orphanScanStatus: '',
       registering: false,
       registerResult: null,
+      scanTimer: 0,
+      scanStartTime: null,
+      scanInterval: null,
     };
   },
   methods: {
@@ -353,14 +355,21 @@ export default {
       this.scanningUniqueLoras = true;
       this.message = 'Scanning for unique loras...';
       this.uniqueLorasResults = null;
+      // Start timer
+      this.scanStartTime = performance.now();
+      this.scanTimer = 0;
+      if (this.scanInterval) clearInterval(this.scanInterval);
+      this.scanInterval = setInterval(() => {
+        if (this.scanningUniqueLoras && this.scanStartTime) {
+          this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        }
+      }, 10);
       try {
         const signal = this.createOperationController(operationId);
         const data = await apiService.scanUniqueLoras({ signal });
         console.log('Unique loras scan API response:', data);
         if (this.concurrentOperations.has(operationId)) {
           this.uniqueLorasResults = data;
-          this.message = `Unique loras scan completed! Found ${data.uniqueFiles.length} unique files.`;
-          this.errorHandler.handleSuccess(`Found ${data.uniqueFiles.length} unique loras`);
           // Trigger orphan scan after unique loras scan
           await this.scanOrphanFiles();
         }
@@ -375,6 +384,15 @@ export default {
         this.endOperation(operationId);
         this.removeOperationController(operationId);
         this.scanningUniqueLoras = false;
+        // Stop timer
+        if (this.scanInterval) clearInterval(this.scanInterval);
+        if (this.scanStartTime) this.scanTimer = (performance.now() - this.scanStartTime) / 1000;
+        this.scanInterval = null;
+        this.scanStartTime = null;
+        // Clear message if not an error
+        if (this.message === 'Scanning for unique loras...') {
+          this.message = '';
+        }
       }
     },
     getUniqueTabFiles(tabKey) {
@@ -467,6 +485,12 @@ export default {
     
     // Clear concurrent operations
     this.concurrentOperations.clear();
+    
+    // Clear timer interval
+    if (this.scanInterval) {
+      clearInterval(this.scanInterval);
+      this.scanInterval = null;
+    }
     
     console.log('FileScanner component unmounted, all cleanup completed');
   }
@@ -768,5 +792,12 @@ progress {
 .register-result {
   margin-top: 0.5rem;
   font-weight: bold;
+}
+.scan-timer {
+  display: inline-block;
+  margin-left: 1.5rem;
+  font-size: 1.1em;
+  color: #007bff;
+  min-width: 120px;
 }
 </style> 

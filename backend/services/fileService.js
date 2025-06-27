@@ -571,11 +571,7 @@ class FileService {
         return {
             uniqueFiles: [...processedUniqueFiles, ...processedNonUniqueFiles],
             stats: {
-                totalDiskFiles: allDiskFiles.length,
-                diskDuplicates: diskDuplicates.size,
-                dbDuplicates: dbDuplicates.size,
-                uniqueCount: uniqueFiles.length,
-                nonUniqueCount: nonUniqueFiles.length
+                totalDiskFiles: allDiskFiles.length
             }
         };
     }
