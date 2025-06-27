@@ -41,6 +41,11 @@ function createTimeoutMiddleware(timeoutMs = 30000) { // Default 30 seconds
             });
         });
 
+        // Clear timeout when response finishes
+        res.on('finish', () => {
+            clearTimeout(timeout);
+        });
+
         next();
     };
 }

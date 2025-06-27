@@ -8,6 +8,10 @@ const {
     validateFilesArray, 
     validateFixFileRequest 
 } = require('../../middleware/validation');
+const { createTimeoutMiddleware } = require('../../middleware/timeout');
+
+// Create a longer timeout for the register endpoint
+const registerTimeout = createTimeoutMiddleware(300000); // 5 minutes
 
 // Check files against database
 router.post('/check', validateFilesArray, async (req, res) => {
@@ -104,6 +108,24 @@ router.post('/scan-unique-loras', async (req, res) => {
         const result = await fileService.scanUniqueLoras(paths, dbFileNames);
         res.json(result);
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Register unregistered files in batch
+router.post('/register-unregistered', registerTimeout, async (req, res) => {
+    try {
+        const { files } = req.body;
+        if (!Array.isArray(files) || files.length === 0) {
+            console.log('[Register] No files provided.');
+            return res.status(400).json({ error: 'No files provided.' });
+        }
+        console.log(`[Register] Received request to register ${files.length} files.`);
+        const result = await databaseService.batchRegisterUnregisteredFiles(files);
+        console.log(`[Register] Updated: ${result.updated}, Errors: ${result.errors.length}`);
+        res.json(result);
+    } catch (error) {
+        console.error('[Register] Error during registration:', error);
         res.status(500).json({ error: error.message });
     }
 });

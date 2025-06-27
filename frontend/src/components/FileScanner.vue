@@ -64,6 +64,15 @@
       <div class="unique-tab-content">
         <div v-for="tab in uniqueTabsWithOrphan" :key="tab.key" v-show="activeUniqueTab === tab.key" class="unique-tab-panel">
           <h3>{{ tab.label }} Files</h3>
+          <div v-if="tab.key === 'unique-not-downloaded' && getUniqueTabFiles(tab.key).length">
+            <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
+              Register
+            </button>
+            <div v-if="registerResult" class="register-result">
+              <span v-if="registerResult.updated > 0">{{ registerResult.updated }} file(s) registered successfully.</span>
+              <span v-if="registerResult.errors && registerResult.errors.length > 0" style="color: #d9534f;"> {{ registerResult.errors.length }} error(s) occurred.</span>
+            </div>
+          </div>
           <div v-if="getUniqueTabFiles(tab.key).length === 0" class="no-unique-files">
             No {{ tab.label.toLowerCase() }} files found.
           </div>
@@ -192,6 +201,8 @@ export default {
       ],
       orphanFiles: [], // Store orphan files
       orphanScanStatus: '',
+      registering: false,
+      registerResult: null,
     };
   },
   methods: {
@@ -409,6 +420,29 @@ export default {
       } catch (error) {
         this.errorHandler.handleError(error, 'scanning orphan files');
         this.orphanScanStatus = 'error';
+      }
+    },
+    async registerUnregisteredFiles() {
+      this.registering = true;
+      this.registerResult = null;
+      try {
+        const files = this.getUniqueTabFiles('unique-not-downloaded');
+        const payload = files.map(f => ({ baseName: f.baseName, fullPath: f.fullPath }));
+        const result = await apiService.registerUnregisteredFiles(payload);
+        if (result && result.updated > 0) {
+          this.errorHandler.handleSuccess(`Registered ${result.updated} files successfully.`);
+          this.registerResult = { updated: result.updated, errors: result.errors };
+          // Refresh unique loras after registration
+          await this.scanUniqueLoras();
+        } else {
+          this.errorHandler.handleWarning('No files were registered.');
+          this.registerResult = { updated: 0, errors: result && result.errors ? result.errors : [] };
+        }
+      } catch (error) {
+        this.errorHandler.handleError(error, 'registering unregistered files');
+        this.registerResult = { updated: 0, errors: [{ error: error.message }] };
+      } finally {
+        this.registering = false;
       }
     },
   },
@@ -715,6 +749,24 @@ progress {
 }
 .unique-loras-table th {
   background: #f8f8f8;
+  font-weight: bold;
+}
+.register-btn {
+  background: #5cb85c;
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+.register-btn:disabled {
+  background: #b2d8b2;
+  cursor: not-allowed;
+}
+.register-result {
+  margin-top: 0.5rem;
   font-weight: bold;
 }
 </style> 
