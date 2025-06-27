@@ -30,15 +30,24 @@ class DownloadService {
                 }
             }
             
-            const filePath = path.join(targetDir, fileName);
-            
+            let filePath = path.join(targetDir, fileName);
+            let usedSubfolder = false;
             // Check if file already exists
             if (fs.existsSync(filePath)) {
-                logger.info('File already exists', { fileName });
-                // Update DB to mark as downloaded
-                await databaseService.updateModelAsDownloaded(modelVersionId, filePath);
-                logger.info('DB updated for existing file', { fileName });
-                return;
+                // Create a subfolder named after modelVersionId
+                const subfolder = path.join(targetDir, String(modelVersionId));
+                if (!fs.existsSync(subfolder)) {
+                    fs.mkdirSync(subfolder);
+                }
+                filePath = path.join(subfolder, fileName);
+                usedSubfolder = true;
+                // If file also exists in subfolder, treat as already downloaded
+                if (fs.existsSync(filePath)) {
+                    logger.info('File already exists in subfolder', { fileName, modelVersionId });
+                    await databaseService.updateModelAsDownloaded(modelVersionId, filePath);
+                    logger.info('DB updated for existing file in subfolder', { fileName });
+                    return;
+                }
             }
             
             // Download file with optimized settings
@@ -117,7 +126,7 @@ class DownloadService {
             
             // Update DB asynchronously
             await databaseService.updateModelAsDownloaded(modelVersionId, filePath);
-            logger.info('DB updated successfully', { fileName });
+            logger.info('DB updated successfully', { fileName, usedSubfolder });
             
         } catch (err) {
             logger.error('Download failed', { fileName, error: err.message });
