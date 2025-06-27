@@ -1,6 +1,6 @@
 <template>
   <div class="civit-data-fetcher">
-    <h1>Orphan LORA Identifier</h1>
+    <h1>Orphan LoRA Identifier</h1>
     <p class="page-summary">
       Attempt to check with Civitai, update database and rename file.
     </p>

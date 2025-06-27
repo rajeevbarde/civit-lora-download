@@ -1,6 +1,6 @@
 <template>
   <div class="model-table-page">
-    <h1>LORA Hub</h1>
+    <h1>LoRA Hub</h1>
     
     <!-- Notifications -->
     <div v-if="notifications.length > 0" class="notifications-container">
