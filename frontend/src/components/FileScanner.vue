@@ -75,8 +75,17 @@
               LoRA files are present in your hdd but not registered with db. They do not have duplicate issues.
             </div>
           </template>
-          <template v-else>
-            <h3>{{ tab.label }} LoRA Files</h3>
+          <template v-else-if="tab.key === 'duplicate-issues'">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-weight: 500; color: #2d3748;">
+              <span>Wierd duplicate Issues</span>
+              <router-link to="/civit-data-fetcher" style="color: #337ab7; text-decoration: underline; font-weight: 500;">Fix it.</router-link>
+            </div>
+          </template>
+          <template v-else-if="tab.key === 'orphan'">
+            <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-weight: 500; color: #2d3748;">
+              <span>LoRA files present in harddrive but does not exist in Civitai db.</span>
+              <router-link to="/civit-data-fetcher" style="color: #337ab7; text-decoration: underline; font-weight: 500;">Fix it.</router-link>
+            </div>
           </template>
           <div v-if="tab.key === 'unique-not-downloaded' && getUniqueTabFiles(tab.key).length">
             <button class="register-btn" @click="registerUnregisteredFiles" :disabled="registering">
@@ -97,26 +106,22 @@
           <table v-else class="unique-loras-table">
             <thead>
               <tr>
-                <th>Full Path</th>
-                <th v-if="tab.key !== 'orphan'">Base Name</th>
-                <th v-if="tab.key !== 'orphan'">Status</th>
-                <th v-if="tab.key !== 'orphan'">Downloaded</th>
-                <th v-if="tab.key === 'orphan'">Base Name</th>
+                <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">Full path in harddrive</th>
+                <th v-else>Full Path</th>
+                <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">File name in db</th>
+                <th v-else-if="tab.key === 'duplicate-issues'">File name</th>
+                <th v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">Status</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(file, idx) in getUniqueTabFiles(tab.key)" :key="file.fullPath + idx">
-                <td>{{ file.fullPath }}</td>
-                <td v-if="tab.key !== 'orphan'">{{ file.baseName }}</td>
-                <td v-if="tab.key !== 'orphan'">
+                <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.fullPath }}</td>
+                <td v-else>{{ file.fullPath }}</td>
+                <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.baseName }}</td>
+                <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
+                <td v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">
                   <span :class="getStatusClass(file.status)">{{ file.status }}</span>
                 </td>
-                <td v-if="tab.key !== 'orphan'">
-                  <span :class="getDownloadedClass(file.isDownloaded)">
-                    {{ file.isDownloaded }}
-                  </span>
-                </td>
-                <td v-if="tab.key === 'orphan'">{{ file.baseName }}</td>
               </tr>
             </tbody>
           </table>
