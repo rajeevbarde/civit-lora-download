@@ -594,6 +594,62 @@ class FileService {
             }
         };
     }
+
+    // Rename file as duplicate by adding _duplicate suffix
+    async renameFileAsDuplicate(filePath) {
+        try {
+            logger.info('Renaming file as duplicate', { filePath });
+
+            // Check if file exists
+            if (!fs.existsSync(filePath)) {
+                throw new Error('File not found');
+            }
+
+            // Get file info
+            const dir = path.dirname(filePath);
+            const ext = path.extname(filePath);
+            const baseName = path.basename(filePath, ext);
+            
+            // Create new filename with _duplicate suffix
+            const newFileName = `${baseName}_duplicate${ext}`;
+            const newFilePath = path.join(dir, newFileName);
+
+            // Check if target file already exists
+            if (fs.existsSync(newFilePath)) {
+                throw new Error(`File ${newFileName} already exists`);
+            }
+
+            // Check if directory is writable
+            try {
+                fs.accessSync(dir, fs.constants.W_OK);
+            } catch (accessError) {
+                logger.error('Directory is not writable', { dir, error: accessError.message });
+                throw new Error('Directory is not writable (permission denied)');
+            }
+
+            // Rename the file
+            fs.renameSync(filePath, newFilePath);
+            
+            logger.info('File renamed as duplicate successfully', { 
+                oldPath: filePath, 
+                newPath: newFilePath 
+            });
+
+            return {
+                success: true,
+                message: 'File renamed as duplicate successfully',
+                oldPath: filePath,
+                newPath: newFilePath,
+                newFileName: newFileName
+            };
+        } catch (error) {
+            logger.error('File rename as duplicate failed', { 
+                filePath, 
+                error: error.message 
+            });
+            throw new Error('File rename as duplicate failed: ' + error.message);
+        }
+    }
 }
 
 module.exports = new FileService(); 

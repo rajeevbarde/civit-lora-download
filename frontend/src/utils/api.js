@@ -231,6 +231,21 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Duplicate file operations
+  async renameFileAsDuplicate(filePath, options = {}) {
+    const response = await api.post('/files/rename-duplicate', { filePath }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async registerLoraInDatabase(data, options = {}) {
+    const response = await api.post('/files/register-lora', data, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

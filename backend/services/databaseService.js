@@ -332,6 +332,41 @@ class DatabaseService {
             }
         }
     }
+
+    // Register lora in database by updating isDownloaded and file_path
+    async registerLoraInDatabase(modelId, modelVersionId, fileName, fullPath) {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            
+            // Update the database record with isDownloaded = 1 and file_path
+            const result = await dbPool.runUpdate(
+                connection,
+                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelId = ? AND modelVersionId = ? AND fileName = ?',
+                [fullPath, modelId, modelVersionId, fileName]
+            );
+            
+            if (result && result.changes > 0) {
+                console.log(`[Register] ✓ Updated ${result.changes} row(s) for: ${fileName} (Model: ${modelId}, Version: ${modelVersionId})`);
+                return {
+                    success: true,
+                    message: 'Lora registered successfully',
+                    modelId: modelId,
+                    modelVersionId: modelVersionId,
+                    fileName: fileName,
+                    fullPath: fullPath,
+                    changes: result.changes
+                };
+            } else {
+                console.log(`[Register] ✗ No rows updated for: ${fileName} (Model: ${modelId}, Version: ${modelVersionId})`);
+                throw new Error('No matching record found in database');
+            }
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

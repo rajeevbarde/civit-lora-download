@@ -146,4 +146,37 @@ router.get('/filename/:modelVersionId', async (req, res) => {
     }
 });
 
+// Rename file as duplicate
+router.post('/rename-duplicate', validateFilePath, async (req, res) => {
+    try {
+        const { filePath } = req.body;
+        const result = await fileService.renameFileAsDuplicate(filePath);
+        res.json(result);
+    } catch (error) {
+        if (error.message.includes('File not found')) {
+            res.status(404).json({ error: error.message });
+        } else if (error.message.includes('already exists')) {
+            res.status(409).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// Register lora in database
+router.post('/register-lora', async (req, res) => {
+    try {
+        const { modelId, modelVersionId, fileName, fullPath } = req.body;
+        
+        if (!modelId || !modelVersionId || !fileName || !fullPath) {
+            return res.status(400).json({ error: 'Missing required fields: modelId, modelVersionId, fileName, fullPath' });
+        }
+        
+        const result = await databaseService.registerLoraInDatabase(modelId, modelVersionId, fileName, fullPath);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

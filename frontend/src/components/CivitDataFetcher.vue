@@ -131,6 +131,9 @@
                       <div v-for="(result, path) in registrationResults[group.filename]" :key="path" class="result-item">
                         <div class="result-path"><strong>Path:</strong> {{ path }}</div>
                         <div class="result-action"><strong>Action:</strong> {{ result.action }}</div>
+                        <div class="result-status" :class="result.status">
+                          <strong>Status:</strong> {{ result.message }}
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -666,15 +669,24 @@ export default {
                 // Step 2: Get filename from local DB using the model IDs
                 const dbFilename = await this.getFileNameFromDB(civitaiResponse.modelVersionId);
                 
-                // Step 3: Create comparison result
-                comparisonResults.push({
-                  hash: hash.substring(0, 8) + '...',
-                  paths: paths,
-                  civitaiModelId: civitaiResponse.modelId,
-                  civitaiModelVersionId: civitaiResponse.modelVersionId,
-                  dbFilename: dbFilename,
-                  modelUrl: `http://localhost:5173/model/${civitaiResponse.modelId}/${civitaiResponse.modelVersionId}`
-                });
+                // Only add to results if we got a valid filename
+                if (dbFilename) {
+                  // Step 3: Create comparison result
+                  comparisonResults.push({
+                    hash: hash.substring(0, 8) + '...',
+                    paths: paths,
+                    civitaiModelId: civitaiResponse.modelId,
+                    civitaiModelVersionId: civitaiResponse.modelVersionId,
+                    dbFilename: dbFilename,
+                    modelUrl: `http://localhost:5173/model/${civitaiResponse.modelId}/${civitaiResponse.modelVersionId}`
+                  });
+                } else {
+                  comparisonResults.push({
+                    hash: hash.substring(0, 8) + '...',
+                    paths: paths,
+                    error: 'Model found in CivitAI but not in local database'
+                  });
+                }
               } else {
                 comparisonResults.push({
                   hash: hash.substring(0, 8) + '...',
@@ -731,10 +743,15 @@ export default {
     async getFileNameFromDB(modelVersionId) {
       try {
         const response = await apiService.getFileNameByModelVersionId(modelVersionId);
-        return response ? response.fileName : 'Not found in DB';
+        if (response && response.fileName) {
+          return response.fileName;
+        } else {
+          console.warn('No filename found for modelVersionId:', modelVersionId);
+          return null; // Return null instead of error string
+        }
       } catch (error) {
         console.error('Error getting filename from DB:', error);
-        return 'Error fetching from DB';
+        return null; // Return null instead of error string
       }
     },
     getModelsForPath(path, filename) {
@@ -756,7 +773,7 @@ export default {
         return modelHash && pathHash.startsWith(modelHash.substring(0, 8));
       });
     },
-    registerActions(filename) {
+    async registerActions(filename) {
       // Validate that no dropdowns have the same value (except _duplicate)
       const validationResult = this.validateSelectedActions(filename);
       
@@ -774,21 +791,64 @@ export default {
       
       // Store the results for display in the result column
       this.registrationResults[filename] = {};
-      group.paths.forEach(path => {
-        const selectedAction = this.selectedActions[path];
-        if (selectedAction) {
-          this.registrationResults[filename][path] = {
-            action: selectedAction
-          };
-        }
-      });
       
-      // Implementation of registerActions method
-      console.log('Register actions for:', filename);
-      console.log('Selected actions:', this.selectedActions);
+      // Process each file path
+      for (const path of group.paths) {
+        const selectedAction = this.selectedActions[path];
+        if (!selectedAction) continue;
+        
+        try {
+          if (selectedAction === '_duplicate') {
+            // Rename file on hard drive
+            const result = await this.renameFileAsDuplicate(path);
+            this.registrationResults[filename][path] = {
+              action: selectedAction,
+              status: 'success',
+              message: 'File renamed'
+            };
+          } else {
+            // Update database with model information
+            const [modelId, modelVersionId, fileName] = selectedAction.split('/');
+            const result = await this.registerLoraInDatabase(modelId, modelVersionId, fileName, path);
+            this.registrationResults[filename][path] = {
+              action: selectedAction,
+              status: 'success',
+              message: 'Lora registered'
+            };
+          }
+        } catch (error) {
+          this.registrationResults[filename][path] = {
+            action: selectedAction,
+            status: 'error',
+            message: error.message
+          };
+          console.error(`Error processing ${path}:`, error);
+        }
+      }
       
       // Show success message
-      this.errorHandler.handleSuccess(`Actions registered for ${filename}`);
+      this.errorHandler.handleSuccess(`Actions processed for ${filename}`);
+    },
+    async renameFileAsDuplicate(filePath) {
+      try {
+        const response = await apiService.renameFileAsDuplicate(filePath);
+        return response;
+      } catch (error) {
+        throw new Error(`Failed to rename file: ${error.message}`);
+      }
+    },
+    async registerLoraInDatabase(modelId, modelVersionId, fileName, fullPath) {
+      try {
+        const response = await apiService.registerLoraInDatabase({
+          modelId: parseInt(modelId),
+          modelVersionId: parseInt(modelVersionId),
+          fileName: fileName,
+          fullPath: fullPath
+        });
+        return response;
+      } catch (error) {
+        throw new Error(`Failed to register lora in database: ${error.message}`);
+      }
     },
     validateSelectedActions(filename) {
       const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
@@ -1315,5 +1375,16 @@ h3 {
   font-size: 0.8rem;
   color: #6c757d;
   font-weight: 500;
+}
+.result-status {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+.result-status.success {
+  color: #28a745;
+}
+.result-status.error {
+  color: #dc3545;
 }
 </style> 
