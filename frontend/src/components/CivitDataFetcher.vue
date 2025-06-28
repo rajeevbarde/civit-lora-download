@@ -168,13 +168,16 @@
                       <div v-if="dbCheckResults[file.fullPath].success" class="db-check-success">
                         <div class="db-check-count">Found {{ dbCheckResults[file.fullPath].count }} model(s):</div>
                         <div v-for="(model, index) in dbCheckResults[file.fullPath].models" :key="index" class="model-link-item">
-                          <a 
-                            :href="model.url" 
-                            target="_blank" 
-                            class="model-link"
-                          >
-                            {{ model.modelId }}/{{ model.modelVersionId }}
-                          </a>
+                          <div class="model-link-container">
+                            <a 
+                              :href="model.url" 
+                              target="_blank" 
+                              class="model-link"
+                            >
+                              {{ model.modelId }}/{{ model.modelVersionId }}
+                            </a>
+                            <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                          </div>
                         </div>
                       </div>
                       <div v-else class="db-check-error">
@@ -205,20 +208,26 @@
                           ✅ Found in CivitAI only
                           <div class="model-info">
                             Model: {{ comparisonResults[file.fullPath].metadataModel.modelId }}/{{ comparisonResults[file.fullPath].metadataModel.modelVersionId }}
+                            <span v-if="comparisonResults[file.fullPath].isAlreadyRegistered" class="already-registered-note">(Already registered)</span>
                           </div>
                           <button 
                             class="register-btn"
                             @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
-                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath) || comparisonResults[file.fullPath].isAlreadyRegistered"
                           >
-                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : 
+                               registeredFiles.has(file.fullPath) ? 'Completed' : 
+                               comparisonResults[file.fullPath].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
                           </button>
                         </div>
                         <div v-else-if="comparisonResults[file.fullPath].status === 'only_db_found'" class="comparison-only-db">
                           ✅ Found in database only
                           <div class="db-models">
                             <div v-for="(model, index) in comparisonResults[file.fullPath].dbModels" :key="index" class="db-model-item">
-                              {{ model.modelId }}/{{ model.modelVersionId }}
+                              <div class="model-link-container">
+                                <span>{{ model.modelId }}/{{ model.modelVersionId }}</span>
+                                <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -226,13 +235,16 @@
                           ✅ Perfect match found!
                           <div class="match-info">
                             Model: {{ comparisonResults[file.fullPath].metadataModel.modelId }}/{{ comparisonResults[file.fullPath].metadataModel.modelVersionId }}
+                            <span v-if="comparisonResults[file.fullPath].isAlreadyRegistered" class="already-registered-note">(Already registered)</span>
                           </div>
                           <button 
                             class="register-btn"
                             @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
-                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath) || comparisonResults[file.fullPath].isAlreadyRegistered"
                           >
-                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : 
+                               registeredFiles.has(file.fullPath) ? 'Completed' : 
+                               comparisonResults[file.fullPath].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
                           </button>
                         </div>
                         <div v-else-if="comparisonResults[file.fullPath].status === 'mismatch'" class="comparison-mismatch">
@@ -244,16 +256,21 @@
                             <div class="db-models">
                               Database: 
                               <div v-for="(model, index) in comparisonResults[file.fullPath].dbModels" :key="index" class="db-model-item">
-                                {{ model.modelId }}/{{ model.modelVersionId }}
+                                <div class="model-link-container">
+                                  <span>{{ model.modelId }}/{{ model.modelVersionId }}</span>
+                                  <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                                </div>
                               </div>
                             </div>
                           </div>
                           <button 
                             class="register-btn"
                             @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
-                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath) || comparisonResults[file.fullPath].isAlreadyRegistered"
                           >
-                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : 
+                               registeredFiles.has(file.fullPath) ? 'Completed' : 
+                               comparisonResults[file.fullPath].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
                           </button>
                         </div>
                       </div>
@@ -1043,11 +1060,14 @@ export default {
       apiService.searchModelByFilename(filename)
         .then(response => {
           if (response && response.length > 0) {
-            // Display all matches found
+            // Display all matches found with registration status
             const models = response.map(model => ({
               modelId: model.modelId,
               modelVersionId: model.modelVersionId,
               fileName: model.fileName,
+              isDownloaded: model.isDownloaded,
+              file_path: model.file_path,
+              isRegistered: model.isDownloaded === 1 && model.file_path !== null,
               url: `http://localhost:5173/model/${model.modelId}/${model.modelVersionId}`
             }));
             
@@ -1223,7 +1243,8 @@ export default {
               modelId: metadataModelId,
               modelVersionId: metadataModelVersionId
             } : null,
-            status: 'unknown'
+            status: 'unknown',
+            isAlreadyRegistered: false
           };
           
           if (dbModels.length === 0 && !metadataModelId) {
@@ -1241,6 +1262,8 @@ export default {
             
             if (matchingDbModel) {
               comparison.status = 'match_found';
+              // Check if the matching model is already registered
+              comparison.isAlreadyRegistered = matchingDbModel.isRegistered;
             } else {
               comparison.status = 'mismatch';
             }
@@ -1865,5 +1888,19 @@ h3 {
 .db-model-item:last-child {
   border-bottom: none;
   margin-bottom: 0;
+}
+.model-link-container {
+  display: flex;
+  align-items: center;
+}
+.registered-indicator {
+  margin-left: 0.25rem;
+  font-size: 0.8rem;
+  color: #28a745;
+}
+.already-registered-note {
+  color: #dc3545;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
 }
 </style> 
