@@ -299,6 +299,10 @@
                 <tr>
                   <th>File Name</th>
                   <th>File Paths</th>
+                  <th>Hash Check</th>
+                  <th>Identify Metadata</th>
+                  <th>Actions</th>
+                  <th>Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,8 +313,74 @@
                       {{ path }}
                     </div>
                   </td>
+                  <td>
+                    <button 
+                      @click="checkHashForGroup(group.filename)"
+                      :disabled="hashCheckLoading[group.filename] || hashCheckedFiles.has(group.filename)"
+                      class="hash-check-btn"
+                    >
+                      {{ hashCheckLoading[group.filename] ? 'Calculating...' : 'Check Hash' }}
+                    </button>
+                    <div v-if="hashResults[group.filename]" class="hash-result">
+                      {{ hashResults[group.filename] }}
+                    </div>
+                  </td>
+                  <td>
+                    <button 
+                      @click="identifyMetadataForGroup(group.filename)"
+                      :disabled="metadataLoading[group.filename] || !hashCheckedFiles.has(group.filename) || identifiedFiles.has(group.filename)"
+                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : identifiedFiles.has(group.filename) ? 'Already identified' : ''"
+                      class="metadata-btn"
+                    >
+                      {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
+                    </button>
+                    <div v-if="metadataResults[group.filename]" class="metadata-result">
+                      <div v-html="metadataResults[group.filename]"></div>
+                    </div>
+                  </td>
+                  <td>
+                    <!-- Actions column - show for both identical and non-identical hash files -->
+                    <div v-if="hashCheckedFiles.has(group.filename) && hashResults[group.filename] && identicalHashModels[group.filename]">
+                      <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="action-item">
+                        <div class="file-path">{{ path }}</div>
+                        <select 
+                          v-model="selectedActions[path]" 
+                          class="action-dropdown"
+                          :disabled="!identicalHashModels[group.filename] || identicalHashModels[group.filename].length === 0"
+                        >
+                          <option 
+                            v-for="model in getModelsForPath(path, group.filename)" 
+                            :key="`${model.modelId}-${model.modelVersionId}`"
+                            :value="`${model.modelId}/${model.modelVersionId}/${model.fileName}`"
+                          >
+                            {{ model.modelId }}/{{ model.modelVersionId }}/{{ model.fileName }}
+                          </option>
+                          <option value="_duplicate">rename as _duplicate</option>
+                        </select>
+                      </div>
+                      <button 
+                        @click="registerActions(group.filename)"
+                        :disabled="!hasSelectedActions(group.filename)"
+                        class="register-btn"
+                      >
+                        Register
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <!-- Result column - display registration results -->
+                    <div v-if="registrationResults[group.filename]" class="registration-result">
+                      <div v-for="(result, path) in registrationResults[group.filename]" :key="path" class="result-item">
+                        <div class="result-path"><strong>Path:</strong> {{ path }}</div>
+                        <div class="result-action"><strong>Action:</strong> {{ result.action }}</div>
+                        <div class="result-status" :class="result.status">
+                          <strong>Status:</strong> {{ result.message }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
-                <tr v-if="duplicateOnDiskAndDbGrouped.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
+                <tr v-if="duplicateOnDiskAndDbGrouped.length === 0"><td colspan="6" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -775,7 +845,11 @@ export default {
       this.hashResults[filename] = null;
       
       try {
-        const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        // Search in both duplicate groups to support both tabs
+        let group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        if (!group) {
+          group = this.duplicateOnDiskAndDbGrouped.find(g => g.filename === filename);
+        }
         if (!group) return;
         
         const hashPromises = group.paths.map(async (path) => {
@@ -840,7 +914,11 @@ export default {
       this.metadataResults[filename] = null;
       
       try {
-        const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        // Search in both duplicate groups to support both tabs
+        let group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        if (!group) {
+          group = this.duplicateOnDiskAndDbGrouped.find(g => g.filename === filename);
+        }
         if (!group) return;
         
         // Get hash details for this file group
@@ -1002,8 +1080,11 @@ export default {
         return;
       }
       
-      // Get the file group
-      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      // Get the file group - search in both duplicate groups to support both tabs
+      let group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) {
+        group = this.duplicateOnDiskAndDbGrouped.find(g => g.filename === filename);
+      }
       if (!group) {
         this.errorHandler.handleError(new Error('File group not found'), 'registering actions', { showNotification: true });
         return;
@@ -1071,7 +1152,11 @@ export default {
       }
     },
     validateSelectedActions(filename) {
-      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      // Search in both duplicate groups to support both tabs
+      let group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) {
+        group = this.duplicateOnDiskAndDbGrouped.find(g => g.filename === filename);
+      }
       if (!group) {
         return { isValid: false, errorMessage: 'File group not found' };
       }
@@ -1109,8 +1194,11 @@ export default {
       return { isValid: true };
     },
     hasSelectedActions(filename) {
-      // Check if any actions are selected for this file group
-      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      // Check if any actions are selected for this file group - search in both duplicate groups to support both tabs
+      let group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) {
+        group = this.duplicateOnDiskAndDbGrouped.find(g => g.filename === filename);
+      }
       if (!group) return false;
       
       const hasAllSelections = group.paths.some(path => this.selectedActions[path] && this.selectedActions[path] !== '');
