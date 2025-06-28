@@ -504,12 +504,31 @@ export default {
       this.processingFiles.delete(filePath);
     },
     
+    resetOrphanScanState() {
+      // Reset all orphan scan related state
+      this.scanResults = null;
+      this.isScanning = false;
+      this.scanTimer = 0;
+      this.scanStartTime = null;
+      if (this.scanInterval) {
+        clearInterval(this.scanInterval);
+        this.scanInterval = null;
+      }
+      
+      // Reset file processing states
+      this.processingFiles.clear();
+    },
+    
     async scanForMissingFiles() {
       const operationId = 'scanForMissingFiles';
       if (this.isOperationInProgress(operationId)) {
         console.log('Scan operation already in progress, skipping...');
         return;
       }
+      
+      // Reset all orphan scan state
+      this.resetOrphanScanState();
+      
       // Clear duplicate issues result when scanning for orphans
       this.duplicateIssues = null;
       this.duplicateIssuesError = null;
@@ -520,6 +539,7 @@ export default {
         clearInterval(this.duplicateInterval);
         this.duplicateInterval = null;
       }
+      
       // Cancel any existing scan operation
       this.cancelPendingOperation(operationId);
       this.startOperation(operationId);
@@ -638,6 +658,50 @@ export default {
         throw new Error(`Failed to fetch model info from CivitAI: ${error.message}`);
       }
     },
+    resetDuplicateIssuesState() {
+      // Reset all duplicate issues related state
+      this.duplicateIssues = null;
+      this.duplicateIssuesError = null;
+      this.showDuplicateIssues = false;
+      this.activeDuplicateTab = 'disk';
+      
+      // Reset hash check state
+      this.hashCheckLoading = {};
+      this.hashResults = {};
+      this.hashDetails = {};
+      this.hashCheckedFiles.clear();
+      this.identifiedFiles.clear();
+      
+      // Reset metadata state
+      this.metadataLoading = {};
+      this.metadataResults = {};
+      this.identicalHashModels = {};
+      this.pathHashMapping = {};
+      this.selectedActions = {};
+      this.registrationResults = {};
+      
+      // Reset database check state
+      this.dbCheckLoading = {};
+      this.dbCheckResults = {};
+      this.dbCheckedFiles.clear();
+      
+      // Reset identify metadata state
+      this.identifyMetadataLoading = {};
+      this.identifyMetadataResults = {};
+      this.metadataIdentifiedFiles.clear();
+      
+      // Reset registration state
+      this.registrationLoading = {};
+      this.registeredFiles.clear();
+      
+      // Reset timers
+      this.duplicateTimer = 0;
+      this.duplicateStartTime = null;
+      if (this.duplicateInterval) {
+        clearInterval(this.duplicateInterval);
+        this.duplicateInterval = null;
+      }
+    },
     onDuplicateIssuesClick() {
       // Clear orphan scan result when scanning for duplicates
       this.scanResults = null;
@@ -648,6 +712,10 @@ export default {
         clearInterval(this.scanInterval);
         this.scanInterval = null;
       }
+      
+      // Reset all duplicate issues state
+      this.resetDuplicateIssuesState();
+      
       this.fetchDuplicateIssues();
     },
     async fetchDuplicateIssues() {
