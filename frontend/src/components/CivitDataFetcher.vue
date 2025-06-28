@@ -84,7 +84,8 @@
                   <td>
                     <button 
                       @click="identifyMetadataForGroup(group.filename)"
-                      :disabled="metadataLoading[group.filename]"
+                      :disabled="metadataLoading[group.filename] || !hashCheckedFiles.has(group.filename)"
+                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : ''"
                       class="metadata-btn"
                     >
                       {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
@@ -242,6 +243,10 @@ export default {
       // Hash check state
       hashCheckLoading: {},
       hashResults: {},
+      // Store detailed hash information for each file group
+      hashDetails: {},
+      // Track which files have had their hash checked
+      hashCheckedFiles: new Set(),
       // Metadata identification state
       metadataLoading: {},
       metadataResults: {},
@@ -516,6 +521,23 @@ export default {
         const hashes = results.map(r => r.hash).filter(h => h !== null);
         const errors = results.filter(r => r.error);
         
+        // Store detailed hash information for later use in identify method
+        this.hashDetails[filename] = {
+          results: results,
+          uniqueHashes: new Set(hashes),
+          hashGroups: {}
+        };
+        
+        // Group paths by hash
+        results.forEach(result => {
+          if (result.hash) {
+            if (!this.hashDetails[filename].hashGroups[result.hash]) {
+              this.hashDetails[filename].hashGroups[result.hash] = [];
+            }
+            this.hashDetails[filename].hashGroups[result.hash].push(result.path);
+          }
+        });
+        
         let resultText = '';
         if (errors.length > 0) {
           resultText = `Error: ${errors.length} file(s) failed to hash`;
@@ -535,6 +557,8 @@ export default {
         this.hashResults[filename] = `Error: ${error.message}`;
       } finally {
         this.hashCheckLoading[filename] = false;
+        // Mark this file as hash-checked (even if there was an error, the check was attempted)
+        this.hashCheckedFiles.add(filename);
       }
     },
     async identifyMetadataForGroup(filename) {
@@ -547,36 +571,78 @@ export default {
         const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
         if (!group) return;
         
-        // Search for the filename in the database (case-insensitive)
+        // Get hash details for this file group
+        const hashDetail = this.hashDetails[filename];
+        if (!hashDetail) {
+          this.metadataResults[filename] = 'Error: Hash information not available. Please check hash first.';
+          return;
+        }
+        
         const searchResults = [];
         
-        for (const path of group.paths) {
+        // If all files have identical hashes, only process one file
+        if (hashDetail.uniqueHashes.size === 1) {
+          // Process only the first file since all are identical
+          const firstPath = Object.values(hashDetail.hashGroups)[0][0];
+          const pathFilename = firstPath.split('\\').pop().split('/').pop();
+          
           try {
-            // Extract just the filename from the path
-            const pathFilename = path.split('\\').pop().split('/').pop();
-            
-            // Search in database for this filename (case-insensitive)
             const response = await apiService.searchModelByFilename(pathFilename);
-            
             if (response && response.length > 0) {
               searchResults.push({
-                path,
+                path: firstPath,
                 filename: pathFilename,
-                matches: response
+                matches: response,
+                note: `(All ${group.paths.length} files are identical)`
               });
             } else {
               searchResults.push({
-                path,
+                path: firstPath,
                 filename: pathFilename,
-                matches: []
+                matches: [],
+                note: `(All ${group.paths.length} files are identical)`
               });
             }
           } catch (error) {
             searchResults.push({
-              path,
+              path: firstPath,
               filename: pathFilename,
-              error: error.message
+              error: error.message,
+              note: `(All ${group.paths.length} files are identical)`
             });
+          }
+        } else {
+          // Files have different hashes, process each unique hash group
+          for (const [hash, paths] of Object.entries(hashDetail.hashGroups)) {
+            // Process one file from each hash group
+            const representativePath = paths[0];
+            const pathFilename = representativePath.split('\\').pop().split('/').pop();
+            
+            try {
+              const response = await apiService.searchModelByFilename(pathFilename);
+              if (response && response.length > 0) {
+                searchResults.push({
+                  path: representativePath,
+                  filename: pathFilename,
+                  matches: response,
+                  note: `(Hash group: ${paths.length} file(s) with same hash)`
+                });
+              } else {
+                searchResults.push({
+                  path: representativePath,
+                  filename: pathFilename,
+                  matches: [],
+                  note: `(Hash group: ${paths.length} file(s) with same hash)`
+                });
+              }
+            } catch (error) {
+              searchResults.push({
+                path: representativePath,
+                filename: pathFilename,
+                error: error.message,
+                note: `(Hash group: ${paths.length} file(s) with same hash)`
+              });
+            }
           }
         }
         
@@ -589,10 +655,10 @@ export default {
         } else {
           resultText = `✅ Found ${totalMatches} match(es) in database`;
           
-          // Show details for each path
+          // Show details for each processed file
           searchResults.forEach((result, index) => {
             if (result.matches && result.matches.length > 0) {
-              resultText += `\nPath ${index + 1}: ${result.matches.length} match(es)`;
+              resultText += `\n${result.note}: ${result.matches.length} match(es)`;
               result.matches.forEach((match, matchIndex) => {
                 resultText += `\n  - Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}`;
               });
@@ -903,14 +969,17 @@ h3 {
   border-radius: 5px;
 }
 .unique-loras-table {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
+  table-layout: auto;
 }
 .unique-loras-table th, .unique-loras-table td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
+  white-space: nowrap;
 }
 .unique-loras-table th {
   background: #f8f8f8;
@@ -1007,8 +1076,7 @@ h3 {
 }
 .metadata-result pre {
   margin: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
   font-family: inherit;
 }
 </style> 
