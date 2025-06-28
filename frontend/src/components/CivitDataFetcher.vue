@@ -945,8 +945,8 @@ export default {
 
 <style scoped>
 .civit-data-fetcher {
-  padding: 2rem;
-  max-width: 1200px;
+  padding: 1rem;
+  width: 100%;
   margin: 0 auto;
 }
 
@@ -1192,21 +1192,40 @@ h3 {
 .duplicate-issues-section {
   margin-top: 2rem;
   background: #f9f9f9;
-  padding: 1rem;
+  padding: 0.5rem;
   border-radius: 5px;
+  width: 100%;
 }
 .unique-loras-table {
-  width: auto;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
-  table-layout: auto;
+  table-layout: fixed;
 }
 .unique-loras-table th, .unique-loras-table td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
-  white-space: nowrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.unique-loras-table th:nth-child(1), .unique-loras-table td:nth-child(1) { /* File Name */
+  width: 15%;
+}
+.unique-loras-table th:nth-child(2), .unique-loras-table td:nth-child(2) { /* File Paths */
+  width: 25%;
+}
+.unique-loras-table th:nth-child(3), .unique-loras-table td:nth-child(3) { /* Hash Check */
+  width: 15%;
+}
+.unique-loras-table th:nth-child(4), .unique-loras-table td:nth-child(4) { /* Identify Metadata */
+  width: 15%;
+}
+.unique-loras-table th:nth-child(5), .unique-loras-table td:nth-child(5) { /* Actions */
+  width: 15%;
+}
+.unique-loras-table th:nth-child(6), .unique-loras-table td:nth-child(6) { /* Result */
+  width: 15%;
 }
 .unique-loras-table th {
   background: #f8f8f8;
@@ -1243,8 +1262,10 @@ h3 {
 }
 .duplicate-tab-content {
   background: #fff;
-  padding: 1rem;
+  padding: 0.5rem;
   border-radius: 0 0 5px 5px;
+  width: 100%;
+  overflow-x: auto;
 }
 .file-path-item {
   margin-bottom: 0.5rem;
