@@ -11,7 +11,7 @@ const routes = [
     redirect: '/summary'
   },
   {
-    path: '/model/:id',
+    path: '/model/:modelId/:modelVersionId',
     name: 'ModelDetail',
     component: ModelDetail,
   },

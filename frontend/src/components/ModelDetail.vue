@@ -26,7 +26,6 @@
           <tr v-for="(value, key) in model" :key="key">
             <td>{{ key }}</td>
             <td>
-
               <div v-if="typeof value === 'string' && value.includes('<')">
                 <div v-html="value"></div>
               </div>
@@ -62,18 +61,34 @@ export default {
   methods: {
     async fetchModelDetails() {
       try {
-        const id = Number(this.route.params.id);
-        if (isNaN(id)) {
+        this.loading = true;
+        this.error = null;
+        
+        const modelVersionId = Number(this.route.params.modelVersionId);
+        const urlModelId = Number(this.route.params.modelId);
+        
+        if (isNaN(modelVersionId)) {
+          throw new Error("Invalid model version ID");
+        }
+        
+        if (isNaN(urlModelId)) {
           throw new Error("Invalid model ID");
         }
 
-        // Fetch from your API
-        const response = await apiService.getModelDetail(id);
+        // Fetch from your API using modelVersionId
+        const response = await apiService.getModelDetail(modelVersionId);
         this.model = response;
+        
+        // Validate that the modelId from URL matches the modelId from backend
+        if (this.model && this.model.modelId !== urlModelId) {
+          throw new Error(`URL model ID (${urlModelId}) does not match backend model ID (${this.model.modelId})`);
+        }
 
       } catch (err) {
         console.error(err);
-        this.error = "Failed to load model details.";
+        this.error = err.message || "Failed to load model details.";
+      } finally {
+        this.loading = false;
       }
     },
   },

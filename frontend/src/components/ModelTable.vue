@@ -100,9 +100,10 @@
             <tr v-for="model in models" :key="model.modelId">
               <td>
                 <a 
-                  :href="`http://localhost:5173/model/${model.modelVersionId}`" 
+                  :href="`/model/${model.modelId}/${model.modelVersionId}`"
                   target="_blank"
                   rel="noopener noreferrer"
+                  style="color: #1976d2; text-decoration: underline;"
                 >
                   {{ model.modelName }} / {{ model.modelVersionName }}
                 </a>
@@ -162,11 +163,13 @@
 <script>
 import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
+import { useRouter } from 'vue-router';
 
 export default {
   setup() {
     const errorHandler = useErrorHandler();
-    return { errorHandler };
+    const router = useRouter();
+    return { errorHandler, router };
   },
   data() {
     return {
