@@ -96,7 +96,27 @@
                     </div>
                   </td>
                   <td>
-                    <!-- Actions column - ready for your explanation -->
+                    <!-- Actions column - show for identical hash files -->
+                    <div v-if="hashCheckedFiles.has(group.filename) && hashResults[group.filename] && hashResults[group.filename].includes('Identical') && identicalHashModels[group.filename]">
+                      <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="action-item">
+                        <div class="file-path">{{ path }}</div>
+                        <select 
+                          v-model="selectedActions[path]" 
+                          class="action-dropdown"
+                          :disabled="!identicalHashModels[group.filename] || identicalHashModels[group.filename].length === 0"
+                        >
+                          <option value="">Select action...</option>
+                          <option 
+                            v-for="model in identicalHashModels[group.filename]" 
+                            :key="`${model.modelId}-${model.modelVersionId}`"
+                            :value="`${model.modelId}/${model.modelVersionId}/${model.fileName}`"
+                          >
+                            {{ model.modelId }}/{{ model.modelVersionId }}/{{ model.fileName }}
+                          </option>
+                          <option value="_duplicate">_duplicate</option>
+                        </select>
+                      </div>
+                    </div>
                   </td>
                 </tr>
                 <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="5" class="no-unique-files">No duplicates on disk found.</td></tr>
@@ -256,6 +276,10 @@ export default {
       // Metadata identification state
       metadataLoading: {},
       metadataResults: {},
+      // Store model information for identical hash files
+      identicalHashModels: {},
+      // Store selected actions for each path
+      selectedActions: {},
     }
   },
   methods: {
@@ -591,6 +615,9 @@ export default {
           try {
             const response = await apiService.searchModelByFilename(pathFilename);
             if (response && response.length > 0) {
+              // Store model information for Actions column
+              this.identicalHashModels[filename] = response;
+              
               resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from database:</div>';
               response.forEach((match, index) => {
                 const modelUrl = `http://localhost:5173/model/${match.modelId}/${match.modelVersionId}`;
@@ -725,9 +752,11 @@ export default {
 
 <style scoped>
 .civit-data-fetcher {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
+  padding: 1rem;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .controls {
@@ -869,10 +898,10 @@ export default {
 }
 
 .file-path {
+  font-size: 11px;
   color: #666;
-  font-size: 0.9rem;
-  word-break: break-all;
   margin-bottom: 0.25rem;
+  word-break: break-all;
 }
 
 .file-status {
@@ -976,8 +1005,7 @@ h3 {
   border-radius: 5px;
 }
 .unique-loras-table {
-  width: auto;
-  min-width: 100%;
+  width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
   table-layout: auto;
@@ -1023,7 +1051,7 @@ h3 {
 }
 .duplicate-tab-content {
   background: #fff;
-  padding: 1rem;
+  padding: 0.5rem;
   border-radius: 0 0 5px 5px;
 }
 .file-path-item {
@@ -1093,5 +1121,21 @@ h3 {
 }
 .metadata-result div a:hover {
   color: #0056b3;
+}
+.action-item {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #eee;
+}
+.action-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.action-dropdown {
+  width: 100%;
+  padding: 0.25rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 11px;
 }
 </style> 
