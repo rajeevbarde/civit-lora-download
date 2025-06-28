@@ -60,6 +60,7 @@
                   <th>Hash Check</th>
                   <th>Identify Metadata</th>
                   <th>Actions</th>
+                  <th>Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,10 +117,20 @@
                           <option value="_duplicate">rename as _duplicate</option>
                         </select>
                       </div>
+                      <button 
+                        @click="registerActions(group.filename)"
+                        :disabled="!hasSelectedActions(group.filename)"
+                        class="register-btn"
+                      >
+                        Register
+                      </button>
                     </div>
                   </td>
+                  <td>
+                    <!-- Result column - ready for your explanation -->
+                  </td>
                 </tr>
-                <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="5" class="no-unique-files">No duplicates on disk found.</td></tr>
+                <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="6" class="no-unique-files">No duplicates on disk found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -738,6 +749,18 @@ export default {
         return modelHash && pathHash.startsWith(modelHash.substring(0, 8));
       });
     },
+    registerActions(filename) {
+      // Implementation of registerActions method
+      console.log('Register actions for:', filename);
+      console.log('Selected actions:', this.selectedActions);
+    },
+    hasSelectedActions(filename) {
+      // Check if any actions are selected for this file group
+      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) return false;
+      
+      return group.paths.some(path => this.selectedActions[path] && this.selectedActions[path] !== '');
+    },
   },
   computed: {
     duplicateOnDisk() {
@@ -1167,5 +1190,23 @@ h3 {
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 11px;
+}
+.register-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  margin-left: 0.5rem;
+}
+.register-btn:hover:not(:disabled) {
+  background: #218838;
+}
+.register-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
 }
 </style> 
