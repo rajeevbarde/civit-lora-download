@@ -150,6 +150,7 @@
                   <th>Database check</th>
                   <th>Identify metadata</th>
                   <th>Action</th>
+                  <th>Results</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,7 +186,7 @@
                     <button 
                       class="identify-metadata-btn" 
                       @click="onIdentifyMetadata(file)"
-                      :disabled="identifyMetadataLoading[file.fullPath] || metadataIdentifiedFiles.has(file.fullPath)"
+                      :disabled="identifyMetadataLoading[file.fullPath] || metadataIdentifiedFiles.has(file.fullPath) || !dbCheckedFiles.has(file.fullPath)"
                     >
                       {{ identifyMetadataLoading[file.fullPath] ? 'Identifying...' : metadataIdentifiedFiles.has(file.fullPath) ? 'Completed' : 'Identify' }}
                     </button>
@@ -195,12 +196,83 @@
                   </td>
                   <td>
                     <div class="action-section">
-                      <!-- Action content will be implemented later -->
-                      <span class="action-placeholder">Actions coming soon...</span>
+                      <div v-if="comparisonResults[file.fullPath]" class="comparison-result">
+                        <div class="comparison-header">Comparison Results:</div>
+                        <div v-if="comparisonResults[file.fullPath].status === 'both_not_found'" class="comparison-both-not-found">
+                          ❌ Not found in database or CivitAI
+                        </div>
+                        <div v-else-if="comparisonResults[file.fullPath].status === 'only_civitai_found'" class="comparison-only-civitai">
+                          ✅ Found in CivitAI only
+                          <div class="model-info">
+                            Model: {{ comparisonResults[file.fullPath].metadataModel.modelId }}/{{ comparisonResults[file.fullPath].metadataModel.modelVersionId }}
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                          >
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                          </button>
+                        </div>
+                        <div v-else-if="comparisonResults[file.fullPath].status === 'only_db_found'" class="comparison-only-db">
+                          ✅ Found in database only
+                          <div class="db-models">
+                            <div v-for="(model, index) in comparisonResults[file.fullPath].dbModels" :key="index" class="db-model-item">
+                              {{ model.modelId }}/{{ model.modelVersionId }}
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else-if="comparisonResults[file.fullPath].status === 'match_found'" class="comparison-match">
+                          ✅ Perfect match found!
+                          <div class="match-info">
+                            Model: {{ comparisonResults[file.fullPath].metadataModel.modelId }}/{{ comparisonResults[file.fullPath].metadataModel.modelVersionId }}
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                          >
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                          </button>
+                        </div>
+                        <div v-else-if="comparisonResults[file.fullPath].status === 'mismatch'" class="comparison-mismatch">
+                          ⚠️ Mismatch detected
+                          <div class="mismatch-details">
+                            <div class="civitai-model">
+                              CivitAI: {{ comparisonResults[file.fullPath].metadataModel.modelId }}/{{ comparisonResults[file.fullPath].metadataModel.modelVersionId }}
+                            </div>
+                            <div class="db-models">
+                              Database: 
+                              <div v-for="(model, index) in comparisonResults[file.fullPath].dbModels" :key="index" class="db-model-item">
+                                {{ model.modelId }}/{{ model.modelVersionId }}
+                              </div>
+                            </div>
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel(file, comparisonResults[file.fullPath].metadataModel)"
+                            :disabled="registrationLoading[file.fullPath] || registeredFiles.has(file.fullPath)"
+                          >
+                            {{ registrationLoading[file.fullPath] ? 'Registering...' : registeredFiles.has(file.fullPath) ? 'Completed' : 'Register' }}
+                          </button>
+                        </div>
+                      </div>
+                      <div v-else class="action-placeholder">
+                        Complete Check & Identify to see comparison
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div v-if="registrationResults[file.fullPath]" class="registration-result">
+                      <div class="result-item">
+                        <div class="result-status" :class="registrationResults[file.fullPath].status">
+                          <strong>Status:</strong> {{ registrationResults[file.fullPath].message }}
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </tr>
-                <tr v-if="duplicateInDb.length === 0"><td colspan="4" class="no-unique-files">No duplicates in DB found.</td></tr>
+                <tr v-if="duplicateInDb.length === 0"><td colspan="5" class="no-unique-files">No duplicates in DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -358,6 +430,10 @@ export default {
       identifyMetadataResults: {},
       // Track which files have had their metadata identification completed
       metadataIdentifiedFiles: new Set(),
+      // New state for registration loading
+      registrationLoading: {},
+      // Track which files have had their registration completed
+      registeredFiles: new Set(),
     }
   },
   methods: {
@@ -1052,6 +1128,42 @@ export default {
           this.identifyMetadataLoading[file.fullPath] = false;
         });
     },
+    async registerModel(file, model) {
+      // Prevent concurrent operations on the same file
+      if (this.registrationLoading[file.fullPath] || this.registeredFiles.has(file.fullPath)) {
+        console.log(`Registration for ${file.fullPath} is already in progress or completed, skipping...`);
+        return;
+      }
+      
+      this.registrationLoading[file.fullPath] = true;
+      
+      try {
+        // Extract filename from the full path
+        const fileName = file.fullPath.split('\\').pop().split('/').pop();
+        
+        // Update database with model information
+        const result = await this.registerLoraInDatabase(model.modelId, model.modelVersionId, fileName, file.fullPath);
+        this.registrationResults[file.fullPath] = {
+          action: `Model ID: ${model.modelId}, Version ID: ${model.modelVersionId}`,
+          status: 'success',
+          message: 'Lora registered successfully'
+        };
+        this.errorHandler.handleSuccess(`Model registered successfully for: ${fileName}`);
+        // Mark as completed
+        this.registeredFiles.add(file.fullPath);
+      } catch (error) {
+        this.registrationResults[file.fullPath] = {
+          action: `Model ID: ${model.modelId}, Version ID: ${model.modelVersionId}`,
+          status: 'error',
+          message: error.message
+        };
+        this.errorHandler.handleError(error, `registering model for ${file.fullPath}`, { showNotification: false });
+        // Mark as completed even on error
+        this.registeredFiles.add(file.fullPath);
+      } finally {
+        this.registrationLoading[file.fullPath] = false;
+      }
+    },
   },
   computed: {
     duplicateOnDisk() {
@@ -1075,6 +1187,70 @@ export default {
         .map(([filename, paths]) => ({ filename, paths: paths.sort() }))
         .sort((a, b) => a.filename.localeCompare(b.filename));
     },
+    // Compare database check and metadata identification results
+    comparisonResults() {
+      const results = {};
+      this.duplicateInDb.forEach(file => {
+        const dbCheckResult = this.dbCheckResults[file.fullPath];
+        const metadataResult = this.identifyMetadataResults[file.fullPath];
+        
+        if (dbCheckResult && metadataResult && 
+            this.dbCheckedFiles.has(file.fullPath) && 
+            this.metadataIdentifiedFiles.has(file.fullPath)) {
+          
+          // Extract model IDs from database check results
+          const dbModels = dbCheckResult.success ? dbCheckResult.models : [];
+          
+          // Extract model info from metadata results (parse the HTML content)
+          let metadataModelId = null;
+          let metadataModelVersionId = null;
+          
+          if (metadataResult && !metadataResult.includes('❌ Error:')) {
+            // Parse the metadata result to extract model ID and version ID
+            const modelIdMatch = metadataResult.match(/<strong>Model ID:<\/strong> (\d+)/);
+            const modelVersionIdMatch = metadataResult.match(/<strong>Model Version ID:<\/strong> (\d+)/);
+            
+            if (modelIdMatch && modelVersionIdMatch) {
+              metadataModelId = parseInt(modelIdMatch[1]);
+              metadataModelVersionId = parseInt(modelVersionIdMatch[1]);
+            }
+          }
+          
+          // Compare the results
+          let comparison = {
+            dbModels: dbModels,
+            metadataModel: metadataModelId && metadataModelVersionId ? {
+              modelId: metadataModelId,
+              modelVersionId: metadataModelVersionId
+            } : null,
+            status: 'unknown'
+          };
+          
+          if (dbModels.length === 0 && !metadataModelId) {
+            comparison.status = 'both_not_found';
+          } else if (dbModels.length === 0 && metadataModelId) {
+            comparison.status = 'only_civitai_found';
+          } else if (dbModels.length > 0 && !metadataModelId) {
+            comparison.status = 'only_db_found';
+          } else if (dbModels.length > 0 && metadataModelId) {
+            // Check if the metadata model matches any of the database models
+            const matchingDbModel = dbModels.find(dbModel => 
+              dbModel.modelId === metadataModelId && 
+              dbModel.modelVersionId === metadataModelVersionId
+            );
+            
+            if (matchingDbModel) {
+              comparison.status = 'match_found';
+            } else {
+              comparison.status = 'mismatch';
+            }
+          }
+          
+          results[file.fullPath] = comparison;
+        }
+      });
+      return results;
+    }
   },
   beforeUnmount() {
     // Cancel all pending operations
@@ -1507,12 +1683,12 @@ h3 {
   background: #28a745;
   color: white;
   border: none;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 12px;
   transition: background-color 0.2s;
-  margin-left: 0.5rem;
+  margin-top: 0.5rem;
 }
 .register-btn:hover:not(:disabled) {
   background: #218838;
@@ -1530,28 +1706,9 @@ h3 {
   font-size: 0.85rem;
 }
 .result-item {
-  margin-bottom: 0.5rem;
-  padding: 0.25rem 0;
-  border-bottom: 1px solid #dee2e6;
-}
-.result-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-}
-.result-path {
-  font-weight: 500;
-  color: #495057;
   margin-bottom: 0.25rem;
-  word-break: break-all;
-}
-.result-action {
-  font-size: 0.8rem;
-  color: #6c757d;
-  font-weight: 500;
 }
 .result-status {
-  font-size: 0.8rem;
-  color: #6c757d;
   font-weight: 500;
 }
 .result-status.success {
@@ -1656,5 +1813,57 @@ h3 {
 .action-placeholder {
   color: #6c757d;
   font-weight: 500;
+}
+.comparison-result {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.comparison-header {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+.comparison-both-not-found {
+  color: #dc3545;
+  font-weight: bold;
+}
+.comparison-only-civitai {
+  color: #28a745;
+  font-weight: bold;
+}
+.comparison-only-db {
+  color: #28a745;
+  font-weight: bold;
+}
+.comparison-match {
+  color: #28a745;
+  font-weight: bold;
+}
+.comparison-mismatch {
+  color: #f0ad4e;
+  font-weight: bold;
+}
+.model-info {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+.db-models {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+.db-model-item {
+  margin-bottom: 0.25rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #dee2e6;
+}
+.db-model-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
 }
 </style> 
