@@ -130,4 +130,20 @@ router.post('/register-unregistered', registerTimeout, async (req, res) => {
     }
 });
 
+// Get filename by modelVersionId
+router.get('/filename/:modelVersionId', async (req, res) => {
+    try {
+        const { modelVersionId } = req.params;
+        const result = await databaseService.getFileNameByModelVersionId(modelVersionId);
+        
+        if (!result) {
+            return res.status(404).json({ error: 'Model not found' });
+        }
+        
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

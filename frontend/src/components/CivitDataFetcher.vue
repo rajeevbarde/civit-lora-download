@@ -59,6 +59,7 @@
                   <th>File Paths</th>
                   <th>Hash Check</th>
                   <th>Identify Metadata</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,8 +95,11 @@
                       <div v-html="metadataResults[group.filename]"></div>
                     </div>
                   </td>
+                  <td>
+                    <!-- Actions column - ready for your explanation -->
+                  </td>
                 </tr>
-                <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="4" class="no-unique-files">No duplicates on disk found.</td></tr>
+                <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="5" class="no-unique-files">No duplicates on disk found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -380,7 +384,8 @@ export default {
         console.log(`Hash for ${file.fileName}: ${hash}`);
         
         // Step 2: Fetch model version ID from CivitAI
-        const modelVersionId = await this.fetchModelVersionId(hash);
+        const civitaiResponse = await this.fetchModelVersionIdByHash(hash);
+        const modelVersionId = civitaiResponse.modelVersionId;
         console.log(`Model Version ID for ${file.fileName}: ${modelVersionId}`);
         
         // Step 3: Call the fix-file API
@@ -417,10 +422,10 @@ export default {
       }
     },
     
-    async fetchModelVersionId(hash) {
+    async fetchModelVersionIdByHash(hash) {
       try {
         const url = `https://civitai.com/api/v1/model-versions/by-hash/${hash}`;
-        console.log(`Fetching metadata from: ${url}`);
+        console.log(`Fetching model info from CivitAI for hash: ${hash}`);
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -428,18 +433,14 @@ export default {
         }
         
         const data = await response.json();
-        const modelVersionId = data.id;
-        
-        if (!modelVersionId) {
-          throw new Error("Model version ID not found in CivitAI response");
-        }
-        
-        console.log(`✅ CivitAI data retrieved. Model Version ID: ${modelVersionId}`);
-        return modelVersionId;
+        return {
+          modelId: data.modelId,
+          modelVersionId: data.id
+        };
         
       } catch (error) {
-        this.errorHandler.handleError(error, 'fetching model version ID from CivitAI');
-        throw new Error(`Failed to fetch model version ID: ${error.message}`);
+        console.error('Error fetching model info from CivitAI:', error);
+        throw new Error(`Failed to fetch model info from CivitAI: ${error.message}`);
       }
     },
     onDuplicateIssuesClick() {
@@ -580,9 +581,8 @@ export default {
           return;
         }
         
-        const searchResults = [];
+        let resultText = '';
         
-        // If all files have identical hashes, only process one file
         if (hashDetail.uniqueHashes.size === 1) {
           // Process only the first file since all are identical
           const firstPath = Object.values(hashDetail.hashGroups)[0][0];
@@ -591,94 +591,73 @@ export default {
           try {
             const response = await apiService.searchModelByFilename(pathFilename);
             if (response && response.length > 0) {
-              searchResults.push({
-                path: firstPath,
-                filename: pathFilename,
-                matches: response,
-                note: `(All ${group.paths.length} files are identical)`
-              });
-            } else {
-              searchResults.push({
-                path: firstPath,
-                filename: pathFilename,
-                matches: [],
-                note: `(All ${group.paths.length} files are identical)`
-              });
-            }
-          } catch (error) {
-            searchResults.push({
-              path: firstPath,
-              filename: pathFilename,
-              error: error.message,
-              note: `(All ${group.paths.length} files are identical)`
-            });
-          }
-        } else {
-          // Files have different hashes, process each unique hash group
-          for (const [hash, paths] of Object.entries(hashDetail.hashGroups)) {
-            // Process one file from each hash group
-            const representativePath = paths[0];
-            const pathFilename = representativePath.split('\\').pop().split('/').pop();
-            
-            try {
-              // Use the full path for more specific search
-              const response = await apiService.searchModelByFilename(pathFilename);
-              if (response && response.length > 0) {
-                searchResults.push({
-                  path: representativePath,
-                  filename: pathFilename,
-                  matches: response,
-                  note: `(Hash group: ${paths.length} file(s) with same hash)`
-                });
-              } else {
-                searchResults.push({
-                  path: representativePath,
-                  filename: pathFilename,
-                  matches: [],
-                  note: `(Hash group: ${paths.length} file(s) with same hash)`
-                });
-              }
-            } catch (error) {
-              searchResults.push({
-                path: representativePath,
-                filename: pathFilename,
-                error: error.message,
-                note: `(Hash group: ${paths.length} file(s) with same hash)`
-              });
-            }
-          }
-        }
-        
-        // Format results
-        let resultText = '';
-        const totalMatches = searchResults.reduce((sum, r) => sum + (r.matches ? r.matches.length : 0), 0);
-        
-        if (totalMatches === 0) {
-          resultText = '❌ No matches found in database';
-        } else {
-          resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from database:</div>';
-          
-          // Show results with hash information
-          searchResults.forEach((result, index) => {
-            if (result.matches && result.matches.length > 0) {
-              // Add hash info for context
-              const hashInfo = result.note.includes('identical') ? 
-                '(All files identical)' : 
-                `(Hash: ${Object.keys(hashDetail.hashGroups).find(hash => 
-                  hashDetail.hashGroups[hash].includes(result.path)
-                )?.substring(0, 8)}...)`;
-              
-              resultText += `<div style="margin-bottom: 8px;"><strong>${hashInfo}</strong></div>`;
-              
-              result.matches.forEach((match, matchIndex) => {
+              resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from database:</div>';
+              response.forEach((match, index) => {
                 const modelUrl = `http://localhost:5173/model/${match.modelId}/${match.modelVersionId}`;
                 resultText += `<div style="margin-bottom: 4px;"><strong>${match.fileName}</strong></div>`;
                 resultText += `<a href="${modelUrl}" target="_blank">Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}</a><br>`;
               });
+            } else {
+              resultText = '❌ No matches found in database';
+            }
+          } catch (error) {
+            resultText = `Error: ${error.message}`;
+          }
+        } else {
+          // Files have different hashes - use CivitAI API approach
+          const comparisonResults = [];
+          
+          // Process each unique hash group
+          for (const [hash, paths] of Object.entries(hashDetail.hashGroups)) {
+            try {
+              // Step 1: Use the hash to get model info from CivitAI
+              const civitaiResponse = await this.fetchModelVersionIdByHash(hash);
               
-              if (index < searchResults.length - 1) {
-                resultText += '<br>';
+              if (civitaiResponse && civitaiResponse.modelId && civitaiResponse.modelVersionId) {
+                // Step 2: Get filename from local DB using the model IDs
+                const dbFilename = await this.getFileNameFromDB(civitaiResponse.modelVersionId);
+                
+                // Step 3: Create comparison result
+                comparisonResults.push({
+                  hash: hash.substring(0, 8) + '...',
+                  paths: paths,
+                  civitaiModelId: civitaiResponse.modelId,
+                  civitaiModelVersionId: civitaiResponse.modelVersionId,
+                  dbFilename: dbFilename,
+                  modelUrl: `http://localhost:5173/model/${civitaiResponse.modelId}/${civitaiResponse.modelVersionId}`
+                });
+              } else {
+                comparisonResults.push({
+                  hash: hash.substring(0, 8) + '...',
+                  paths: paths,
+                  error: 'No model found in CivitAI for this hash'
+                });
               }
+            } catch (error) {
+              comparisonResults.push({
+                hash: hash.substring(0, 8) + '...',
+                paths: paths,
+                error: error.message
+              });
+            }
+          }
+          
+          // Format the comparison results
+          resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">🔍 Hash-based analysis from CivitAI:</div>';
+          
+          comparisonResults.forEach((result, index) => {
+            if (result.error) {
+              resultText += `<div style="margin-bottom: 12px;"><strong>Hash: ${result.hash}</strong></div>`;
+              resultText += `<div style="color: #d9534f;">❌ ${result.error}</div>`;
+            } else {
+              resultText += `<div style="margin-bottom: 12px;"><strong>Hash: ${result.hash}</strong></div>`;
+              resultText += `<div style="margin-bottom: 4px;"><strong>DB Filename: ${result.dbFilename}</strong></div>`;
+              resultText += `<a href="${result.modelUrl}" target="_blank">Model ID: ${result.civitaiModelId}, Version ID: ${result.civitaiModelVersionId}</a><br>`;
+              resultText += `<div style="margin-top: 4px; color: #666;">Files with this hash: ${result.paths.length}</div>`;
+            }
+            
+            if (index < comparisonResults.length - 1) {
+              resultText += '<br>';
             }
           });
         }
@@ -690,6 +669,15 @@ export default {
         this.metadataLoading[filename] = false;
         // Mark this file as identified (even if there was an error, the identification was attempted)
         this.identifiedFiles.add(filename);
+      }
+    },
+    async getFileNameFromDB(modelVersionId) {
+      try {
+        const response = await apiService.getFileNameByModelVersionId(modelVersionId);
+        return response ? response.fileName : 'Not found in DB';
+      } catch (error) {
+        console.error('Error getting filename from DB:', error);
+        return 'Error fetching from DB';
       }
     },
   },
