@@ -72,7 +72,7 @@
                   <td>
                     <button 
                       @click="checkHashForGroup(group.filename)"
-                      :disabled="hashCheckLoading[group.filename]"
+                      :disabled="hashCheckLoading[group.filename] || hashCheckedFiles.has(group.filename)"
                       class="hash-check-btn"
                     >
                       {{ hashCheckLoading[group.filename] ? 'Calculating...' : 'Check Hash' }}
@@ -84,8 +84,8 @@
                   <td>
                     <button 
                       @click="identifyMetadataForGroup(group.filename)"
-                      :disabled="metadataLoading[group.filename] || !hashCheckedFiles.has(group.filename)"
-                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : ''"
+                      :disabled="metadataLoading[group.filename] || !hashCheckedFiles.has(group.filename) || identifiedFiles.has(group.filename)"
+                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : identifiedFiles.has(group.filename) ? 'Already identified' : ''"
                       class="metadata-btn"
                     >
                       {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
@@ -247,6 +247,8 @@ export default {
       hashDetails: {},
       // Track which files have had their hash checked
       hashCheckedFiles: new Set(),
+      // Track which files have had their identify button pressed
+      identifiedFiles: new Set(),
       // Metadata identification state
       metadataLoading: {},
       metadataResults: {},
@@ -654,13 +656,29 @@ export default {
         if (totalMatches === 0) {
           resultText = '❌ No matches found in database';
         } else {
-          // Show only the links without summary text
+          resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from database:</div>';
+          
+          // Show results with hash information
           searchResults.forEach((result, index) => {
             if (result.matches && result.matches.length > 0) {
+              // Add hash info for context
+              const hashInfo = result.note.includes('identical') ? 
+                '(All files identical)' : 
+                `(Hash: ${Object.keys(hashDetail.hashGroups).find(hash => 
+                  hashDetail.hashGroups[hash].includes(result.path)
+                )?.substring(0, 8)}...)`;
+              
+              resultText += `<div style="margin-bottom: 8px;"><strong>${hashInfo}</strong></div>`;
+              
               result.matches.forEach((match, matchIndex) => {
                 const modelUrl = `http://localhost:5173/model/${match.modelId}/${match.modelVersionId}`;
+                resultText += `<div style="margin-bottom: 4px;"><strong>${match.fileName}</strong></div>`;
                 resultText += `<a href="${modelUrl}" target="_blank">Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}</a><br>`;
               });
+              
+              if (index < searchResults.length - 1) {
+                resultText += '<br>';
+              }
             }
           });
         }
@@ -670,6 +688,8 @@ export default {
         this.metadataResults[filename] = `Error: ${error.message}`;
       } finally {
         this.metadataLoading[filename] = false;
+        // Mark this file as identified (even if there was an error, the identification was attempted)
+        this.identifiedFiles.add(filename);
       }
     },
   },
