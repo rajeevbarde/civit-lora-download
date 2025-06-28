@@ -96,8 +96,8 @@
                     </div>
                   </td>
                   <td>
-                    <!-- Actions column - show for identical hash files -->
-                    <div v-if="hashCheckedFiles.has(group.filename) && hashResults[group.filename] && hashResults[group.filename].includes('Identical') && identicalHashModels[group.filename]">
+                    <!-- Actions column - show for both identical and non-identical hash files -->
+                    <div v-if="hashCheckedFiles.has(group.filename) && hashResults[group.filename] && identicalHashModels[group.filename]">
                       <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="action-item">
                         <div class="file-path">{{ path }}</div>
                         <select 
@@ -107,13 +107,13 @@
                         >
                           <option value="">Select action...</option>
                           <option 
-                            v-for="model in identicalHashModels[group.filename]" 
+                            v-for="model in getModelsForPath(path, group.filename)" 
                             :key="`${model.modelId}-${model.modelVersionId}`"
                             :value="`${model.modelId}/${model.modelVersionId}/${model.fileName}`"
                           >
                             {{ model.modelId }}/{{ model.modelVersionId }}/{{ model.fileName }}
                           </option>
-                          <option value="_duplicate">_duplicate</option>
+                          <option value="_duplicate">rename as _duplicate</option>
                         </select>
                       </div>
                     </div>
@@ -278,6 +278,8 @@ export default {
       metadataResults: {},
       // Store model information for identical hash files
       identicalHashModels: {},
+      // Store hash information for each path
+      pathHashMapping: {},
       // Store selected actions for each path
       selectedActions: {},
     }
@@ -562,6 +564,8 @@ export default {
               this.hashDetails[filename].hashGroups[result.hash] = [];
             }
             this.hashDetails[filename].hashGroups[result.hash].push(result.path);
+            // Store hash mapping for each path
+            this.pathHashMapping[result.path] = result.hash;
           }
         });
         
@@ -669,6 +673,14 @@ export default {
             }
           }
           
+          // Store model information for Actions column (non-identical hashes)
+          this.identicalHashModels[filename] = comparisonResults.filter(result => !result.error).map(result => ({
+            modelId: result.civitaiModelId,
+            modelVersionId: result.civitaiModelVersionId,
+            fileName: result.dbFilename,
+            hash: result.hash
+          }));
+          
           // Format the comparison results
           resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">🔍 Hash-based analysis from CivitAI:</div>';
           
@@ -678,7 +690,7 @@ export default {
               resultText += `<div style="color: #d9534f;">❌ ${result.error}</div>`;
             } else {
               resultText += `<div style="margin-bottom: 12px;"><strong>Hash: ${result.hash}</strong></div>`;
-              resultText += `<div style="margin-bottom: 4px;"><strong>DB Filename: ${result.dbFilename}</strong></div>`;
+              resultText += `<div style="margin-bottom: 4px;"><strong> ${result.dbFilename}</strong></div>`;
               resultText += `<a href="${result.modelUrl}" target="_blank">Model ID: ${result.civitaiModelId}, Version ID: ${result.civitaiModelVersionId}</a><br>`;
               resultText += `<div style="margin-top: 4px; color: #666;">Files with this hash: ${result.paths.length}</div>`;
             }
@@ -706,6 +718,25 @@ export default {
         console.error('Error getting filename from DB:', error);
         return 'Error fetching from DB';
       }
+    },
+    getModelsForPath(path, filename) {
+      const hashDetail = this.hashDetails[filename];
+      if (!hashDetail) return [];
+      
+      const pathHash = this.pathHashMapping[path];
+      if (!pathHash) return [];
+      
+      // For identical hashes, return all models
+      if (hashDetail.uniqueHashes.size === 1) {
+        return this.identicalHashModels[filename] || [];
+      }
+      
+      // For non-identical hashes, return only models that match this path's hash
+      return (this.identicalHashModels[filename] || []).filter(model => {
+        // Extract hash from model (it was stored as hash.substring(0, 8) + '...')
+        const modelHash = model.hash;
+        return modelHash && pathHash.startsWith(modelHash.substring(0, 8));
+      });
     },
   },
   computed: {
@@ -752,11 +783,9 @@ export default {
 
 <style scoped>
 .civit-data-fetcher {
-  padding: 1rem;
-  width: 100vw;
-  max-width: none;
-  margin: 0;
-  box-sizing: border-box;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .controls {
@@ -1005,7 +1034,8 @@ h3 {
   border-radius: 5px;
 }
 .unique-loras-table {
-  width: 100%;
+  width: auto;
+  min-width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
   table-layout: auto;
@@ -1051,7 +1081,7 @@ h3 {
 }
 .duplicate-tab-content {
   background: #fff;
-  padding: 0.5rem;
+  padding: 1rem;
   border-radius: 0 0 5px 5px;
 }
 .file-path-item {
