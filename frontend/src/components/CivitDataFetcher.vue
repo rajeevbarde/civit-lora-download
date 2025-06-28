@@ -435,17 +435,19 @@
             <div class="file-actions">
               <button 
                 @click="fixFile(file)" 
-                :disabled="file.status === 'processing' || file.status === 'success' || file.status === 'error'"
+                :disabled="file.status === 'processing' || file.status === 'success' || file.status === 'error' || file.fileName.includes('_duplicate')"
                 class="fix-btn"
                 :class="{ 
                   'processing': file.status === 'processing',
                   'success': file.status === 'success',
-                  'error': file.status === 'error'
+                  'error': file.status === 'error',
+                  'duplicate-file': file.fileName.includes('_duplicate')
                 }"
               >
                 {{ file.status === 'processing' ? 'Processing...' : 
                    file.status === 'success' ? '✅ Fixed' : 
-                   file.status === 'error' ? '❌ Error' : 'Find and Fix' }}
+                   file.status === 'error' ? '❌ Error' : 
+                   file.fileName.includes('_duplicate') ? 'Delete me later' : 'Find and Fix' }}
               </button>
             </div>
           </div>
@@ -1672,6 +1674,18 @@ export default {
 .fix-btn.error {
   background: #dc3545;
   cursor: default;
+}
+
+.fix-btn.duplicate-file {
+  background: #dc3545;
+  color: white;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.fix-btn.duplicate-file:hover {
+  background: #dc3545;
+  cursor: not-allowed;
 }
 
 .no-missing {
