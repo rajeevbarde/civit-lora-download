@@ -149,6 +149,7 @@
                   <th>Full Path</th>
                   <th>Database check</th>
                   <th>Identify metadata</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -158,9 +159,9 @@
                     <button 
                       class="db-check-btn" 
                       @click="onDatabaseCheck(file)"
-                      :disabled="dbCheckLoading[file.fullPath]"
+                      :disabled="dbCheckLoading[file.fullPath] || dbCheckedFiles.has(file.fullPath)"
                     >
-                      {{ dbCheckLoading[file.fullPath] ? 'Checking...' : 'Check' }}
+                      {{ dbCheckLoading[file.fullPath] ? 'Checking...' : dbCheckedFiles.has(file.fullPath) ? 'Completed' : 'Check' }}
                     </button>
                     <div v-if="dbCheckResults[file.fullPath]" class="db-check-result">
                       <div v-if="dbCheckResults[file.fullPath].success" class="db-check-success">
@@ -184,16 +185,22 @@
                     <button 
                       class="identify-metadata-btn" 
                       @click="onIdentifyMetadata(file)"
-                      :disabled="identifyMetadataLoading[file.fullPath]"
+                      :disabled="identifyMetadataLoading[file.fullPath] || metadataIdentifiedFiles.has(file.fullPath)"
                     >
-                      {{ identifyMetadataLoading[file.fullPath] ? 'Identifying...' : 'Identify' }}
+                      {{ identifyMetadataLoading[file.fullPath] ? 'Identifying...' : metadataIdentifiedFiles.has(file.fullPath) ? 'Completed' : 'Identify' }}
                     </button>
                     <div v-if="identifyMetadataResults[file.fullPath]" class="identify-metadata-result">
                       <div v-html="identifyMetadataResults[file.fullPath]"></div>
                     </div>
                   </td>
+                  <td>
+                    <div class="action-section">
+                      <!-- Action content will be implemented later -->
+                      <span class="action-placeholder">Actions coming soon...</span>
+                    </div>
+                  </td>
                 </tr>
-                <tr v-if="duplicateInDb.length === 0"><td colspan="3" class="no-unique-files">No duplicates in DB found.</td></tr>
+                <tr v-if="duplicateInDb.length === 0"><td colspan="4" class="no-unique-files">No duplicates in DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -344,9 +351,13 @@ export default {
       // Database check state
       dbCheckLoading: {},
       dbCheckResults: {},
+      // Track which files have had their database check completed
+      dbCheckedFiles: new Set(),
       // New state for identify metadata
       identifyMetadataLoading: {},
       identifyMetadataResults: {},
+      // Track which files have had their metadata identification completed
+      metadataIdentifiedFiles: new Set(),
     }
   },
   methods: {
@@ -948,7 +959,7 @@ export default {
       // Extract filename from full path
       const filename = file.fullPath.split('\\').pop().split('/').pop();
       
-      if (this.dbCheckLoading[file.fullPath]) return;
+      if (this.dbCheckLoading[file.fullPath] || this.dbCheckedFiles.has(file.fullPath)) return;
       
       this.dbCheckLoading[file.fullPath] = true;
       this.dbCheckResults[file.fullPath] = null;
@@ -969,11 +980,15 @@ export default {
               models: models,
               count: models.length
             };
+            // Mark as completed
+            this.dbCheckedFiles.add(file.fullPath);
           } else {
             this.dbCheckResults[file.fullPath] = {
               success: false,
               message: 'No model found in database'
             };
+            // Mark as completed even if no results found
+            this.dbCheckedFiles.add(file.fullPath);
           }
         })
         .catch(error => {
@@ -982,14 +997,60 @@ export default {
             message: error.message || 'Error searching database for model'
           };
           this.errorHandler.handleError(error, 'searching database for model');
+          // Mark as completed even on error
+          this.dbCheckedFiles.add(file.fullPath);
         })
         .finally(() => {
           this.dbCheckLoading[file.fullPath] = false;
         });
     },
     onIdentifyMetadata(file) {
-      // Implement the logic to identify metadata for a file
-      console.log('Identifying metadata for:', file);
+      // Prevent concurrent operations on the same file
+      if (this.identifyMetadataLoading[file.fullPath] || this.metadataIdentifiedFiles.has(file.fullPath)) {
+        console.log(`File ${file.fullPath} is already being processed or completed, skipping...`);
+        return;
+      }
+      
+      this.identifyMetadataLoading[file.fullPath] = true;
+      this.identifyMetadataResults[file.fullPath] = null;
+      
+      // Step 1: Compute SHA256 hash of the file
+      this.computeFileHash(file.fullPath)
+        .then(hash => {
+          console.log(`Hash for ${file.fullPath}: ${hash}`);
+          
+          // Step 2: Fetch model version ID from CivitAI
+          return this.fetchModelVersionIdByHash(hash);
+        })
+        .then(civitaiResponse => {
+          const modelVersionId = civitaiResponse.modelVersionId;
+          const modelId = civitaiResponse.modelId;
+          console.log(`Model Version ID for ${file.fullPath}: ${modelVersionId}`);
+          
+          // Create the model URL
+          const modelUrl = `http://localhost:5173/model/${modelId}/${modelVersionId}`;
+          
+          // Format the result similar to other metadata results in the file
+          let resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from CivitAI:</div>';
+          resultText += `<div style="margin-bottom: 4px;"><strong>Model ID:</strong> ${modelId}</div>`;
+          resultText += `<div style="margin-bottom: 4px;"><strong>Model Version ID:</strong> ${modelVersionId}</div>`;
+          resultText += `<a href="${modelUrl}" target="_blank">View Model Details</a><br>`;
+          
+          this.identifyMetadataResults[file.fullPath] = resultText;
+          this.errorHandler.handleSuccess(`Metadata identified for: ${file.fullPath}`);
+          // Mark as completed
+          this.metadataIdentifiedFiles.add(file.fullPath);
+        })
+        .catch(error => {
+          console.error('Error identifying metadata:', error);
+          this.identifyMetadataResults[file.fullPath] = `❌ Error: ${error.message}`;
+          this.errorHandler.handleError(error, `identifying metadata for ${file.fullPath}`, { showNotification: false });
+          // Mark as completed even on error
+          this.metadataIdentifiedFiles.add(file.fullPath);
+        })
+        .finally(() => {
+          this.identifyMetadataLoading[file.fullPath] = false;
+        });
     },
   },
   computed: {
@@ -1583,5 +1644,17 @@ h3 {
 }
 .identify-metadata-result div a:hover {
   color: #0056b3;
+}
+.action-section {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.action-placeholder {
+  color: #6c757d;
+  font-weight: 500;
 }
 </style> 
