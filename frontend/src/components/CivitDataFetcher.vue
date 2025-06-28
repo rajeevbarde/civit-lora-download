@@ -91,7 +91,7 @@
                       {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
                     </button>
                     <div v-if="metadataResults[group.filename]" class="metadata-result">
-                      <pre>{{ metadataResults[group.filename] }}</pre>
+                      <div v-html="metadataResults[group.filename]"></div>
                     </div>
                   </td>
                 </tr>
@@ -619,6 +619,7 @@ export default {
             const pathFilename = representativePath.split('\\').pop().split('/').pop();
             
             try {
+              // Use the full path for more specific search
               const response = await apiService.searchModelByFilename(pathFilename);
               if (response && response.length > 0) {
                 searchResults.push({
@@ -653,14 +654,12 @@ export default {
         if (totalMatches === 0) {
           resultText = '❌ No matches found in database';
         } else {
-          resultText = `✅ Found ${totalMatches} match(es) in database`;
-          
-          // Show details for each processed file
+          // Show only the links without summary text
           searchResults.forEach((result, index) => {
             if (result.matches && result.matches.length > 0) {
-              resultText += `\n${result.note}: ${result.matches.length} match(es)`;
               result.matches.forEach((match, matchIndex) => {
-                resultText += `\n  - Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}`;
+                const modelUrl = `http://localhost:5173/model/${match.modelId}/${match.modelVersionId}`;
+                resultText += `<a href="${modelUrl}" target="_blank">Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}</a><br>`;
               });
             }
           });
@@ -1074,9 +1073,17 @@ h3 {
   font-weight: 500;
   padding: 0.25rem 0;
 }
-.metadata-result pre {
+.metadata-result div {
   margin: 0;
   white-space: pre;
   font-family: inherit;
+}
+.metadata-result div a {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.metadata-result div a:hover {
+  color: #0056b3;
 }
 </style> 
