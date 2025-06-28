@@ -297,16 +297,20 @@
             <table class="unique-loras-table">
               <thead>
                 <tr>
-                  <th>Full Path</th>
                   <th>File Name</th>
+                  <th>File Paths</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(file, idx) in duplicateOnDiskAndDb" :key="file.fullPath + idx">
-                  <td>{{ file.fullPath }}</td>
-                  <td>{{ file.baseName }}</td>
+                <tr v-for="(group, idx) in duplicateOnDiskAndDbGrouped" :key="group.filename + idx">
+                  <td>{{ group.filename }}</td>
+                  <td>
+                    <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="file-path-item">
+                      {{ path }}
+                    </div>
+                  </td>
                 </tr>
-                <tr v-if="duplicateOnDiskAndDb.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
+                <tr v-if="duplicateOnDiskAndDbGrouped.length === 0"><td colspan="2" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1262,6 +1266,18 @@ export default {
     },
     duplicateOnDiskAndDb() {
       return (this.duplicateIssues || []).filter(f => f.status === 'Duplicate on Disk & DB');
+    },
+    duplicateOnDiskAndDbGrouped() {
+      const grouped = {};
+      this.duplicateOnDiskAndDb.forEach(file => {
+        if (!grouped[file.baseName]) {
+          grouped[file.baseName] = [];
+        }
+        grouped[file.baseName].push(file.fullPath);
+      });
+      return Object.entries(grouped)
+        .map(([filename, paths]) => ({ filename, paths: paths.sort() }))
+        .sort((a, b) => a.filename.localeCompare(b.filename));
     },
     duplicateOnDiskGrouped() {
       const grouped = {};
