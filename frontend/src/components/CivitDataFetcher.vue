@@ -147,15 +147,53 @@
               <thead>
                 <tr>
                   <th>Full Path</th>
-                  <th>File Name</th>
+                  <th>Database check</th>
+                  <th>Identify metadata</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(file, idx) in duplicateInDb" :key="file.fullPath + idx">
                   <td>{{ file.fullPath }}</td>
-                  <td>{{ file.baseName }}</td>
+                  <td>
+                    <button 
+                      class="db-check-btn" 
+                      @click="onDatabaseCheck(file)"
+                      :disabled="dbCheckLoading[file.fullPath]"
+                    >
+                      {{ dbCheckLoading[file.fullPath] ? 'Checking...' : 'Check' }}
+                    </button>
+                    <div v-if="dbCheckResults[file.fullPath]" class="db-check-result">
+                      <div v-if="dbCheckResults[file.fullPath].success" class="db-check-success">
+                        <div class="db-check-count">Found {{ dbCheckResults[file.fullPath].count }} model(s):</div>
+                        <div v-for="(model, index) in dbCheckResults[file.fullPath].models" :key="index" class="model-link-item">
+                          <a 
+                            :href="model.url" 
+                            target="_blank" 
+                            class="model-link"
+                          >
+                            {{ model.modelId }}/{{ model.modelVersionId }}
+                          </a>
+                        </div>
+                      </div>
+                      <div v-else class="db-check-error">
+                        {{ dbCheckResults[file.fullPath].message }}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <button 
+                      class="identify-metadata-btn" 
+                      @click="onIdentifyMetadata(file)"
+                      :disabled="identifyMetadataLoading[file.fullPath]"
+                    >
+                      {{ identifyMetadataLoading[file.fullPath] ? 'Identifying...' : 'Identify' }}
+                    </button>
+                    <div v-if="identifyMetadataResults[file.fullPath]" class="identify-metadata-result">
+                      <div v-html="identifyMetadataResults[file.fullPath]"></div>
+                    </div>
+                  </td>
                 </tr>
-                <tr v-if="duplicateInDb.length === 0"><td colspan="2" class="no-unique-files">No duplicates in DB found.</td></tr>
+                <tr v-if="duplicateInDb.length === 0"><td colspan="3" class="no-unique-files">No duplicates in DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -303,6 +341,12 @@ export default {
       selectedActions: {},
       // Store registration results for each file group
       registrationResults: {},
+      // Database check state
+      dbCheckLoading: {},
+      dbCheckResults: {},
+      // New state for identify metadata
+      identifyMetadataLoading: {},
+      identifyMetadataResults: {},
     }
   },
   methods: {
@@ -900,6 +944,53 @@ export default {
       
       return hasAllSelections && validationResult.isValid;
     },
+    onDatabaseCheck(file) {
+      // Extract filename from full path
+      const filename = file.fullPath.split('\\').pop().split('/').pop();
+      
+      if (this.dbCheckLoading[file.fullPath]) return;
+      
+      this.dbCheckLoading[file.fullPath] = true;
+      this.dbCheckResults[file.fullPath] = null;
+      
+      apiService.searchModelByFilename(filename)
+        .then(response => {
+          if (response && response.length > 0) {
+            // Display all matches found
+            const models = response.map(model => ({
+              modelId: model.modelId,
+              modelVersionId: model.modelVersionId,
+              fileName: model.fileName,
+              url: `http://localhost:5173/model/${model.modelId}/${model.modelVersionId}`
+            }));
+            
+            this.dbCheckResults[file.fullPath] = {
+              success: true,
+              models: models,
+              count: models.length
+            };
+          } else {
+            this.dbCheckResults[file.fullPath] = {
+              success: false,
+              message: 'No model found in database'
+            };
+          }
+        })
+        .catch(error => {
+          this.dbCheckResults[file.fullPath] = {
+            success: false,
+            message: error.message || 'Error searching database for model'
+          };
+          this.errorHandler.handleError(error, 'searching database for model');
+        })
+        .finally(() => {
+          this.dbCheckLoading[file.fullPath] = false;
+        });
+    },
+    onIdentifyMetadata(file) {
+      // Implement the logic to identify metadata for a file
+      console.log('Identifying metadata for:', file);
+    },
   },
   computed: {
     duplicateOnDisk() {
@@ -1407,5 +1498,90 @@ h3 {
 }
 .result-status.error {
   color: #dc3545;
+}
+.db-check-btn {
+  background: #ffc107;
+  color: #333;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+.db-check-btn:hover:not(:disabled) {
+  background: #ffb300;
+}
+.db-check-btn:disabled {
+  background: #e0e0e0;
+  color: #aaa;
+  cursor: not-allowed;
+}
+.db-check-result {
+  margin-top: 0.5rem;
+  font-size: 12px;
+}
+.db-check-success {
+  color: #28a745;
+}
+.db-check-error {
+  color: #dc3545;
+}
+.model-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 500;
+}
+.model-link:hover {
+  text-decoration: underline;
+}
+.db-check-count {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+.model-link-item {
+  margin-bottom: 0.25rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #dee2e6;
+}
+.model-link-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.identify-metadata-btn {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+  margin-bottom: 0.5rem;
+}
+.identify-metadata-btn:hover:not(:disabled) {
+  background: #138496;
+}
+.identify-metadata-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+.identify-metadata-result {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0.25rem 0;
+}
+.identify-metadata-result div {
+  margin: 0;
+  white-space: pre;
+  font-family: inherit;
+}
+.identify-metadata-result div a {
+  color: #007bff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.identify-metadata-result div a:hover {
+  color: #0056b3;
 }
 </style> 
