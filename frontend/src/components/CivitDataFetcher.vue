@@ -106,7 +106,6 @@
                           class="action-dropdown"
                           :disabled="!identicalHashModels[group.filename] || identicalHashModels[group.filename].length === 0"
                         >
-                          <option value="">Select action...</option>
                           <option 
                             v-for="model in getModelsForPath(path, group.filename)" 
                             :key="`${model.modelId}-${model.modelVersionId}`"
@@ -127,7 +126,13 @@
                     </div>
                   </td>
                   <td>
-                    <!-- Result column - ready for your explanation -->
+                    <!-- Result column - display registration results -->
+                    <div v-if="registrationResults[group.filename]" class="registration-result">
+                      <div v-for="(result, path) in registrationResults[group.filename]" :key="path" class="result-item">
+                        <div class="result-path"><strong>Path:</strong> {{ path }}</div>
+                        <div class="result-action"><strong>Action:</strong> {{ result.action }}</div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
                 <tr v-if="duplicateOnDiskGrouped.length === 0"><td colspan="6" class="no-unique-files">No duplicates on disk found.</td></tr>
@@ -293,6 +298,8 @@ export default {
       pathHashMapping: {},
       // Store selected actions for each path
       selectedActions: {},
+      // Store registration results for each file group
+      registrationResults: {},
     }
   },
   methods: {
@@ -750,16 +757,88 @@ export default {
       });
     },
     registerActions(filename) {
+      // Validate that no dropdowns have the same value (except _duplicate)
+      const validationResult = this.validateSelectedActions(filename);
+      
+      if (!validationResult.isValid) {
+        this.errorHandler.handleError(new Error(validationResult.errorMessage), 'validating selected actions', { showNotification: true });
+        return;
+      }
+      
+      // Get the file group
+      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) {
+        this.errorHandler.handleError(new Error('File group not found'), 'registering actions', { showNotification: true });
+        return;
+      }
+      
+      // Store the results for display in the result column
+      this.registrationResults[filename] = {};
+      group.paths.forEach(path => {
+        const selectedAction = this.selectedActions[path];
+        if (selectedAction) {
+          this.registrationResults[filename][path] = {
+            action: selectedAction
+          };
+        }
+      });
+      
       // Implementation of registerActions method
       console.log('Register actions for:', filename);
       console.log('Selected actions:', this.selectedActions);
+      
+      // Show success message
+      this.errorHandler.handleSuccess(`Actions registered for ${filename}`);
+    },
+    validateSelectedActions(filename) {
+      const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+      if (!group) {
+        return { isValid: false, errorMessage: 'File group not found' };
+      }
+      
+      // Get all selected values for this file group
+      const selectedValues = group.paths
+        .map(path => this.selectedActions[path])
+        .filter(value => value && value !== ''); // Filter out empty values
+      
+      // Check if all paths have selected values
+      if (selectedValues.length !== group.paths.length) {
+        return { isValid: false, errorMessage: 'Please select an action for all files' };
+      }
+      
+      // Create a map to track values (excluding _duplicate)
+      const valueCounts = {};
+      const duplicateValues = [];
+      
+      selectedValues.forEach(value => {
+        if (value !== '_duplicate') {
+          valueCounts[value] = (valueCounts[value] || 0) + 1;
+          if (valueCounts[value] === 2) { // First duplicate found
+            duplicateValues.push(value);
+          }
+        }
+      });
+      
+      if (duplicateValues.length > 0) {
+        return { 
+          isValid: false, 
+          errorMessage: `Duplicate values found: ${duplicateValues.join(', ')}. Each file must have a unique action (except "_duplicate").` 
+        };
+      }
+      
+      return { isValid: true };
     },
     hasSelectedActions(filename) {
       // Check if any actions are selected for this file group
       const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
       if (!group) return false;
       
-      return group.paths.some(path => this.selectedActions[path] && this.selectedActions[path] !== '');
+      const hasAllSelections = group.paths.some(path => this.selectedActions[path] && this.selectedActions[path] !== '');
+      
+      // Also validate that there are no duplicate values (excluding _duplicate)
+      const validationResult = this.validateSelectedActions(filename);
+      
+      return hasAllSelections && validationResult.isValid;
     },
   },
   computed: {
@@ -1208,5 +1287,33 @@ h3 {
 .register-btn:disabled {
   background: #6c757d;
   cursor: not-allowed;
+}
+.registration-result {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.result-item {
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #dee2e6;
+}
+.result-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.result-path {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0.25rem;
+  word-break: break-all;
+}
+.result-action {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
 }
 </style> 
