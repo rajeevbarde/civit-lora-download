@@ -216,6 +216,14 @@ export const apiService = {
     });
     return response.data;
   },
+
+  async searchModelByFilename(filename, options = {}) {
+    const response = await api.get('/models/search-by-filename', {
+      params: { filename },
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

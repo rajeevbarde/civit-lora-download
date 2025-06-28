@@ -68,4 +68,20 @@ router.get('/summary-matrix-downloaded', async (req, res) => {
     }
 });
 
+// Search models by filename (case-insensitive)
+router.get('/search-by-filename', async (req, res) => {
+    try {
+        const { filename } = req.query;
+        
+        if (!filename) {
+            return res.status(400).json({ error: 'Filename parameter is required' });
+        }
+        
+        const result = await databaseService.searchModelsByFilename(filename);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

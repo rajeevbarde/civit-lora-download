@@ -82,8 +82,15 @@
                     </div>
                   </td>
                   <td>
-                    <div class="metadata-placeholder">
-                      Metadata info will be displayed here
+                    <button 
+                      @click="identifyMetadataForGroup(group.filename)"
+                      :disabled="metadataLoading[group.filename]"
+                      class="metadata-btn"
+                    >
+                      {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
+                    </button>
+                    <div v-if="metadataResults[group.filename]" class="metadata-result">
+                      <pre>{{ metadataResults[group.filename] }}</pre>
                     </div>
                   </td>
                 </tr>
@@ -235,6 +242,9 @@ export default {
       // Hash check state
       hashCheckLoading: {},
       hashResults: {},
+      // Metadata identification state
+      metadataLoading: {},
+      metadataResults: {},
     }
   },
   methods: {
@@ -525,6 +535,76 @@ export default {
         this.hashResults[filename] = `Error: ${error.message}`;
       } finally {
         this.hashCheckLoading[filename] = false;
+      }
+    },
+    async identifyMetadataForGroup(filename) {
+      if (this.metadataLoading[filename]) return;
+      
+      this.metadataLoading[filename] = true;
+      this.metadataResults[filename] = null;
+      
+      try {
+        const group = this.duplicateOnDiskGrouped.find(g => g.filename === filename);
+        if (!group) return;
+        
+        // Search for the filename in the database (case-insensitive)
+        const searchResults = [];
+        
+        for (const path of group.paths) {
+          try {
+            // Extract just the filename from the path
+            const pathFilename = path.split('\\').pop().split('/').pop();
+            
+            // Search in database for this filename (case-insensitive)
+            const response = await apiService.searchModelByFilename(pathFilename);
+            
+            if (response && response.length > 0) {
+              searchResults.push({
+                path,
+                filename: pathFilename,
+                matches: response
+              });
+            } else {
+              searchResults.push({
+                path,
+                filename: pathFilename,
+                matches: []
+              });
+            }
+          } catch (error) {
+            searchResults.push({
+              path,
+              filename: pathFilename,
+              error: error.message
+            });
+          }
+        }
+        
+        // Format results
+        let resultText = '';
+        const totalMatches = searchResults.reduce((sum, r) => sum + (r.matches ? r.matches.length : 0), 0);
+        
+        if (totalMatches === 0) {
+          resultText = '❌ No matches found in database';
+        } else {
+          resultText = `✅ Found ${totalMatches} match(es) in database`;
+          
+          // Show details for each path
+          searchResults.forEach((result, index) => {
+            if (result.matches && result.matches.length > 0) {
+              resultText += `\nPath ${index + 1}: ${result.matches.length} match(es)`;
+              result.matches.forEach((match, matchIndex) => {
+                resultText += `\n  - Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}`;
+              });
+            }
+          });
+        }
+        
+        this.metadataResults[filename] = resultText;
+      } catch (error) {
+        this.metadataResults[filename] = `Error: ${error.message}`;
+      } finally {
+        this.metadataLoading[filename] = false;
       }
     },
   },
@@ -836,9 +916,6 @@ h3 {
   background: #f8f8f8;
   font-weight: bold;
 }
-.unique-loras-table td:last-child {
-  white-space: nowrap;
-}
 .no-unique-files {
   text-align: center;
   color: #666;
@@ -905,9 +982,33 @@ h3 {
   font-weight: 500;
   padding: 0.25rem 0;
 }
-.metadata-placeholder {
-  color: #666;
-  font-style: italic;
+.metadata-btn {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
   font-size: 12px;
+  transition: background-color 0.2s;
+  margin-bottom: 0.5rem;
+}
+.metadata-btn:hover:not(:disabled) {
+  background: #138496;
+}
+.metadata-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+.metadata-result {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0.25rem 0;
+}
+.metadata-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
 }
 </style> 

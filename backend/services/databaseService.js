@@ -254,6 +254,30 @@ class DatabaseService {
         }
     }
 
+    // Search models by filename (case-insensitive)
+    async searchModelsByFilename(filename) {
+        const query = `
+            SELECT 
+                modelId, modelName, modelVersionId, modelVersionName,
+                fileName, fileType, fileDownloadUrl, size_in_gb,
+                basemodel, basemodeltype, modelVersionNsfwLevel,
+                publishedAt, isDownloaded, file_path
+            FROM ALLCivitData
+            WHERE fileName = ? COLLATE NOCASE
+            ORDER BY modelVersionId
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query, [filename]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
     // Mark model as failed download
     async markModelAsFailed(modelVersionId) {
         let connection;
