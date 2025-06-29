@@ -1,7 +1,7 @@
 const logger = require('../utils/logger');
 
 // Request timeout middleware
-function createTimeoutMiddleware(timeoutMs = 30000) { // Default 30 seconds
+function createTimeoutMiddleware(timeoutMs = parseInt(process.env.DEFAULT_TIMEOUT) || 30000) { // Default from env or 30 seconds
     return (req, res, next) => {
         // If timeout is 0, null, or Infinity, do not set a timeout
         if (!timeoutMs || timeoutMs === Infinity) {
@@ -57,16 +57,16 @@ function createTimeoutMiddleware(timeoutMs = 30000) { // Default 30 seconds
 // Different timeout configurations for different endpoints
 const timeoutConfigs = {
     // Short timeout for simple operations
-    quick: 10000, // 10 seconds
+    quick: parseInt(process.env.TIMEOUT_QUICK) || 10000, // 10 seconds
     
     // Medium timeout for database operations
-    normal: 30000, // 30 seconds
+    normal: parseInt(process.env.TIMEOUT_NORMAL) || 30000, // 30 seconds
     
     // Long timeout for file operations
-    file: 120000, // 2 minutes
+    file: parseInt(process.env.TIMEOUT_FILE) || 120000, // 2 minutes
     
     // Very long timeout for downloads
-    download: 300000 // 5 minutes
+    download: parseInt(process.env.TIMEOUT_DOWNLOAD) || 300000 // 5 minutes
 };
 
 // Specific timeout middleware for different operation types

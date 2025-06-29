@@ -4,13 +4,14 @@
 function validatePagination(req, res, next) {
     const page = parseInt(req.query.page);
     const limit = parseInt(req.query.limit);
+    const maxLimit = parseInt(process.env.MAX_PAGINATION_LIMIT) || 100;
     
     if (page && (isNaN(page) || page < 1)) {
         return res.status(400).json({ error: 'Page must be a positive integer' });
     }
     
-    if (limit && (isNaN(limit) || limit < 1 || limit > 100)) {
-        return res.status(400).json({ error: 'Limit must be between 1 and 100' });
+    if (limit && (isNaN(limit) || limit < 1 || limit > maxLimit)) {
+        return res.status(400).json({ error: `Limit must be between 1 and ${maxLimit}` });
     }
     
     next();

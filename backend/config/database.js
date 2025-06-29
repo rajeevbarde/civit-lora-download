@@ -70,7 +70,7 @@ class DatabasePool {
                 }
                 
                 // Configure connection with valid options
-                db.configure('busyTimeout', 30000); // 30 second busy timeout
+                db.configure('busyTimeout', parseInt(process.env.DB_BUSY_TIMEOUT) || 30000); // 30 second busy timeout
                 
                 // Enable WAL mode using PRAGMA
                 db.run('PRAGMA journal_mode = WAL', (err) => {
