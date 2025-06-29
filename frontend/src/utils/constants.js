@@ -58,10 +58,6 @@ export const CSS_CLASSES = {
     SUCCESS: 'success',
     ERROR: 'error',
   },
-  CELL: {
-    ZERO: 'cell-zero',
-    HIGHLIGHT: 'cell-highlight',
-  },
   NOTIFICATION: {
     SUCCESS: 'notification-success',
     ERROR: 'notification-error',
@@ -72,11 +68,6 @@ export const CSS_CLASSES = {
 
 // Color Schemes
 export const COLORS = {
-  GRADIENT: {
-    START: '#f9f9f9',
-    MIDDLE: '#bbf7d0',
-    END: '#22c55e',
-  },
   STATUS: {
     ZERO: '#fef2f2',
     ZERO_TEXT: '#dc2626',

@@ -40,10 +40,8 @@ router.get('/docs', (req, res) => {
                 description: 'Model management endpoints',
                 routes: {
                     'GET /models': 'Get models with pagination and filters',
-                    'GET /models/detail/:id': 'Get model detail by modelVersionId',
-                    'GET /models/basemodels': 'Get all base models',
-                    'GET /models/summary-matrix': 'Get summary matrix',
-                    'GET /models/summary-matrix-downloaded': 'Get downloaded summary matrix'
+                    'GET /models/:modelVersionId': 'Get model detail by modelVersionId',
+                    'GET /models/base-models': 'Get all base models'
                 }
             },
             paths: {
@@ -69,9 +67,13 @@ router.get('/docs', (req, res) => {
             downloads: {
                 description: 'Download management endpoints',
                 routes: {
-                    'POST /downloads': 'Queue a download',
-                    'GET /downloads/status': 'Get download status',
-                    'POST /downloads/clear-errors': 'Clear download errors'
+                    'GET /downloads': 'Get download queue status',
+                    'POST /downloads': 'Add model to download queue',
+                    'DELETE /downloads/:modelVersionId': 'Remove model from download queue',
+                    'GET /files': 'Get all file names from database',
+                    'POST /files/scan': 'Scan and register unregistered files',
+                    'GET /paths': 'Get saved paths',
+                    'POST /paths': 'Save path'
                 }
             }
         }

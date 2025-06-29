@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const databaseService = require('../../services/databaseService');
 const { validatePagination, validateModelVersionId } = require('../../middleware/validation');
+const logger = require('../../utils/logger');
 
 // Get models with pagination and filters
 router.get('/', validatePagination, async (req, res) => {
@@ -48,23 +49,14 @@ router.get('/basemodels', async (req, res) => {
     }
 });
 
-// Get summary matrix
-router.get('/summary-matrix', async (req, res) => {
+// Get base models
+router.get('/base-models', async (req, res) => {
     try {
-        const result = await databaseService.getSummaryMatrix();
+        const result = await databaseService.getBaseModels();
         res.json(result);
     } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Get downloaded summary matrix
-router.get('/summary-matrix-downloaded', async (req, res) => {
-    try {
-        const result = await databaseService.getDownloadedSummaryMatrix();
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        logger.error('Error getting base models:', error);
+        res.status(500).json({ error: 'Failed to get base models' });
     }
 });
 

@@ -77,10 +77,8 @@ export const apiService = {
     return response.data;
   },
 
-  async getBaseModels(options = {}) {
-    const response = await api.get('/models/basemodels', {
-      signal: options.signal
-    });
+  async getBaseModels() {
+    const response = await api.get('/models/base-models');
     return response.data;
   },
 
@@ -196,20 +194,6 @@ export const apiService = {
   },
 
   // Summary
-  async getSummaryMatrix(options = {}) {
-    const response = await api.get('/models/summary-matrix', {
-      signal: options.signal
-    });
-    return response.data;
-  },
-
-  async getSummaryMatrixDownloaded(options = {}) {
-    const response = await api.get('/models/summary-matrix-downloaded', {
-      signal: options.signal
-    });
-    return response.data;
-  },
-
   async registerUnregisteredFiles(files, options = {}) {
     const response = await api.post('/files/register-unregistered', { files }, {
       signal: options.signal
@@ -245,6 +229,10 @@ export const apiService = {
       signal: options.signal
     });
     return response.data;
+  },
+
+  // Download management
+  async getDownloadQueue() {
   },
 };
 

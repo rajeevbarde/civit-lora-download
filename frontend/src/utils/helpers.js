@@ -69,59 +69,6 @@ export function interpolateColor(a, b, t) {
 }
 
 /**
- * Generate gradient style for matrix cells
- * @param {number} val - Current value
- * @param {number} max - Maximum value for normalization
- * @returns {string} CSS style string
- */
-export function getGreenGradientStyle(val, max) {
-  if (!val || max === 0) {
-    return '';
-  }
-  
-  let percent = max ? val / max : 0;
-  if (percent < 0.01) percent = 0.01;
-  if (percent > 1) percent = 1;
-  
-  let bg = '';
-  if (percent < 0.7) {
-    // #f9f9f9 to #bbf7d0
-    bg = interpolateColor(COLORS.GRADIENT.START, COLORS.GRADIENT.MIDDLE, percent / 0.7);
-  } else {
-    // #bbf7d0 to #22c55e
-    bg = interpolateColor(COLORS.GRADIENT.MIDDLE, COLORS.GRADIENT.END, (percent - 0.7) / 0.3);
-  }
-  return `background: ${bg};`;
-}
-
-/**
- * Calculate total for a specific base model in matrix
- * @param {Array} matrix - The matrix data
- * @param {string} baseModel - The base model to calculate total for
- * @returns {number} Total count
- */
-export function calculateMatrixTotal(matrix, baseModel) {
-  return matrix.reduce((sum, row) => sum + (row[baseModel] || 0), 0);
-}
-
-/**
- * Find global maximum value in matrix
- * @param {Array} matrix - The matrix data
- * @param {Array} baseModels - Array of base model names
- * @returns {number} Maximum value
- */
-export function findGlobalMax(matrix, baseModels) {
-  let max = 0;
-  for (const bm of baseModels) {
-    for (const row of matrix) {
-      const v = row[bm] || 0;
-      if (v > max) max = v;
-    }
-  }
-  return max;
-}
-
-/**
  * Generate a unique ID
  * @returns {string} Unique ID
  */
