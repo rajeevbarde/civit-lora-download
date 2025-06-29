@@ -1,160 +1,247 @@
 <template>
   <div class="model-table-page">
-    <h1>LoRA Hub</h1>
-    
-    <!-- Notifications -->
-    <div v-if="notifications.length > 0" class="notifications-container">
-      <div v-for="notification in notifications" :key="notification.id" 
-           :class="['notification', `notification-${notification.type}`]">
-        <span class="notification-message">{{ notification.message }}</span>
-        <button @click="removeNotification(notification.id)" class="notification-close">×</button>
-      </div>
-      <button @click="clearAllNotifications" class="clear-all-notifications">Clear All</button>
+    <!-- Enhanced Header Section -->
+    <div class="header-section">
+      <h1 class="page-title">LoRA Hub</h1>
+      <p class="page-subtitle">Browse, filter, and manage your LoRA model collection</p>
     </div>
     
-    <!-- Filter Controls -->
-    <div class="filters">
-      <div class="filter-group">
-        <label for="baseModelSelect">Base Model:</label>
-        <select id="baseModelSelect" v-model="selectedBaseModel" :disabled="isFetchingBaseModels">
-          <option value="">{{ isFetchingBaseModels ? 'Loading...' : 'All' }}</option>
-          <option v-for="bm in baseModelOptions" :key="bm" :value="bm">{{ bm }}</option>
-        </select>
+    <!-- Enhanced Notifications -->
+    <div v-if="notifications.length > 0" class="notifications-section">
+      <div class="notifications-header">
+        <span class="notifications-icon">🔔</span>
+        <span class="notifications-label">Notifications</span>
+        <span class="notifications-count">({{ notifications.length }})</span>
       </div>
-      <div class="filter-group">
-        <label for="downloadedSelect">Download Status:</label>
-        <select id="downloadedSelect" v-model="selectedDownloaded">
-          <option value="">All</option>
-          <option value="0">Not Downloaded</option>
-          <option value="1">Downloaded</option>
-          <option value="3">Failed</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="modelNsfwSelect">Model Content:</label>
-        <select id="modelNsfwSelect" v-model="selectedModelNsfw">
-          <option value="">All</option>
-          <option value="0">SFW</option>
-          <option value="1">NSFW</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label for="versionNsfwLevelSelect">Model Version Content:</label>
-        <select id="versionNsfwLevelSelect" v-model="selectedVersionNsfwLevelRange">
-          <option value="">All</option>
-          <option value="0">Safe</option>
-          <option value="1-15">Mild</option>
-          <option value="16-31">Moderate</option>
-          <option value="32-47">NSFW</option>
-          <option value="48-63">Extreme NSFW</option>
-        </select>
-      </div>
-    </div>
-    
-    <!-- Bulk Download Controls -->
-    <div v-if="selectedModels.length > 0" class="bulk-actions">
-      <div class="bulk-info">
-        <span>{{ selectedModels.length }} model(s) selected</span>
-        <button @click="bulkDownloadSelectedModels" class="btn-bulk-download" :disabled="isBulkDownloading">
-          {{ isBulkDownloading ? 'Queuing...' : `Download ${selectedModels.length} Models` }}
-        </button>
-        <button @click="clearSelection" class="btn-clear-selection">Clear Selection</button>
-      </div>
-    </div>
-    
-    <!-- Download Status Indicator -->
-    <div v-if="downloadingModels.length > 0" class="download-status">
-      <div class="status-info">
-        <span>🔄 {{ downloadingModels.length }} download(s) in progress</span>
-        <button @click="checkDownloadStatus" class="btn-status-check" :disabled="isCheckingStatus">
-          {{ isCheckingStatus ? 'Checking...' : (isStatusVisible ? 'Hide Status' : 'Show Status') }}
+      <div class="notifications-list">
+        <div v-for="notification in notifications" :key="notification.id" 
+             :class="['notification-item', `notification-${notification.type}`]">
+          <div class="notification-content">
+            <span class="notification-icon">
+              {{ notification.type === 'success' ? '✅' : 
+                 notification.type === 'error' ? '❌' : 
+                 notification.type === 'warning' ? '⚠️' : 'ℹ️' }}
+            </span>
+            <span class="notification-message">{{ notification.message }}</span>
+          </div>
+          <button @click="removeNotification(notification.id)" class="notification-close" title="Dismiss">
+            <span class="close-icon">×</span>
+          </button>
+        </div>
+        <button @click="clearAllNotifications" class="clear-all-btn">
+          <span class="clear-icon">🗑️</span>
+          <span class="clear-text">Clear All</span>
         </button>
       </div>
     </div>
     
-    <div v-if="loading" class="loading">Loading...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else class="table-container">
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Model / Version Name</th>
-              <th>Base Model (Type)</th>
-              <th>File Name</th>
-              <th>Download URL</th>
-              <th class="checkbox-header">
-                <input type="checkbox"
-                       :checked="isAllSelected"
-                       :indeterminate.prop="isIndeterminate"
-                       @change="toggleSelectAll"
-                       class="checkbox-select-all" />
-              </th>
-              <th>Size (GB)</th>
-              <th>Download Count</th>
-              <th>File Path</th>
-              <th>Published At</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="model in models" :key="model.modelId">
-              <td>
-                <a 
-                  :href="`/model/${model.modelId}/${model.modelVersionId}`"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style="color: #1976d2; text-decoration: underline;"
-                >
-                  {{ model.modelName }} / {{ model.modelVersionName }}
-                </a>
-              </td>
-              <td>{{ model.basemodel }}<span v-if="model.basemodeltype"> ({{ model.basemodeltype }})</span></td>
-              <td>{{ model.fileName }}</td>
-              <td>
-                <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
-                        @click="downloadModelFile(model)" 
-                        class="btn-download"
-                        :disabled="isModelDownloading(model.modelId)"
-                        :class="{ 'loading': isModelDownloading(model.modelId) }">
-                  {{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}
-                </button>
-                <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
-                        @click="downloadModelFile(model)" 
-                        class="btn-retry"
-                        :disabled="isModelDownloading(model.modelId)"
-                        :class="{ 'loading': isModelDownloading(model.modelId) }">
-                  {{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}
-                </button>
-                <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">Downloaded</span>
-                <span v-else>-</span>
-              </td>
-              <td class="checkbox-cell">
-                <input type="checkbox"
-                       :value="model.modelId"
-                       v-model="selectedModels"
-                       :disabled="!canSelectModel(model)"
-                       class="checkbox-model" />
-              </td>
-              <td>{{ model.size_in_gb }}</td>
-              <td>{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
-              <td>{{ model.file_path }}</td>
-              <td>{{ formatDate(model.publishedAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <!-- Enhanced Filter Controls -->
+    <div class="filters-section">
+      <div class="filters-header">
+        <span class="filters-icon">🔍</span>
+        <span class="filters-label">Filter Models</span>
       </div>
-      <div class="pagination">
-        <button 
-          :disabled="currentPage === 1 || isChangingPage"
-          @click="changePage(currentPage - 1)"
-          class="btn-pagination"
-        >{{ isChangingPage ? 'Loading...' : 'Previous' }}</button>
-        <span class="page-info">Page {{ currentPage }}</span>
-        <button 
-          @click="changePage(currentPage + 1)"
-          :disabled="isChangingPage"
-          class="btn-pagination"
-        >{{ isChangingPage ? 'Loading...' : 'Next' }}</button>
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label for="baseModelSelect" class="filter-label">Base Model</label>
+          <select id="baseModelSelect" v-model="selectedBaseModel" :disabled="isFetchingBaseModels" class="filter-select">
+            <option value="">{{ isFetchingBaseModels ? 'Loading...' : 'All Base Models' }}</option>
+            <option v-for="bm in baseModelOptions" :key="bm" :value="bm">{{ bm }}</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="downloadedSelect" class="filter-label">Download Status</label>
+          <select id="downloadedSelect" v-model="selectedDownloaded" class="filter-select">
+            <option value="">All Status</option>
+            <option value="0">Not Downloaded</option>
+            <option value="1">Downloaded</option>
+            <option value="3">Failed</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="modelNsfwSelect" class="filter-label">Model Content</label>
+          <select id="modelNsfwSelect" v-model="selectedModelNsfw" class="filter-select">
+            <option value="">All Content</option>
+            <option value="0">SFW</option>
+            <option value="1">NSFW</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label for="versionNsfwLevelSelect" class="filter-label">Version Content</label>
+          <select id="versionNsfwLevelSelect" v-model="selectedVersionNsfwLevelRange" class="filter-select">
+            <option value="">All Levels</option>
+            <option value="0">Safe</option>
+            <option value="1-15">Mild</option>
+            <option value="16-31">Moderate</option>
+            <option value="32-47">NSFW</option>
+            <option value="48-63">Extreme NSFW</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Enhanced Bulk Download Controls -->
+    <div v-if="selectedModels.length > 0" class="bulk-actions-section">
+      <div class="bulk-header">
+        <span class="bulk-icon">📦</span>
+        <span class="bulk-label">Bulk Actions</span>
+        <span class="bulk-count">({{ selectedModels.length }} selected)</span>
+      </div>
+      <div class="bulk-controls">
+        <button @click="bulkDownloadSelectedModels" class="bulk-download-btn" :disabled="isBulkDownloading">
+          <span class="btn-icon">⬇️</span>
+          <span class="btn-text">{{ isBulkDownloading ? 'Queuing...' : `Download ${selectedModels.length} Models` }}</span>
+        </button>
+        <button @click="clearSelection" class="clear-selection-btn">
+          <span class="btn-icon">🗑️</span>
+          <span class="btn-text">Clear Selection</span>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Enhanced Download Status Indicator -->
+    <div v-if="downloadingModels.length > 0" class="download-status-section">
+      <div class="status-header">
+        <span class="status-icon">🔄</span>
+        <span class="status-label">Download Status</span>
+        <span class="status-count">({{ downloadingModels.length }} in progress)</span>
+      </div>
+      <div class="status-controls">
+        <button @click="checkDownloadStatus" class="status-check-btn" :disabled="isCheckingStatus">
+          <span class="btn-icon">👁️</span>
+          <span class="btn-text">{{ isCheckingStatus ? 'Checking...' : (isStatusVisible ? 'Hide Status' : 'Show Status') }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="loading-section">
+      <div class="loading-content">
+        <span class="loading-icon">⏳</span>
+        <span class="loading-text">Loading LoRA models...</span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-else-if="error" class="error-section">
+      <div class="error-content">
+        <span class="error-icon">❌</span>
+        <h3 class="error-title">Error Loading Models</h3>
+        <p class="error-message">{{ error }}</p>
+      </div>
+    </div>
+
+    <!-- Enhanced Table Section -->
+    <div v-else class="table-section">
+      <div class="table-header">
+        <h2 class="table-title">Model Collection</h2>
+        <p class="table-subtitle">Browse and manage your LoRA models</p>
+      </div>
+      
+      <div class="table-container">
+        <div class="table-wrapper">
+          <table class="models-table">
+            <thead>
+              <tr>
+                <th class="model-header">Model / Version Name</th>
+                <th class="base-model-header">Base Model (Type)</th>
+                <th class="filename-header">File Name</th>
+                <th class="download-header">Download URL</th>
+                <th class="checkbox-header">
+                  <input type="checkbox"
+                         :checked="isAllSelected"
+                         :indeterminate.prop="isIndeterminate"
+                         @change="toggleSelectAll"
+                         class="checkbox-select-all" />
+                </th>
+                <th class="size-header">Size (GB)</th>
+                <th class="downloads-header">Download Count</th>
+                <th class="path-header">File Path</th>
+                <th class="date-header">Published At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="model in models" :key="model.modelId" class="model-row">
+                <td class="model-cell">
+                  <a 
+                    :href="`/model/${model.modelId}/${model.modelVersionId}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="model-link"
+                  >
+                    <span class="model-name">{{ model.modelName }}</span>
+                    <span class="version-name">/ {{ model.modelVersionName }}</span>
+                  </a>
+                </td>
+                <td class="base-model-cell">
+                  <span class="base-model">{{ model.basemodel }}</span>
+                  <span v-if="model.basemodeltype" class="base-model-type">({{ model.basemodeltype }})</span>
+                </td>
+                <td class="filename-cell">{{ model.fileName }}</td>
+                <td class="download-cell">
+                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
+                          @click="downloadModelFile(model)" 
+                          class="download-btn"
+                          :disabled="isModelDownloading(model.modelId)"
+                          :class="{ 'loading': isModelDownloading(model.modelId) }">
+                    <span class="btn-icon">⬇️</span>
+                    <span class="btn-text">{{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}</span>
+                  </button>
+                  <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
+                          @click="downloadModelFile(model)" 
+                          class="retry-btn"
+                          :disabled="isModelDownloading(model.modelId)"
+                          :class="{ 'loading': isModelDownloading(model.modelId) }">
+                    <span class="btn-icon">🔄</span>
+                    <span class="btn-text">{{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}</span>
+                  </button>
+                  <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">
+                    <span class="status-icon">✅</span>
+                    <span class="status-text">Downloaded</span>
+                  </span>
+                  <span v-else class="no-download">-</span>
+                </td>
+                <td class="checkbox-cell">
+                  <input type="checkbox"
+                         :value="model.modelId"
+                         v-model="selectedModels"
+                         :disabled="!canSelectModel(model)"
+                         class="checkbox-model" />
+                </td>
+                <td class="size-cell">{{ model.size_in_gb }}</td>
+                <td class="downloads-cell">{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
+                <td class="path-cell">{{ model.file_path }}</td>
+                <td class="date-cell">{{ formatDate(model.publishedAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Enhanced Pagination -->
+        <div class="pagination-section">
+          <div class="pagination-controls">
+            <button 
+              :disabled="currentPage === 1 || isChangingPage"
+              @click="changePage(currentPage - 1)"
+              class="pagination-btn prev-btn"
+            >
+              <span class="btn-icon">◀️</span>
+              <span class="btn-text">{{ isChangingPage ? 'Loading...' : 'Previous' }}</span>
+            </button>
+            <div class="page-info">
+              <span class="page-label">Page</span>
+              <span class="page-number">{{ currentPage }}</span>
+            </div>
+            <button 
+              @click="changePage(currentPage + 1)"
+              :disabled="isChangingPage"
+              class="pagination-btn next-btn"
+            >
+              <span class="btn-text">{{ isChangingPage ? 'Loading...' : 'Next' }}</span>
+              <span class="btn-icon">▶️</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -780,214 +867,704 @@ export default {
 </script>
 
 
-<style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+<style scoped>
+/* Enhanced Header Section Styles */
+.header-section {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem 0;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  line-height: 1.6;
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 800;
   color: #2c3e50;
-  background: #f8fafc;
+  margin: 0 0 1rem 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.model-table-page {
-  width: 100%;
-  padding: 16px;
+.page-subtitle {
+  font-size: 1.2rem;
+  color: #6c757d;
+  margin: 0;
+  font-weight: 400;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
 }
 
-h1 {
-  font-size: 28px;
-  font-weight: 300;
-  margin-bottom: 24px;
-  color: #1a202c;
-  letter-spacing: -0.5px;
+/* Enhanced Notifications Section */
+.notifications-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
 }
 
-.filters {
-  margin-bottom: 20px;
+.notifications-header {
   display: flex;
-  gap: 20px;
   align-items: center;
-  flex-wrap: wrap;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #dee2e6;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.notifications-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  color: #667eea;
+}
+
+.notifications-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.notifications-count {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  color: #6c757d;
+  background: #e9ecef;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notification-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.notification-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.notification-icon {
+  font-size: 1.2rem;
+}
+
+.notification-message {
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+.notification-close:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #495057;
+}
+
+.clear-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  margin-top: 0.5rem;
+  align-self: flex-start;
+}
+
+.clear-all-btn:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #343a40 100%);
+  transform: translateY(-1px);
+}
+
+.clear-icon {
+  font-size: 1rem;
+}
+
+.clear-text {
+  font-weight: 600;
+}
+
+/* Enhanced Filters Section */
+.filters-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
+}
+
+.filters-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.filters-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  color: #667eea;
+}
+
+.filters-label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 1.1rem;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0.5rem;
 }
 
-.filter-group label {
-  font-size: 14px;
-  font-weight: 500;
+.filter-label {
+  font-size: 0.9rem;
+  font-weight: 600;
   color: #495057;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.filter-group select {
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+.filter-select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
   background: white;
-  font-size: 14px;
+  font-size: 1rem;
   color: #495057;
-  transition: border-color 0.2s ease;
-  min-width: 150px;
+  transition: all 0.3s ease;
+  cursor: pointer;
 }
 
-.filter-group select:focus {
+.filter-select:focus {
   outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.bulk-actions {
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: #e3f2fd;
-  border: 1px solid #2196f3;
-  border-radius: 6px;
+.filter-select:hover {
+  border-color: #adb5bd;
 }
 
-.bulk-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.bulk-info span {
-  font-weight: 500;
-  color: #1976d2;
-}
-
-.btn-bulk-download {
-  padding: 8px 16px;
-  background: #2196f3;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-bulk-download:hover:not(:disabled) {
-  background: #1976d2;
-}
-
-.btn-bulk-download:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.btn-clear-selection {
-  padding: 8px 16px;
-  background: #f44336;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-clear-selection:hover {
-  background: #d32f2f;
-}
-
-.download-status {
-  margin-bottom: 16px;
-  padding: 12px 16px;
+.filter-select:disabled {
   background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-}
-
-.status-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.status-info span {
-  font-weight: 500;
-  color: #495057;
-}
-
-.btn-status-check {
-  padding: 6px 12px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-status-check:hover {
-  background: #0056b3;
-}
-
-.btn-status-check:disabled {
-  background: #6c757d;
   cursor: not-allowed;
   opacity: 0.7;
 }
 
+/* Enhanced Bulk Actions Section */
+.bulk-actions-section {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #2196f3;
+}
+
+.bulk-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #2196f3;
+}
+
+.bulk-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  color: #1976d2;
+}
+
+.bulk-label {
+  font-weight: 600;
+  color: #1976d2;
+  font-size: 1.1rem;
+}
+
+.bulk-count {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  color: #1976d2;
+  background: rgba(33, 150, 243, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.bulk-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.bulk-download-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bulk-download-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.bulk-download-btn:disabled {
+  background: #b8c2cc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.clear-selection-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.clear-selection-btn:hover {
+  background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Enhanced Download Status Section */
+.download-status-section {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #ffc107;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #ffc107;
+}
+
+.status-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  color: #f57c00;
+}
+
+.status-label {
+  font-weight: 600;
+  color: #f57c00;
+  font-size: 1.1rem;
+}
+
+.status-count {
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  color: #f57c00;
+  background: rgba(255, 193, 7, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.status-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.status-check-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+  color: #212529;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-check-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffb300 0%, #ffa000 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.status-check-btn:disabled {
+  background: #b8c2cc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading and Error States */
+.loading-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  padding: 3rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.loading-icon {
+  font-size: 3rem;
+  animation: spin 2s linear infinite;
+}
+
+.loading-text {
+  font-size: 1.2rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.error-section {
+  background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #feb2b2;
+  text-align: center;
+}
+
+.error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.error-icon {
+  font-size: 3rem;
+}
+
+.error-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #c53030;
+  margin: 0;
+}
+
+.error-message {
+  font-size: 1rem;
+  color: #742a2a;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Enhanced Table Section */
+.table-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 16px;
+  padding: 2.5rem;
+  margin: 2rem 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+}
+
+.table-header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.table-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 0.75rem 0;
+}
+
+.table-subtitle {
+  font-size: 1.1rem;
+  color: #6c757d;
+  margin: 0;
+  font-weight: 400;
+}
+
 .table-container {
-  width: 100%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
 }
 
 .table-wrapper {
   width: 100%;
 }
 
-table {
+.models-table {
   width: 100%;
   border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-th {
-  padding: 8px;
+.model-header,
+.base-model-header,
+.filename-header,
+.download-header,
+.checkbox-header,
+.size-header,
+.downloads-header,
+.path-header,
+.date-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1rem 1.5rem;
   text-align: left;
-  border-bottom: 1px solid #ddd;
-  background: #f2f2f2;
-}
-
-td {
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
-}
-
-tr:hover {
-  background-color: #f5f5f5;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .checkbox-header {
-  width: 50px;
+  width: 60px;
   text-align: center;
+}
+
+.model-row {
+  transition: all 0.3s ease;
+}
+
+.model-row:hover {
+  background: #f8f9fa;
+  transform: translateX(4px);
+}
+
+.model-cell,
+.base-model-cell,
+.filename-cell,
+.download-cell,
+.checkbox-cell,
+.size-cell,
+.downloads-cell,
+.path-cell,
+.date-cell {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.model-cell {
+  font-weight: 500;
+}
+
+.model-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.model-link:hover {
+  color: #5a6fd8;
+  text-decoration: underline;
+}
+
+.model-name {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.version-name {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.base-model {
+  font-weight: 500;
+  color: #495057;
+}
+
+.base-model-type {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.filename-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.download-cell {
+  text-align: center;
+}
+
+.download-btn,
+.retry-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: 100px;
+  justify-content: center;
+}
+
+.download-btn {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+  transform: translateY(-1px);
+}
+
+.download-btn:disabled {
+  background: #b8c2cc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.retry-btn {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+  color: #212529;
+}
+
+.retry-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffb300 0%, #ffa000 100%);
+  transform: translateY(-1px);
+}
+
+.retry-btn:disabled {
+  background: #b8c2cc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.status-downloaded {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #28a745;
+  font-weight: 600;
+}
+
+.status-icon {
+  font-size: 1rem;
+}
+
+.status-text {
+  font-size: 0.9rem;
+}
+
+.no-download {
+  color: #6c757d;
+  font-style: italic;
 }
 
 .checkbox-cell {
-  width: 50px;
   text-align: center;
-  padding: 10px 8px;
+  width: 60px;
 }
 
-.checkbox-select-all, .checkbox-model {
-  width: 16px;
-  height: 16px;
+.checkbox-select-all,
+.checkbox-model {
+  width: 18px;
+  height: 18px;
   cursor: pointer;
+  accent-color: #667eea;
 }
 
 .checkbox-model:disabled {
@@ -995,119 +1572,112 @@ tr:hover {
   opacity: 0.5;
 }
 
-.btn-download {
-  background: #28a745;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s;
-  white-space: nowrap;
-}
-
-.btn-download:hover:not(:disabled) {
-  background: #218838;
-}
-
-.btn-download:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-.btn-download.loading {
-  background: #6c757d;
-}
-
-.btn-retry {
-  background: #ffc107;
-  color: #212529;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background-color 0.2s;
-  white-space: nowrap;
-}
-
-.btn-retry:hover:not(:disabled) {
-  background: #e0a800;
-}
-
-.btn-retry:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-.btn-retry.loading {
-  background: #6c757d;
-}
-
-.status-downloaded {
-  color: #28a745;
+.size-cell,
+.downloads-cell {
+  text-align: center;
   font-weight: 500;
 }
 
-.pagination {
+.path-cell {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #495057;
+  word-break: break-all;
+}
+
+.date-cell {
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+/* Enhanced Pagination */
+.pagination-section {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e9ecef;
+}
+
+.pagination-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #dee2e6;
+  gap: 1.5rem;
 }
 
-.btn-pagination {
-  background: #007bff;
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.btn-pagination:hover:not(:disabled) {
-  background: #0056b3;
+.pagination-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.btn-pagination:disabled {
-  background: #6c757d;
+.pagination-btn:disabled {
+  background: #b8c2cc;
   cursor: not-allowed;
-  opacity: 0.7;
+  transform: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .page-info {
-  font-weight: 500;
-  color: #495057;
-  min-width: 80px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.loading {
-  text-align: center;
-  padding: 2rem;
+.page-label {
+  font-size: 0.9rem;
   color: #6c757d;
-  font-size: 1.1rem;
+  font-weight: 500;
 }
 
-.loading::before {
-  content: "⏳ ";
-  margin-right: 0.5rem;
+.page-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #667eea;
 }
 
-.btn-download.loading,
-.btn-retry.loading {
+/* Button Icons and Text */
+.btn-icon {
+  font-size: 1rem;
+}
+
+.btn-text {
+  font-weight: 600;
+}
+
+/* Loading Animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.download-btn.loading,
+.retry-btn.loading {
   position: relative;
   color: transparent;
 }
 
-.btn-download.loading::after,
-.btn-retry.loading::after {
+.download-btn.loading::after,
+.retry-btn.loading::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -1121,105 +1691,85 @@ tr:hover {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+/* Responsive Design */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 2rem;
+  }
+  
+  .page-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .bulk-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .status-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .table-section {
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  
+  .table-title {
+    font-size: 1.5rem;
+  }
+  
+  .table-subtitle {
+    font-size: 1rem;
+  }
+  
+  .table-container {
+    padding: 1rem;
+  }
+  
+  .model-header,
+  .base-model-header,
+  .filename-header,
+  .download-header,
+  .checkbox-header,
+  .size-header,
+  .downloads-header,
+  .path-header,
+  .date-header,
+  .model-cell,
+  .base-model-cell,
+  .filename-cell,
+  .download-cell,
+  .checkbox-cell,
+  .size-cell,
+  .downloads-cell,
+  .path-cell,
+  .date-cell {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .pagination-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .pagination-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
-.error {
-  text-align: center;
-  padding: 40px;
-  font-size: 16px;
-  color: #dc3545;
-  background: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 6px;
-}
-
-/* Notifications */
-.notifications-container {
-  margin-bottom: 16px;
-}
-
-.notification {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  margin-bottom: 8px;
-  border-radius: 6px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  max-width: 100%;
-}
-
-.notification-success {
-  background-color: #d1fae5;
-  border: 1px solid #10b981;
-  color: #065f46;
-}
-
-.notification-error {
-  background-color: #fee2e2;
-  border: 1px solid #ef4444;
-  color: #991b1b;
-}
-
-.notification-warning {
-  background-color: #fef3c7;
-  border: 1px solid #f59e0b;
-  color: #92400e;
-}
-
-.notification-info {
-  background-color: #dbeafe;
-  border: 1px solid #3b82f6;
-  color: #1e40af;
-}
-
-.notification-message {
-  flex: 1;
-  margin-right: 12px;
-  word-wrap: break-word;
-}
-
-.notification-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: background-color 0.2s;
-}
-
-.notification-close:hover {
-  background-color: rgba(0, 0, 0, 0.1);
-}
-
-.clear-all-notifications {
-  background-color: #6b7280;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  margin-top: 8px;
-  transition: background-color 0.2s;
-}
-
-.clear-all-notifications:hover {
-  background-color: #4b5563;
-}
-
-.filter-group select:disabled {
-  background: #f8f9fa;
-  cursor: not-allowed;
-  opacity: 0.7;
+/* Base container styles */
+.model-table-page {
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
 }
 </style>
