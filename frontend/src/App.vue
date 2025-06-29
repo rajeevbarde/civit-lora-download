@@ -1,10 +1,31 @@
 <template>
   <div id="app">
+    <!-- Enhanced Navigation Menu -->
     <nav class="main-nav">
-      <router-link to="/summary">LoRA Summary</router-link>
-      <router-link to="/file-scanner">LoRA Scanner</router-link>
-      <router-link to="/civit-data-fetcher">Orphan LORA</router-link>
-      <router-link to="/lora-hub">LoRA Hub</router-link>
+      <div class="nav-container">
+        <div class="nav-brand">
+          <span class="brand-icon">🎨</span>
+          <span class="brand-text">LoRA Manager</span>
+        </div>
+        <div class="nav-links">
+          <router-link to="/summary" class="nav-link">
+            <span class="link-icon">📊</span>
+            <span class="link-text">Summary</span>
+          </router-link>
+          <router-link to="/file-scanner" class="nav-link">
+            <span class="link-icon">🔍</span>
+            <span class="link-text">Scanner</span>
+          </router-link>
+          <router-link to="/civit-data-fetcher" class="nav-link">
+            <span class="link-icon">🔗</span>
+            <span class="link-text">Orphan LoRA</span>
+          </router-link>
+          <router-link to="/lora-hub" class="nav-link">
+            <span class="link-icon">📚</span>
+            <span class="link-text">LoRA Hub</span>
+          </router-link>
+        </div>
+      </div>
     </nav>
     <main class="main-content">
       <ErrorBoundary>
@@ -91,33 +112,116 @@ body {
 }
 
 .main-nav {
-  background: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 0;
   position: sticky;
   top: 0;
   z-index: 100;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.main-nav a {
-  margin-right: 2rem;
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 70px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.brand-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.5px;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   text-decoration: none;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
   font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  font-size: 0.95rem;
 }
 
-.main-nav a:hover {
-  color: #007bff;
-  background-color: #f8f9fa;
+.nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
 }
 
-.main-nav a.router-link-exact-active {
-  color: #007bff;
-  background-color: #e3f2fd;
+.nav-link:hover::before {
+  left: 100%;
+}
+
+.nav-link:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.nav-link.router-link-exact-active {
+  color: white;
+  background: rgba(255, 255, 255, 0.2);
   font-weight: 600;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.nav-link.router-link-exact-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 3px;
+  background: white;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.link-icon {
+  font-size: 1.2rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.link-text {
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .main-content {
@@ -199,14 +303,37 @@ input:focus, select:focus, textarea:focus {
 
 /* Responsive design */
 @media (max-width: 768px) {
-  .main-nav {
-    padding: 1rem;
+  .nav-container {
+    padding: 0 1rem;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: auto;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
   }
   
-  .main-nav a {
-    margin-right: 1rem;
-    padding: 0.5rem;
-    font-size: 14px;
+  .nav-brand {
+    order: 1;
+  }
+  
+  .nav-links {
+    order: 2;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+  }
+  
+  .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .brand-text {
+    font-size: 1.25rem;
+  }
+  
+  .brand-icon {
+    font-size: 1.5rem;
   }
   
   .main-content {
