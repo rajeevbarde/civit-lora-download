@@ -7,11 +7,16 @@ const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
+const { DB_CONFIG } = require('./constants');
 
 // Database configuration validation
 function validateDatabaseConfig() {
     if (!process.env.DB_PATH) {
         throw new Error('DB_PATH environment variable is required');
+    }
+    
+    if (!process.env.DB_TABLE_NAME) {
+        throw new Error('DB_TABLE_NAME environment variable is required');
     }
     
     const requiredPoolVars = ['DB_POOL_MIN', 'DB_POOL_MAX', 'DB_ACQUIRE_TIMEOUT', 'DB_IDLE_TIMEOUT', 'DB_RETRY_DELAY'];
@@ -199,7 +204,7 @@ class DatabasePool {
                     return;
                 }
                 
-                logger.db('SELECT', 'ALLCivitData', duration);
+                logger.db('SELECT', DB_CONFIG.tableName, duration);
                 resolve(rows);
             });
         });
@@ -223,7 +228,7 @@ class DatabasePool {
                     return;
                 }
                 
-                logger.db('SELECT', 'ALLCivitData', duration);
+                logger.db('SELECT', DB_CONFIG.tableName, duration);
                 resolve(row);
             });
         });
@@ -247,7 +252,7 @@ class DatabasePool {
                     return;
                 }
                 
-                logger.db('UPDATE', 'ALLCivitData', duration);
+                logger.db('UPDATE', DB_CONFIG.tableName, duration);
                 resolve(this);
             });
         });

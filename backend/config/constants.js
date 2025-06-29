@@ -18,7 +18,8 @@ function validateConfig() {
         'DOWNLOAD_MAX_CONCURRENT',
         'DOWNLOAD_TIMEOUT',
         'PORT',
-        'JSON_LIMIT'
+        'JSON_LIMIT',
+        'DB_TABLE_NAME'
     ];
 
     const missingVars = requiredVars.filter(varName => !process.env[varName]);
@@ -33,6 +34,11 @@ validateConfig();
 
 // File scanning configuration
 const ALLOWED_EXTENSIONS = ['safetensors'];
+
+// Database configuration
+const DB_CONFIG = {
+    tableName: process.env.DB_TABLE_NAME
+};
 
 // Download configuration
 const DOWNLOAD_CONFIG = {
@@ -55,6 +61,7 @@ const PATHS = {
 
 module.exports = {
     ALLOWED_EXTENSIONS,
+    DB_CONFIG,
     DOWNLOAD_CONFIG,
     SERVER_CONFIG,
     PATHS
