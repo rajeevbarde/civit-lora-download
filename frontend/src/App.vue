@@ -12,6 +12,10 @@
             <span class="link-icon">📊</span>
             <span class="link-text">Summary</span>
           </router-link>
+          <router-link to="/lora-hub" class="nav-link">
+            <span class="link-icon">📚</span>
+            <span class="link-text">LoRA Hub</span>
+          </router-link>
           <router-link to="/file-scanner" class="nav-link">
             <span class="link-icon">🔍</span>
             <span class="link-text">Scanner</span>
@@ -19,10 +23,6 @@
           <router-link to="/civit-data-fetcher" class="nav-link">
             <span class="link-icon">🔗</span>
             <span class="link-text">Orphan LoRA</span>
-          </router-link>
-          <router-link to="/lora-hub" class="nav-link">
-            <span class="link-icon">📚</span>
-            <span class="link-text">LoRA Hub</span>
           </router-link>
         </div>
       </div>

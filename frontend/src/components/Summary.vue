@@ -1,137 +1,199 @@
 <template>
   <div class="lora-summary-page">
-    <h1>LoRA Summary Page</h1>
+    <!-- Enhanced Header Section -->
+    <div class="header-section">
+      <h1 class="page-title">LoRA Summary Dashboard</h1>
+      <p class="page-subtitle">Comprehensive overview of your LoRA model collection and file organization</p>
+    </div>
     
     <div class="summary-content">
-      <div class="summary-card">
-        <h2>Download Matrix</h2>
-        <p>Matrix showing downloaded LoRA counts by base model and NSFW level (isDownloaded = 1)</p>
-        
-        <div v-if="loading" class="loading-container">
-          <div class="loading-spinner"></div>
-          <p>Loading matrix data...</p>
-        </div>
-        
-        <div v-else-if="error" class="error-container">
-          <p class="error-message">{{ error }}</p>
-          <button @click="loadMatrixData" class="retry-button">Retry</button>
-        </div>
-        
-        <div v-else-if="matrixData" class="matrix-container">
-          <div class="matrix-table-wrapper">
-            <table class="matrix-table">
-              <thead>
-                <tr>
-                  <th class="base-model-header">Base Model</th>
-                  <th 
-                    v-for="nsfwGroup in matrixData.nsfwGroups" 
-                    :key="nsfwGroup"
-                    class="nsfw-header"
-                  >
-                    {{ nsfwGroup }}
-                  </th>
-                  <th class="total-header">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr 
-                  v-for="baseModel in matrixData.baseModels" 
-                  :key="baseModel"
-                  class="matrix-row"
-                >
-                  <td class="base-model-cell">{{ baseModel }}</td>
-                  <td 
-                    v-for="nsfwGroup in matrixData.nsfwGroups" 
-                    :key="nsfwGroup"
-                    class="count-cell"
-                    :class="{ 'zero-count': matrixData.matrix[baseModel][nsfwGroup] === 0 }"
-                  >
-                    {{ matrixData.matrix[baseModel][nsfwGroup] }}
-                  </td>
-                  <td class="total-cell">
-                    {{ getRowTotal(baseModel) }}
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td class="total-label">Total</td>
-                  <td 
-                    v-for="nsfwGroup in matrixData.nsfwGroups" 
-                    :key="nsfwGroup"
-                    class="column-total"
-                  >
-                    {{ getColumnTotal(nsfwGroup) }}
-                  </td>
-                  <td class="grand-total">{{ getGrandTotal() }}</td>
-                </tr>
-              </tfoot>
-            </table>
+      <!-- Enhanced Download Matrix Section -->
+      <div class="summary-section">
+        <div class="section-header">
+          <div class="header-content">
+            <span class="header-icon">📊</span>
+            <div class="header-text">
+              <h2 class="section-title">Model Overview</h2>
+              <p class="section-description">Overview of your downloaded LoRA models organized by base model type and content rating</p>
+            </div>
           </div>
-          
         </div>
         
-        <div v-else class="no-data">
-          <p>No matrix data available.</p>
-        </div>
-      </div>
-      
-      <!-- Filepath Analytics Section -->
-      <div class="summary-card">
-        <h2>Filepath Analytics</h2>
-        <p>Saved directory paths for LoRA file scanning</p>
-        
-        <div v-if="loadingPaths" class="loading-container">
-          <div class="loading-spinner"></div>
-          <p>Loading filepath data...</p>
-        </div>
-        
-        <div v-else-if="pathError" class="error-container">
-          <p class="error-message">{{ pathError }}</p>
-          <button @click="loadPathData" class="retry-button">Retry</button>
-        </div>
-        
-        <div v-else-if="savedPaths && savedPaths.length > 0" class="paths-container">
-          <div class="paths-summary">
-            <div class="path-stat">
-              <span class="stat-label">Total Paths:</span>
-              <span class="stat-value">{{ savedPaths.length }}</span>
+        <div class="section-content">
+          <div v-if="loading" class="loading-section">
+            <div class="loading-content">
+              <span class="loading-icon">⏳</span>
+              <span class="loading-text">Loading matrix data...</span>
             </div>
           </div>
           
-          <div class="paths-table-wrapper">
-            <table class="paths-table">
-              <thead>
-                <tr>
-                  <th class="path-header">Directory Path</th>
-                  <th class="count-header">Safetensor Files</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(pathData, index) in pathCounts" :key="index" class="path-row">
-                  <td class="path-cell">
-                    <div class="path-content">
-                      <span class="path-icon">📁</span>
-                      <span class="path-text">{{ pathData.path }}</span>
-                    </div>
-                  </td>
-                  <td class="count-cell">
-                    <span class="count-value">{{ pathData.count }}</span>
-                  </td>
-                </tr>
-              </tbody>
-              <tfoot>
-                <tr class="total-row">
-                  <td class="total-label">Total</td>
-                  <td class="total-count">{{ getTotalSafetensorCount() }}</td>
-                </tr>
-              </tfoot>
-            </table>
+          <div v-else-if="error" class="error-section">
+            <div class="error-content">
+              <span class="error-icon">❌</span>
+              <h3 class="error-title">Error Loading Matrix</h3>
+              <p class="error-message">{{ error }}</p>
+              <button @click="loadMatrixData" class="retry-btn">
+                <span class="btn-icon">🔄</span>
+                <span class="btn-text">Retry</span>
+              </button>
+            </div>
+          </div>
+          
+          <div v-else-if="matrixData" class="matrix-container">
+            <div class="matrix-table-container">
+              <table class="matrix-table">
+                <thead>
+                  <tr>
+                    <th class="base-model-header">Base Model</th>
+                    <th 
+                      v-for="nsfwGroup in matrixData.nsfwGroups" 
+                      :key="nsfwGroup"
+                      class="nsfw-header"
+                    >
+                      {{ nsfwGroup }}
+                    </th>
+                    <th class="total-header">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr 
+                    v-for="baseModel in matrixData.baseModels" 
+                    :key="baseModel"
+                    class="matrix-row"
+                  >
+                    <td class="base-model-cell">{{ baseModel }}</td>
+                    <td 
+                      v-for="nsfwGroup in matrixData.nsfwGroups" 
+                      :key="nsfwGroup"
+                      class="count-cell"
+                      :class="{ 'zero-count': matrixData.matrix[baseModel][nsfwGroup] === 0 }"
+                    >
+                      {{ matrixData.matrix[baseModel][nsfwGroup] }}
+                    </td>
+                    <td class="total-cell">
+                      {{ getRowTotal(baseModel) }}
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="total-row">
+                    <td class="total-label">Total</td>
+                    <td 
+                      v-for="nsfwGroup in matrixData.nsfwGroups" 
+                      :key="nsfwGroup"
+                      class="column-total"
+                    >
+                      {{ getColumnTotal(nsfwGroup) }}
+                    </td>
+                    <td class="grand-total">{{ getGrandTotal() }}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+          
+          <div v-else class="no-data-section">
+            <div class="no-data-content">
+              <span class="no-data-icon">📭</span>
+              <h3 class="no-data-title">No Matrix Data</h3>
+              <p class="no-data-message">No matrix data available at the moment.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Enhanced Filepath Analytics Section -->
+      <div class="summary-section">
+        <div class="section-header">
+          <div class="header-content">
+            <span class="header-icon">📁</span>
+            <div class="header-text">
+              <h2 class="section-title">File Locations</h2>
+              <p class="section-description">Summary of your LoRA file locations and total file counts for easy organization</p>
+            </div>
           </div>
         </div>
         
-        <div v-else class="no-paths">
-          <p>No saved filepaths found.</p>
+        <div class="section-content">
+          <div v-if="loadingPaths" class="loading-section">
+            <div class="loading-content">
+              <span class="loading-icon">⏳</span>
+              <span class="loading-text">Loading filepath data...</span>
+            </div>
+          </div>
+          
+          <div v-else-if="pathError" class="error-section">
+            <div class="error-content">
+              <span class="error-icon">❌</span>
+              <h3 class="error-title">Error Loading Filepaths</h3>
+              <p class="error-message">{{ pathError }}</p>
+              <button @click="loadPathData" class="retry-btn">
+                <span class="btn-icon">🔄</span>
+                <span class="btn-text">Retry</span>
+              </button>
+            </div>
+          </div>
+          
+          <div v-else-if="savedPaths && savedPaths.length > 0" class="paths-container">
+            <div class="paths-summary">
+              <div class="summary-stats">
+                <div class="stat-item">
+                  <span class="stat-icon">📁</span>
+                  <div class="stat-content">
+                    <span class="stat-value">{{ savedPaths.length }}</span>
+                    <span class="stat-label">Total Paths</span>
+                  </div>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-icon">📄</span>
+                  <div class="stat-content">
+                    <span class="stat-value">{{ getTotalSafetensorCount() }}</span>
+                    <span class="stat-label">Safetensor Files</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="paths-table-container">
+              <table class="paths-table">
+                <thead>
+                  <tr>
+                    <th class="path-header">Directory Path</th>
+                    <th class="count-header">Safetensor Files</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(pathData, index) in pathCounts" :key="index" class="path-row">
+                    <td class="path-cell">
+                      <div class="path-content">
+                        <span class="path-icon">📂</span>
+                        <span class="path-text">{{ pathData.path }}</span>
+                      </div>
+                    </td>
+                    <td class="count-cell">
+                      <span class="count-badge">{{ pathData.count }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="total-row">
+                    <td class="total-label">Total</td>
+                    <td class="total-count">
+                      <span class="total-badge">{{ getTotalSafetensorCount() }}</span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+          
+          <div v-else class="no-paths-section">
+            <div class="no-paths-content">
+              <span class="no-paths-icon">📁</span>
+              <h3 class="no-paths-title">No Saved Filepaths</h3>
+              <p class="no-paths-message">No saved filepaths found. Add some paths in the Scanner section to get started.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -226,269 +288,449 @@ export default {
 <style scoped>
 .lora-summary-page {
   width: 100%;
-  padding: 16px;
-}
-
-h1 {
-  font-size: 28px;
-  font-weight: 300;
-  margin-bottom: 16px;
-  color: #1a202c;
-  letter-spacing: -0.5px;
-}
-
-h2 {
-  font-size: 20px;
-  font-weight: 500;
-  margin-bottom: 16px;
-  color: #374151;
-}
-
-p {
-  margin-bottom: 24px;
-  color: #6b7280;
-}
-
-.summary-content {
-  margin-top: 32px;
-}
-
-.summary-card {
-  background: white;
-  border-radius: 8px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  min-height: 100vh;
 }
 
-.loading-container {
+/* Header Section */
+.header-section {
+  margin-bottom: 32px;
   text-align: center;
-  padding: 40px;
 }
 
-.loading-spinner {
-  border: 3px solid #f3f4f6;
-  border-top: 3px solid #3b82f6;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.025em;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.page-subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  font-weight: 400;
+  margin: 0;
+  line-height: 1.6;
 }
 
-.error-container {
+/* Summary Content */
+.summary-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Summary Section */
+.summary-section {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+/* Section Header */
+.section-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-icon {
+  font-size: 2rem;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header-text {
+  flex: 1;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.section-description {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Section Content */
+.section-content {
+  padding: 32px;
+}
+
+/* Loading Section */
+.loading-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-icon {
+  font-size: 2rem;
+  animation: pulse 2s infinite;
+}
+
+.loading-text {
+  font-size: 1.125rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Error Section */
+.error-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+}
+
+.error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   text-align: center;
-  padding: 40px;
+  max-width: 400px;
+}
+
+.error-icon {
+  font-size: 3rem;
+  color: #ef4444;
+}
+
+.error-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
 }
 
 .error-message {
-  color: #dc2626;
-  margin-bottom: 16px;
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
 }
 
-.retry-button {
-  background: #3b82f6;
+.retry-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
   color: white;
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
   cursor: pointer;
-  font-size: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
-.retry-button:hover {
-  background: #2563eb;
+.retry-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
+.retry-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  font-size: 1rem;
+}
+
+.btn-text {
+  font-weight: 600;
+}
+
+/* No Data Section */
+.no-data-section,
+.no-paths-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+}
+
+.no-data-content,
+.no-paths-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.no-data-icon,
+.no-paths-icon {
+  font-size: 3rem;
+  color: #94a3b8;
+}
+
+.no-data-title,
+.no-paths-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.no-data-message,
+.no-paths-message {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Matrix Container */
 .matrix-container {
-  margin-top: 24px;
+  margin-top: 0;
 }
 
-.matrix-table-wrapper {
+.matrix-table-container {
   overflow-x: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .matrix-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 0.875rem;
   min-width: 600px;
 }
 
 .matrix-table th,
 .matrix-table td {
-  padding: 12px 8px;
+  padding: 16px 12px;
   text-align: center;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
 }
 
 .matrix-table th {
-  background: #f9fafb;
-  font-weight: 600;
-  color: #374151;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  font-weight: 700;
+  color: #1e293b;
   position: sticky;
   top: 0;
   z-index: 10;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
 }
 
 .base-model-header {
   text-align: left !important;
-  min-width: 150px;
+  min-width: 180px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
 }
 
 .nsfw-header {
-  min-width: 100px;
+  min-width: 120px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
 }
 
 .total-header {
-  background: #f3f4f6 !important;
-  font-weight: 700 !important;
-  min-width: 80px;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+  font-weight: 800 !important;
+  min-width: 100px;
+  color: #1e293b !important;
 }
 
 .base-model-cell {
   text-align: left !important;
-  font-weight: 500;
-  background: #f9fafb;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 0.875rem;
 }
 
 .count-cell {
-  font-family: 'Courier New', monospace;
-  font-weight: 500;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #1e293b;
 }
 
 .zero-count {
-  color: #9ca3af;
-  background: #fafafa;
+  color: #94a3b8;
+  background: #f8fafc;
+  font-weight: 400;
 }
 
 .total-cell {
-  background: #f3f4f6;
-  font-weight: 600;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .total-row {
-  background: #f3f4f6;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
 }
 
 .total-label {
-  font-weight: 700;
+  font-weight: 800;
   text-align: left !important;
+  color: #1e293b;
+  font-size: 0.875rem;
 }
 
 .column-total {
-  font-weight: 700;
-  background: #e5e7eb;
+  font-weight: 800;
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  color: #1e293b;
 }
 
 .grand-total {
-  font-weight: 700;
-  background: #d1d5db;
-  color: #1f2937;
+  font-weight: 800;
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  color: white;
+  font-size: 1rem;
 }
 
-.no-data {
-  text-align: center;
-  padding: 40px;
-  color: #6b7280;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .lora-summary-page {
-    padding: 8px;
-  }
-  
-  h1 {
-    font-size: 24px;
-    margin-bottom: 12px;
-  }
-  
-  h2 {
-    font-size: 18px;
-    margin-bottom: 12px;
-  }
-  
-  .summary-card {
-    padding: 16px;
-  }
-  
-  .matrix-table {
-    font-size: 12px;
-  }
-  
-  .matrix-table th,
-  .matrix-table td {
-    padding: 8px 4px;
-  }
-}
-
-.matrix-stats {
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* Filepath Analytics Styles */
+/* Paths Container */
 .paths-container {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .paths-summary {
-  margin-bottom: 16px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
 }
 
-.path-stat {
+.summary-stats {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+}
+
+.stat-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
 }
 
-.paths-table-wrapper {
+.stat-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  border-radius: 8px;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.paths-table-container {
   overflow-x: auto;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .paths-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 0.875rem;
   min-width: 600px;
 }
 
 .paths-table th,
 .paths-table td {
-  padding: 12px 8px;
+  padding: 16px 12px;
   text-align: left;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #e2e8f0;
 }
 
 .paths-table th {
-  background: #f9fafb;
-  font-weight: 600;
-  color: #374151;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  font-weight: 700;
+  color: #1e293b;
   position: sticky;
   top: 0;
   z-index: 10;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
 }
 
 .path-header {
-  min-width: 300px;
+  min-width: 400px;
 }
 
 .count-header {
-  min-width: 120px;
+  min-width: 150px;
   text-align: center !important;
 }
 
@@ -496,104 +738,303 @@ p {
   vertical-align: middle;
 }
 
-.count-cell {
-  text-align: center !important;
-  font-weight: 600;
-  font-family: 'Courier New', monospace;
-}
-
-.count-value {
-  background: #f3f4f6;
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: #1f2937;
-}
-
-.total-row {
-  background: #f3f4f6;
-}
-
-.total-label {
-  font-weight: 700;
-}
-
-.total-count {
-  font-weight: 700;
-  text-align: center !important;
-  background: #d1d5db;
-  color: #1f2937;
-}
-
-.paths-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.path-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  transition: background-color 0.2s ease;
-}
-
-.path-item:hover {
-  background: #e9ecef;
-}
-
 .path-content {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
+  gap: 12px;
 }
 
 .path-icon {
-  font-size: 16px;
+  font-size: 1.25rem;
+  color: #3b82f6;
 }
 
 .path-text {
-  font-family: 'Courier New', monospace;
-  font-size: 14px;
-  color: #495057;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 0.875rem;
+  color: #1e293b;
   word-break: break-all;
+  line-height: 1.4;
 }
 
-.path-index {
-  font-size: 12px;
-  color: #6c757d;
-  font-weight: 500;
-  background: #dee2e6;
-  padding: 4px 8px;
-  border-radius: 4px;
-  min-width: 30px;
+.count-cell {
+  text-align: center !important;
+  font-weight: 600;
+}
+
+.count-badge {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 40px;
   text-align: center;
 }
 
-.no-paths {
-  text-align: center;
-  padding: 40px;
-  color: #6b7280;
+.total-count {
+  text-align: center !important;
 }
 
-/* Responsive adjustments for filepath analytics */
-@media (max-width: 768px) {
-  .path-item {
+.total-badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .lora-summary-page {
+    padding: 16px;
+  }
+  
+  .page-title {
+    font-size: 2rem;
+  }
+  
+  .page-subtitle {
+    font-size: 1rem;
+  }
+  
+  .summary-content {
+    gap: 24px;
+  }
+  
+  .section-header {
+    padding: 20px 24px;
+  }
+  
+  .section-content {
+    padding: 24px;
+  }
+  
+  .header-content {
+    gap: 12px;
+  }
+  
+  .header-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+  }
+  
+  .summary-stats {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    gap: 16px;
+  }
+  
+  .stat-item {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .lora-summary-page {
+    padding: 12px;
+  }
+  
+  .page-title {
+    font-size: 1.75rem;
+  }
+  
+  .page-subtitle {
+    font-size: 0.875rem;
+  }
+  
+  .summary-content {
+    gap: 20px;
+  }
+  
+  .section-header {
+    padding: 16px 20px;
+  }
+  
+  .section-content {
+    padding: 20px;
+  }
+  
+  .header-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+  
+  .header-icon {
+    align-self: center;
+  }
+  
+  .section-title {
+    font-size: 1.125rem;
+  }
+  
+  .section-description {
+    font-size: 0.875rem;
+  }
+  
+  .matrix-table,
+  .paths-table {
+    font-size: 0.75rem;
+    min-width: 500px;
+  }
+  
+  .matrix-table th,
+  .matrix-table td,
+  .paths-table th,
+  .paths-table td {
+    padding: 12px 8px;
+  }
+  
+  .base-model-header {
+    min-width: 140px;
+  }
+  
+  .nsfw-header {
+    min-width: 80px;
+  }
+  
+  .path-header {
+    min-width: 300px;
+  }
+  
+  .count-header {
+    min-width: 100px;
+  }
+  
+  .loading-content,
+  .error-content,
+  .no-data-content,
+  .no-paths-content {
+    padding: 0 16px;
+  }
+  
+  .loading-icon,
+  .error-icon,
+  .no-data-icon,
+  .no-paths-icon {
+    font-size: 2rem;
+  }
+  
+  .loading-text,
+  .error-title,
+  .no-data-title,
+  .no-paths-title {
+    font-size: 1rem;
+  }
+  
+  .error-message,
+  .no-data-message,
+  .no-paths-message {
+    font-size: 0.875rem;
+  }
+  
+  .retry-btn {
+    padding: 10px 20px;
+    font-size: 0.875rem;
+  }
+  
+  .stat-item {
+    padding: 12px 16px;
+  }
+  
+  .stat-icon {
+    font-size: 1.25rem;
+    width: 32px;
+    height: 32px;
+  }
+  
+  .stat-value {
+    font-size: 1.25rem;
+  }
+  
+  .stat-label {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .lora-summary-page {
+    padding: 8px;
+  }
+  
+  .page-title {
+    font-size: 1.5rem;
+  }
+  
+  .page-subtitle {
+    font-size: 0.8rem;
+  }
+  
+  .section-header {
+    padding: 12px 16px;
+  }
+  
+  .section-content {
+    padding: 16px;
+  }
+  
+  .matrix-table,
+  .paths-table {
+    font-size: 0.7rem;
+    min-width: 400px;
+  }
+  
+  .matrix-table th,
+  .matrix-table td,
+  .paths-table th,
+  .paths-table td {
+    padding: 8px 6px;
+  }
+  
+  .base-model-header {
+    min-width: 120px;
+  }
+  
+  .nsfw-header {
+    min-width: 60px;
+  }
+  
+  .path-header {
+    min-width: 250px;
+  }
+  
+  .count-header {
+    min-width: 80px;
   }
   
   .path-content {
-    width: 100%;
+    gap: 8px;
   }
   
-  .path-index {
-    align-self: flex-end;
+  .path-icon {
+    font-size: 1rem;
+  }
+  
+  .path-text {
+    font-size: 0.75rem;
+  }
+  
+  .count-badge {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    min-width: 32px;
+  }
+  
+  .total-badge {
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    min-width: 50px;
   }
 }
 </style> 
