@@ -75,6 +75,65 @@
           <p>No matrix data available.</p>
         </div>
       </div>
+      
+      <!-- Filepath Analytics Section -->
+      <div class="summary-card">
+        <h2>Filepath Analytics</h2>
+        <p>Saved directory paths for LoRA file scanning</p>
+        
+        <div v-if="loadingPaths" class="loading-container">
+          <div class="loading-spinner"></div>
+          <p>Loading filepath data...</p>
+        </div>
+        
+        <div v-else-if="pathError" class="error-container">
+          <p class="error-message">{{ pathError }}</p>
+          <button @click="loadPathData" class="retry-button">Retry</button>
+        </div>
+        
+        <div v-else-if="savedPaths && savedPaths.length > 0" class="paths-container">
+          <div class="paths-summary">
+            <div class="path-stat">
+              <span class="stat-label">Total Paths:</span>
+              <span class="stat-value">{{ savedPaths.length }}</span>
+            </div>
+          </div>
+          
+          <div class="paths-table-wrapper">
+            <table class="paths-table">
+              <thead>
+                <tr>
+                  <th class="path-header">Directory Path</th>
+                  <th class="count-header">Safetensor Files</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(pathData, index) in pathCounts" :key="index" class="path-row">
+                  <td class="path-cell">
+                    <div class="path-content">
+                      <span class="path-icon">📁</span>
+                      <span class="path-text">{{ pathData.path }}</span>
+                    </div>
+                  </td>
+                  <td class="count-cell">
+                    <span class="count-value">{{ pathData.count }}</span>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr class="total-row">
+                  <td class="total-label">Total</td>
+                  <td class="total-count">{{ getTotalSafetensorCount() }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        
+        <div v-else class="no-paths">
+          <p>No saved filepaths found.</p>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -88,11 +147,16 @@ export default {
     return {
       matrixData: null,
       loading: false,
-      error: null
+      error: null,
+      loadingPaths: false,
+      pathError: null,
+      savedPaths: [],
+      pathCounts: []
     };
   },
   mounted() {
     this.loadMatrixData();
+    this.loadPathData();
   },
   methods: {
     async loadMatrixData() {
@@ -127,6 +191,32 @@ export default {
       if (!this.matrixData) return 0;
       return this.matrixData.baseModels.reduce((total, baseModel) => {
         return total + this.getRowTotal(baseModel);
+      }, 0);
+    },
+    
+    async loadPathData() {
+      this.loadingPaths = true;
+      this.pathError = null;
+      
+      try {
+        const response = await apiService.getSavedPaths();
+        this.savedPaths = response.paths || [];
+        
+        // Load safetensor counts for each path
+        if (this.savedPaths.length > 0) {
+          this.pathCounts = await apiService.getSafetensorCounts();
+        }
+      } catch (err) {
+        this.pathError = err.message || 'Failed to load filepath data';
+        console.error('Error loading filepath data:', err);
+      } finally {
+        this.loadingPaths = false;
+      }
+    },
+    
+    getTotalSafetensorCount() {
+      return this.pathCounts.reduce((total, pathData) => {
+        return total + (pathData.count || 0);
       }, 0);
     }
   }
@@ -337,6 +427,173 @@ p {
   .matrix-table th,
   .matrix-table td {
     padding: 8px 4px;
+  }
+}
+
+.matrix-stats {
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Filepath Analytics Styles */
+.paths-container {
+  margin-top: 16px;
+}
+
+.paths-summary {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.path-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.paths-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.paths-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 600px;
+}
+
+.paths-table th,
+.paths-table td {
+  padding: 12px 8px;
+  text-align: left;
+  border: 1px solid #e5e7eb;
+}
+
+.paths-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.path-header {
+  min-width: 300px;
+}
+
+.count-header {
+  min-width: 120px;
+  text-align: center !important;
+}
+
+.path-cell {
+  vertical-align: middle;
+}
+
+.count-cell {
+  text-align: center !important;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.count-value {
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #1f2937;
+}
+
+.total-row {
+  background: #f3f4f6;
+}
+
+.total-label {
+  font-weight: 700;
+}
+
+.total-count {
+  font-weight: 700;
+  text-align: center !important;
+  background: #d1d5db;
+  color: #1f2937;
+}
+
+.paths-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.path-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.path-item:hover {
+  background: #e9ecef;
+}
+
+.path-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.path-icon {
+  font-size: 16px;
+}
+
+.path-text {
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: #495057;
+  word-break: break-all;
+}
+
+.path-index {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+  background: #dee2e6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.no-paths {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+/* Responsive adjustments for filepath analytics */
+@media (max-width: 768px) {
+  .path-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .path-content {
+    width: 100%;
+  }
+  
+  .path-index {
+    align-self: flex-end;
   }
 }
 </style> 

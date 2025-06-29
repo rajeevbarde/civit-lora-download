@@ -89,6 +89,13 @@ export const apiService = {
     return response.data;
   },
 
+  async getSafetensorCounts(options = {}) {
+    const response = await api.get('/files/safetensor-counts', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   // Downloads
   async downloadModelFile(downloadData, options = {}) {
     const response = await api.post('/downloads', downloadData, {

@@ -179,4 +179,20 @@ router.post('/register-lora', async (req, res) => {
     }
 });
 
+// Get safetensor counts for saved paths
+router.get('/safetensor-counts', async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        
+        if (!paths.length) {
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        
+        const result = await fileService.getSafetensorCounts(paths);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

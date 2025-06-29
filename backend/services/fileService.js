@@ -650,6 +650,61 @@ class FileService {
             throw new Error('File rename as duplicate failed: ' + error.message);
         }
     }
+
+    // Get safetensor file counts for each directory
+    async getSafetensorCounts(paths) {
+        logger.info('Getting safetensor counts for directories', { pathCount: paths.length });
+
+        const results = [];
+
+        for (const dirPath of paths) {
+            try {
+                const validation = this.validatePath(dirPath);
+                if (validation.valid) {
+                    const files = this.getAllFiles(dirPath, []);
+                    const count = files.length;
+                    
+                    results.push({
+                        path: dirPath,
+                        count: count
+                    });
+                    
+                    logger.debug('Safetensor count for directory', { 
+                        path: dirPath, 
+                        count: count 
+                    });
+                } else {
+                    results.push({
+                        path: dirPath,
+                        count: 0
+                    });
+                    
+                    logger.warn('Invalid directory path', { 
+                        path: dirPath, 
+                        error: validation.error 
+                    });
+                }
+            } catch (error) {
+                results.push({
+                    path: dirPath,
+                    count: 0
+                });
+                
+                logger.error('Error counting safetensor files', { 
+                    path: dirPath, 
+                    error: error.message 
+                });
+            }
+        }
+
+        logger.info('Safetensor count completed', { 
+            totalPaths: paths.length,
+            successfulCounts: results.filter(r => r.count > 0).length,
+            zeroCounts: results.filter(r => r.count === 0).length
+        });
+
+        return results;
+    }
 }
 
 module.exports = new FileService(); 
