@@ -156,13 +156,6 @@ export const apiService = {
     return response.data;
   },
 
-  async scanPaths(options = {}) {
-    const response = await api.post('/files/scan', {}, {
-      signal: options.signal
-    });
-    return response.data;
-  },
-
   async validateDownloadedFiles(options = {}) {
     const response = await api.post('/files/validate', {}, {
       signal: options.signal
