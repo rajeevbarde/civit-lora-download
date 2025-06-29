@@ -39,16 +39,6 @@ router.get('/detail/:id', validateModelVersionId, async (req, res) => {
     }
 });
 
-// Get all base models
-router.get('/basemodels', async (req, res) => {
-    try {
-        const result = await databaseService.getBaseModels();
-        res.json(result);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 // Get base models
 router.get('/base-models', async (req, res) => {
     try {
