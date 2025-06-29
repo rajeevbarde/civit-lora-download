@@ -5,7 +5,7 @@
       <div class="nav-container">
         <div class="nav-brand">
           <span class="brand-icon">🎨</span>
-          <span class="brand-text">LoRA Manager</span>
+          <span class="brand-text">LoRA Organiser</span>
         </div>
         <div class="nav-links">
           <router-link to="/summary" class="nav-link">
