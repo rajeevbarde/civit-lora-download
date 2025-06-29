@@ -8,7 +8,7 @@
     <td>{{ formatNumber(model.modelDownloadCount) }}</td>
     <td>
       <a 
-        :href="`http://localhost:5173/model/${model.modelVersionId}`" 
+        :href="`${frontendBaseUrl}/model/${model.modelVersionId}`" 
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -70,7 +70,7 @@
 
 <script>
 import { formatNumber, formatDate } from '@/utils/helpers.js';
-import { DOWNLOAD_STATUS } from '@/utils/constants.js';
+import { DOWNLOAD_STATUS, FRONTEND_CONFIG } from '@/utils/constants.js';
 
 export default {
   name: 'ModelTableRow',
@@ -90,6 +90,9 @@ export default {
   },
   emits: ['download-model', 'selection-change'],
   computed: {
+    frontendBaseUrl() {
+      return FRONTEND_CONFIG.BASE_URL;
+    },
     canSelectModel() {
       return (model) => {
         return model.fileDownloadUrl && 

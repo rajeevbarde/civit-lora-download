@@ -1,8 +1,14 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:3000/api',
-  TIMEOUT: 30000,
-  CIVITAI_BASE_URL: 'https://civitai.com/api/v1',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api',
+  API_VERSION: import.meta.env.VITE_API_VERSION || 'v1',
+  TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
+  CIVITAI_BASE_URL: import.meta.env.VITE_CIVITAI_BASE_URL || 'https://civitai.com/api/v1',
+};
+
+// Frontend Configuration
+export const FRONTEND_CONFIG = {
+  BASE_URL: import.meta.env.VITE_FRONTEND_BASE_URL || 'http://localhost:5173',
 };
 
 // Download Status
@@ -23,15 +29,15 @@ export const NOTIFICATION_TYPES = {
 
 // Pagination
 export const PAGINATION = {
-  DEFAULT_PAGE_SIZE: 50,
-  MAX_PAGE_SIZE: 100,
+  DEFAULT_PAGE_SIZE: parseInt(import.meta.env.VITE_DEFAULT_PAGE_SIZE) || 50,
+  MAX_PAGE_SIZE: parseInt(import.meta.env.VITE_MAX_PAGE_SIZE) || 100,
 };
 
 // Polling Configuration
 export const POLLING_CONFIG = {
-  STATUS_INTERVAL: 2000, // 2 seconds
-  MAX_POLLS: 300, // 10 minutes
-  CLEANUP_INTERVAL: 30000, // 30 seconds
+  STATUS_INTERVAL: parseInt(import.meta.env.VITE_POLLING_STATUS_INTERVAL) || 2000, // 2 seconds
+  MAX_POLLS: parseInt(import.meta.env.VITE_POLLING_MAX_POLLS) || 300, // 10 minutes
+  CLEANUP_INTERVAL: parseInt(import.meta.env.VITE_POLLING_CLEANUP_INTERVAL) || 30000, // 30 seconds
 };
 
 // File Status

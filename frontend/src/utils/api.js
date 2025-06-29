@@ -1,11 +1,13 @@
 import axios from 'axios';
+import { API_CONFIG } from './constants.js';
 
 // Create axios instance with default configuration
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api/v1',
+  baseURL: `${API_CONFIG.BASE_URL}/${API_CONFIG.API_VERSION}`,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: API_CONFIG.TIMEOUT,
 });
 
 // Request interceptor for logging
