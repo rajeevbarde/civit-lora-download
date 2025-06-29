@@ -154,7 +154,7 @@
                          @change="toggleSelectAll"
                          class="checkbox-select-all" />
                 </th>
-                <th class="size-header">Size (GB)</th>
+                <th class="size-header">File Size</th>
                 <th class="downloads-header">Download Count</th>
                 <th class="path-header">File Path</th>
                 <th class="date-header">Published At</th>
@@ -208,7 +208,7 @@
                          :disabled="!canSelectModel(model)"
                          class="checkbox-model" />
                 </td>
-                <td class="size-cell">{{ model.size_in_gb }}</td>
+                <td class="size-cell">{{ convertToMB(model.size_in_gb) }}</td>
                 <td class="downloads-cell">{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
                 <td class="path-cell">{{ model.file_path }}</td>
                 <td class="date-cell">{{ formatDate(model.publishedAt) }}</td>
@@ -862,6 +862,10 @@ export default {
     endOperation(operationId) {
       this.concurrentOperations.delete(operationId);
     },
+    convertToMB(gb) {
+      if (gb === null || gb === undefined) return '-';
+      return Math.round(gb * 1024) + ' MB';
+    }
   }
 }
 </script>
