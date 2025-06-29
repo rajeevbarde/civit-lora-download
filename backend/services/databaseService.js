@@ -302,6 +302,79 @@ class DatabaseService {
             }
         }
     }
+
+    // Get download matrix data - counts by base model and NSFW level for downloaded items
+    async getDownloadMatrix() {
+        const query = `
+            SELECT 
+                basemodel,
+                modelVersionNsfwLevel,
+                COUNT(*) as count
+            FROM ALLCivitData
+            WHERE isDownloaded = 1
+                AND basemodel IS NOT NULL 
+                AND basemodel != ''
+                AND modelVersionNsfwLevel IS NOT NULL
+            GROUP BY basemodel, modelVersionNsfwLevel
+            ORDER BY basemodel, modelVersionNsfwLevel
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const rows = await dbPool.runQuery(connection, query);
+            
+            // Define NSFW level groups
+            const nsfwGroups = {
+                'Safe': [0],
+                'Mild': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+                'Moderate': [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+                'NSFW': [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
+                'Extreme NSFW': [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+            };
+            
+            // Transform the data into matrix format with grouped NSFW levels
+            const matrix = {};
+            const baseModels = new Set();
+            
+            // First pass: collect all unique base models
+            rows.forEach(row => {
+                baseModels.add(row.basemodel);
+            });
+            
+            // Initialize matrix with zeros for all groups
+            Array.from(baseModels).forEach(baseModel => {
+                matrix[baseModel] = {};
+                Object.keys(nsfwGroups).forEach(groupName => {
+                    matrix[baseModel][groupName] = 0;
+                });
+            });
+            
+            // Fill in the actual counts by grouping NSFW levels
+            rows.forEach(row => {
+                const nsfwLevel = row.modelVersionNsfwLevel;
+                const count = row.count;
+                
+                // Find which group this NSFW level belongs to
+                for (const [groupName, levels] of Object.entries(nsfwGroups)) {
+                    if (levels.includes(nsfwLevel)) {
+                        matrix[row.basemodel][groupName] += count;
+                        break;
+                    }
+                }
+            });
+            
+            return {
+                matrix,
+                baseModels: Array.from(baseModels).sort(),
+                nsfwGroups: Object.keys(nsfwGroups)
+            };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

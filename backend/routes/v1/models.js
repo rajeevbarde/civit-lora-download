@@ -76,4 +76,15 @@ router.get('/search-by-filename', async (req, res) => {
     }
 });
 
+// Get download matrix data
+router.get('/download-matrix', async (req, res) => {
+    try {
+        const result = await databaseService.getDownloadMatrix();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting download matrix:', error);
+        res.status(500).json({ error: 'Failed to get download matrix data' });
+    }
+});
+
 module.exports = router; 

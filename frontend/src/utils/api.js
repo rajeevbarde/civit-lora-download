@@ -82,6 +82,13 @@ export const apiService = {
     return response.data;
   },
 
+  async getDownloadMatrix(options = {}) {
+    const response = await api.get('/models/download-matrix', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   // Downloads
   async downloadModelFile(downloadData, options = {}) {
     const response = await api.post('/downloads', downloadData, {
