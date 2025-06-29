@@ -13,7 +13,7 @@
         <span class="link-label">View on CivitAI</span>
       </div>
       <a
-        :href="`https://civitai.com/models/${model.modelId}?modelVersionId=${model.modelVersionId}`"
+        :href="`${civitaiBaseUrl}/models/${model.modelId}?modelVersionId=${model.modelVersionId}`"
         target="_blank"
         rel="noopener noreferrer"
         class="civitai-link"
@@ -77,6 +77,7 @@
 <script>
 import { useRoute } from 'vue-router';
 import { apiService } from '@/utils/api.js';
+import { API_CONFIG } from '@/utils/constants.js';
 
 export default {
   setup() {
@@ -87,7 +88,8 @@ export default {
     return {
       model: null,
       loading: false,
-      error: null
+      error: null,
+      civitaiBaseUrl: API_CONFIG.CIVITAI_BASE_URL.replace('/api/v1', '')
     };
   },
   mounted() {

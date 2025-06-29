@@ -488,6 +488,7 @@
 <script>
 import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
+import { FRONTEND_CONFIG } from '@/utils/constants.js';
 
 export default {
   name: 'CivitDataFetcher',
@@ -551,6 +552,7 @@ export default {
       registrationLoading: {},
       // Track which files have had their registration completed
       registeredFiles: new Set(),
+      frontendBaseUrl: FRONTEND_CONFIG.BASE_URL,
     }
   },
   methods: {
@@ -969,7 +971,7 @@ export default {
               
               resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from database:</div>';
               response.forEach((match, index) => {
-                const modelUrl = `http://localhost:5173/model/${match.modelId}/${match.modelVersionId}`;
+                const modelUrl = `${this.frontendBaseUrl}/model/${match.modelId}/${match.modelVersionId}`;
                 resultText += `<div style="margin-bottom: 4px;"><strong>${match.fileName}</strong></div>`;
                 resultText += `<a href="${modelUrl}" target="_blank">Model ID: ${match.modelId}, Version ID: ${match.modelVersionId}</a><br>`;
               });
@@ -1002,7 +1004,7 @@ export default {
                     civitaiModelId: civitaiResponse.modelId,
                     civitaiModelVersionId: civitaiResponse.modelVersionId,
                     dbFilename: dbFilename,
-                    modelUrl: `http://localhost:5173/model/${civitaiResponse.modelId}/${civitaiResponse.modelVersionId}`
+                    modelUrl: `${this.frontendBaseUrl}/model/${civitaiResponse.modelId}/${civitaiResponse.modelVersionId}`
                   });
                 } else {
                   comparisonResults.push({
@@ -1254,7 +1256,7 @@ export default {
               isDownloaded: model.isDownloaded,
               file_path: model.file_path,
               isRegistered: model.isDownloaded === 1 && model.file_path !== null,
-              url: `http://localhost:5173/model/${model.modelId}/${model.modelVersionId}`
+              url: `${this.frontendBaseUrl}/model/${model.modelId}/${model.modelVersionId}`
             }));
             
             this.dbCheckResults[file.fullPath] = {
@@ -1310,7 +1312,7 @@ export default {
           console.log(`Model Version ID for ${file.fullPath}: ${modelVersionId}`);
           
           // Create the model URL
-          const modelUrl = `http://localhost:5173/model/${modelId}/${modelVersionId}`;
+          const modelUrl = `${this.frontendBaseUrl}/model/${modelId}/${modelVersionId}`;
           
           // Format the result similar to other metadata results in the file
           let resultText = '<div style="margin-bottom: 8px; color: #666; font-style: italic;">📋 Data fetched from CivitAI:</div>';

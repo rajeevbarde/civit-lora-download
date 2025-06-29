@@ -1,5 +1,11 @@
 import { inject } from 'vue';
 
+// Retry configuration from environment variables
+const RETRY_CONFIG = {
+  MAX_RETRIES: parseInt(import.meta.env.VITE_RETRY_MAX_ATTEMPTS) || 3,
+  BASE_DELAY: parseInt(import.meta.env.VITE_RETRY_BASE_DELAY) || 1000,
+};
+
 /**
  * Composable for consistent error handling across components
  * Provides standardized error handling methods that work with the notification system
@@ -72,8 +78,8 @@ export function useErrorHandler() {
    */
   const handleErrorWithRetry = async (apiCall, operation = 'Operation', options = {}) => {
     const {
-      maxRetries = 3,
-      retryDelay = 1000,
+      maxRetries = RETRY_CONFIG.MAX_RETRIES,
+      retryDelay = RETRY_CONFIG.BASE_DELAY,
       showRetryNotification = true
     } = options;
 

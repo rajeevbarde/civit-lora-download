@@ -1,5 +1,11 @@
 import { COLORS } from './constants.js';
 
+// Retry configuration from environment variables
+const RETRY_CONFIG = {
+  MAX_RETRIES: parseInt(import.meta.env.VITE_RETRY_MAX_ATTEMPTS) || 3,
+  BASE_DELAY: parseInt(import.meta.env.VITE_RETRY_BASE_DELAY) || 1000,
+};
+
 /**
  * Format a date timestamp to a readable string
  * @param {string|number} timestamp - The timestamp to format
@@ -163,7 +169,7 @@ export function validateRequiredFields(obj, requiredFields) {
  * @param {number} baseDelay - Base delay in milliseconds
  * @returns {Promise} Promise that resolves with result or rejects after max retries
  */
-export async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+export async function retryWithBackoff(fn, maxRetries = RETRY_CONFIG.MAX_RETRIES, baseDelay = RETRY_CONFIG.BASE_DELAY) {
   let lastError;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
