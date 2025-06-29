@@ -1,18 +1,48 @@
+// Load environment variables if not already loaded
+if (!process.env.DB_PATH) {
+    require('dotenv').config();
+}
+
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 
+// Database configuration validation
+function validateDatabaseConfig() {
+    if (!process.env.DB_PATH) {
+        throw new Error('DB_PATH environment variable is required');
+    }
+    
+    const requiredPoolVars = ['DB_POOL_MIN', 'DB_POOL_MAX', 'DB_ACQUIRE_TIMEOUT', 'DB_IDLE_TIMEOUT', 'DB_RETRY_DELAY'];
+    const missingVars = requiredPoolVars.filter(varName => !process.env[varName]);
+    
+    if (missingVars.length > 0) {
+        throw new Error(`Missing required database pool environment variables: ${missingVars.join(', ')}`);
+    }
+    
+    // Validate numeric values
+    const poolMin = parseInt(process.env.DB_POOL_MIN);
+    const poolMax = parseInt(process.env.DB_POOL_MAX);
+    
+    if (isNaN(poolMin) || isNaN(poolMax) || poolMin < 1 || poolMax < poolMin) {
+        throw new Error('Invalid database pool configuration: DB_POOL_MIN and DB_POOL_MAX must be valid numbers with DB_POOL_MAX >= DB_POOL_MIN >= 1');
+    }
+}
+
+// Validate configuration on module load
+validateDatabaseConfig();
+
 // Database configuration
-const DB_PATH = process.env.DB_PATH || 'F:/Projects/AI/BigFiles/Misc/civitai DB/models/models.db';
+const DB_PATH = process.env.DB_PATH;
 
 // Connection pool configuration
 const POOL_CONFIG = {
-    min: parseInt(process.env.DB_POOL_MIN) || 1,
-    max: parseInt(process.env.DB_POOL_MAX) || 10,
-    acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT) || 60000, // 60 seconds
-    idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT) || 300000, // 5 minutes
-    retryDelay: parseInt(process.env.DB_RETRY_DELAY) || 1000 // 1 second
+    min: parseInt(process.env.DB_POOL_MIN),
+    max: parseInt(process.env.DB_POOL_MAX),
+    acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT), // 60 seconds
+    idleTimeout: parseInt(process.env.DB_IDLE_TIMEOUT), // 5 minutes
+    retryDelay: parseInt(process.env.DB_RETRY_DELAY) // 1 second
 };
 
 class DatabasePool {
