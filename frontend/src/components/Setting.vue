@@ -12,6 +12,10 @@
           <label for="downloadBaseDir">Download Base Dir:</label>
           <input id="downloadBaseDir" v-model="downloadBaseDirInput" type="text" />
         </div>
+        <div class="form-group">
+          <label for="civitaiToken">CivitAI Token:</label>
+          <input id="civitaiToken" v-model="civitaiTokenInput" type="text" />
+        </div>
         <button type="submit">Save</button>
       </form>
       <div v-if="success" class="success">
@@ -31,8 +35,10 @@ export default {
   setup() {
     const dbPath = ref('');
     const downloadBaseDir = ref('');
+    const civitaiToken = ref('');
     const dbPathInput = ref('');
     const downloadBaseDirInput = ref('');
+    const civitaiTokenInput = ref('');
     const error = ref('');
     const success = ref(false);
 
@@ -41,8 +47,10 @@ export default {
         const settings = await apiService.fetchSettings();
         dbPath.value = settings.DB_PATH;
         downloadBaseDir.value = settings.DOWNLOAD_BASE_DIR;
+        civitaiToken.value = settings.CIVITAI_TOKEN;
         dbPathInput.value = settings.DB_PATH;
         downloadBaseDirInput.value = settings.DOWNLOAD_BASE_DIR;
+        civitaiTokenInput.value = settings.CIVITAI_TOKEN;
       } catch (err) {
         error.value = err.message || 'Failed to load settings';
       }
@@ -52,12 +60,14 @@ export default {
       try {
         await apiService.updateSettings({
           DB_PATH: dbPathInput.value,
-          DOWNLOAD_BASE_DIR: downloadBaseDirInput.value
+          DOWNLOAD_BASE_DIR: downloadBaseDirInput.value,
+          CIVITAI_TOKEN: civitaiTokenInput.value
         });
         success.value = true;
         error.value = '';
         dbPath.value = dbPathInput.value;
         downloadBaseDir.value = downloadBaseDirInput.value;
+        civitaiToken.value = civitaiTokenInput.value;
       } catch (err) {
         error.value = err.message || 'Failed to update settings';
         success.value = false;
@@ -66,7 +76,7 @@ export default {
 
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, dbPathInput, downloadBaseDirInput, error, success, saveSettings };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings };
   }
 };
 </script>

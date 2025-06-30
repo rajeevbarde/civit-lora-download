@@ -88,14 +88,15 @@ app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
 app.get('/api/v1/settings', (req, res) => {
     res.json({
         DB_PATH: process.env.DB_PATH,
-        DOWNLOAD_BASE_DIR: process.env.DOWNLOAD_BASE_DIR
+        DOWNLOAD_BASE_DIR: process.env.DOWNLOAD_BASE_DIR,
+        CIVITAI_TOKEN: process.env.CIVITAI_TOKEN
     });
 });
 
 // Update settings endpoint for frontend
 app.post('/api/v1/settings', express.json(), (req, res) => {
-    const { DB_PATH, DOWNLOAD_BASE_DIR } = req.body;
-    if (!DB_PATH && !DOWNLOAD_BASE_DIR) {
+    const { DB_PATH, DOWNLOAD_BASE_DIR, CIVITAI_TOKEN } = req.body;
+    if (!DB_PATH && !DOWNLOAD_BASE_DIR && !CIVITAI_TOKEN) {
         return res.status(400).json({ error: 'No values provided' });
     }
     try {
@@ -105,6 +106,13 @@ app.post('/api/v1/settings', express.json(), (req, res) => {
         }
         if (DOWNLOAD_BASE_DIR) {
             envContent = envContent.replace(/DOWNLOAD_BASE_DIR=.*/g, `DOWNLOAD_BASE_DIR=${DOWNLOAD_BASE_DIR}`);
+        }
+        if (CIVITAI_TOKEN) {
+            if (envContent.match(/CIVITAI_TOKEN=.*/)) {
+                envContent = envContent.replace(/CIVITAI_TOKEN=.*/g, `CIVITAI_TOKEN=${CIVITAI_TOKEN}`);
+            } else {
+                envContent += `\nCIVITAI_TOKEN=${CIVITAI_TOKEN}`;
+            }
         }
         fs.writeFileSync(dotenvPath, envContent, 'utf-8');
         res.json({ success: true });

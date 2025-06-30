@@ -218,8 +218,8 @@ export const apiService = {
     return response.data;
   },
 
-  async updateSettings({ DB_PATH, DOWNLOAD_BASE_DIR }) {
-    const response = await api.post('/settings', { DB_PATH, DOWNLOAD_BASE_DIR });
+  async updateSettings({ DB_PATH, DOWNLOAD_BASE_DIR, CIVITAI_TOKEN }) {
+    const response = await api.post('/settings', { DB_PATH, DOWNLOAD_BASE_DIR, CIVITAI_TOKEN });
     return response.data;
   },
 };

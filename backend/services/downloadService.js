@@ -50,6 +50,14 @@ class DownloadService {
                 }
             }
             
+            // Append token to CivitAI URLs
+            if (url.includes('civitai.com')) {
+                const token = process.env.CIVITAI_TOKEN;
+                if (token) {
+                    url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+                }
+            }
+            
             // Download file with optimized settings
             const response = await axios({
                 method: 'get',

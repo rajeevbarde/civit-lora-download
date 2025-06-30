@@ -489,12 +489,24 @@
 import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
 import { FRONTEND_CONFIG } from '@/utils/constants.js';
+import { onMounted, ref } from 'vue';
 
 export default {
   name: 'CivitDataFetcher',
   setup() {
     const errorHandler = useErrorHandler();
-    return { errorHandler };
+    const civitaiToken = ref('');
+    
+    onMounted(async () => {
+      try {
+        const settings = await apiService.fetchSettings();
+        civitaiToken.value = settings.CIVITAI_TOKEN || '';
+      } catch (err) {
+        // Optionally handle error
+      }
+    });
+    
+    return { errorHandler, civitaiToken };
   },
   data() {
     return {
@@ -731,8 +743,10 @@ export default {
     
     async fetchModelVersionIdByHash(hash) {
       try {
-        const url = `https://civitai.com/api/v1/model-versions/by-hash/${hash}`;
-        
+        let url = `https://civitai.com/api/v1/model-versions/by-hash/${hash}`;
+        if (this.civitaiToken) {
+          url += (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(this.civitaiToken);
+        }
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error(`CivitAI API error ${response.status}: ${response.statusText}`);
