@@ -1,4 +1,5 @@
 const { dbPool } = require('../config/database');
+const logger = require('../utils/logger');
 
 class DatabaseService {
     // Get models with pagination and filters
@@ -305,6 +306,8 @@ class DatabaseService {
 
     // Get download matrix data - counts by base model and NSFW level for downloaded items
     async getDownloadMatrix() {
+        const startTime = Date.now();
+        logger.userAction('Summary loading started');
         const query = `
             SELECT 
                 basemodel,
@@ -364,6 +367,8 @@ class DatabaseService {
                 }
             });
             
+            logger.userAction('Summary loading completed', { baseModels: baseModels.size });
+            logger.logTimeTaken('Summary loading', startTime, { baseModels: baseModels.size });
             return {
                 matrix,
                 baseModels: Array.from(baseModels).sort(),

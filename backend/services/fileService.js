@@ -146,7 +146,8 @@ class FileService {
 
     // Validate downloaded files with proper error handling
     async validateDownloadedFiles(downloadedFiles) {
-        logger.info('Validating downloaded files', { fileCount: downloadedFiles.length });
+        const startTime = Date.now();
+        logger.userAction('Validation started', { fileCount: downloadedFiles.length });
 
         let validated = 0;
         let mismatches = [];
@@ -218,12 +219,13 @@ class FileService {
             }
         }
 
-        logger.info('File validation completed', {
+        logger.userAction('Validation completed', {
             totalFiles: downloadedFiles.length,
             validated,
             mismatches: mismatches.length,
             errors: errors.length
         });
+        logger.logTimeTaken('Validation', startTime, { totalFiles: downloadedFiles.length });
 
         return {
             validated,
@@ -235,6 +237,9 @@ class FileService {
 
     // Find missing files with proper error handling
     async findMissingFiles(paths, dbFileNames) {
+        const startTime = Date.now();
+        logger.userAction('Orphan scan started', { pathCount: paths.length });
+
         logger.info('Finding missing files', { pathCount: paths.length });
 
         if (!paths.length) {
@@ -309,12 +314,13 @@ class FileService {
             }
         }
 
-        logger.info('Missing files check completed', {
+        logger.userAction('Orphan scan completed', {
             filesScanned: allFiles.length,
             filesInDatabase: dbFileNames.length,
             missingFiles: missingFiles.length,
             scanErrors: scanErrors.length
         });
+        logger.logTimeTaken('Orphan scan', startTime, { filesScanned: allFiles.length });
 
         return {
             missingFiles,
@@ -454,6 +460,9 @@ class FileService {
 
     // Scan for unique loras - files that exist on disk and in database, excluding duplicates
     async scanUniqueLoras(paths, dbFileNames) {
+        const startTime = Date.now();
+        logger.userAction('Unique lora scan started', { pathCount: paths.length });
+
         logger.info('Scanning for unique loras', { pathCount: paths.length });
 
         // First, get all files from disk
@@ -538,7 +547,8 @@ class FileService {
             return false;
         });
 
-        logger.info('Found unique loras', { uniqueCount: uniqueFiles.length, nonUniqueCount: nonUniqueFiles.length });
+        logger.userAction('Unique lora scan completed', { uniqueCount: uniqueFiles.length, nonUniqueCount: nonUniqueFiles.length });
+        logger.logTimeTaken('Unique lora scan', startTime, { totalDiskFiles: allDiskFiles.length });
 
         // Get isDownloaded values for all files (unique + non-unique)
         const allFileNames = [...uniqueFiles, ...nonUniqueFiles].map(f => f.baseName);

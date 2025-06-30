@@ -18,7 +18,7 @@ class DownloadService {
                 throw new Error('Missing required parameters: url, fileName, baseModel, modelVersionId');
             }
 
-            logger.info('Starting download', { fileName, baseModel, modelVersionId });
+            logger.userAction('Download started', { fileName, baseModel, modelVersionId });
 
             // Ensure directory exists
             if (!fs.existsSync(targetDir)) {
@@ -112,11 +112,12 @@ class DownloadService {
                     if (!error) {
                         const totalTime = (Date.now() - startTime) / 1000;
                         const avgSpeed = downloaded / totalTime / 1024 / 1024; // MB/s
-                        logger.info('Download completed', {
+                        logger.userAction('Download completed', {
                             fileName,
                             duration: `${totalTime.toFixed(1)}s`,
                             avgSpeed: `${avgSpeed.toFixed(2)} MB/s`
                         });
+                        logger.logTimeTaken('Download', startTime, { fileName });
                         resolve();
                     }
                 });
@@ -129,7 +130,7 @@ class DownloadService {
             logger.info('DB updated successfully', { fileName, usedSubfolder });
             
         } catch (err) {
-            logger.error('Download failed', { fileName, error: err.message });
+            logger.userAction('Download failed', { fileName, error: err.message });
             
             // Clean up partial file if it exists
             if (writer && fs.existsSync(filePath)) {

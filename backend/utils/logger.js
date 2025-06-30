@@ -57,9 +57,10 @@ class Logger {
         return formattedMessage;
     }
 
-    getColor(level) {
+    getColor(level, isUserAction = false) {
+        if (isUserAction) return colors.bright + colors.magenta;
         switch (level.toLowerCase()) {
-            case 'error': return colors.red;
+            case 'error': return colors.red + colors.bright;
             case 'warn': return colors.yellow;
             case 'info': return colors.green;
             case 'debug': return colors.cyan;
@@ -136,8 +137,39 @@ class Logger {
 
     // Special method for download operations
     download(fileName, progress = null) {
-        const message = `DOWNLOAD: ${fileName}`;
-        this.info(message, progress);
+        // Enhanced: Show progress bar and emoji if progress info is present
+        if (progress && typeof progress.percent === 'number') {
+            const percent = progress.percent;
+            const barLength = 20;
+            const filledLength = Math.round((percent / 100) * barLength);
+            const bar = '█'.repeat(filledLength) + '-'.repeat(barLength - filledLength);
+            const msg = `⬇️  DOWNLOAD: ${fileName} | [${bar}] ${percent}% | ${progress.downloaded}/${progress.total} | 🚀 ${progress.speed}`;
+            const color = colors.bright + colors.cyan;
+            console.log(`${color}${msg}${colors.reset}`);
+            this.writeToFile('DOWNLOAD', msg, progress);
+        } else {
+            const message = `DOWNLOAD: ${fileName}`;
+            const color = colors.bright + colors.cyan;
+            console.log(`${color}${message}${colors.reset}`);
+            this.writeToFile('DOWNLOAD', message, progress);
+        }
+    }
+
+    // User-facing action log (for actions like download, scan, validate, summary)
+    userAction(message, data = null) {
+        const formattedMessage = this.formatMessage('USER', `🚩 ${message}`, data);
+        const color = colors.bright + colors.magenta;
+        console.log(`${color}${formattedMessage}${colors.reset}`);
+        this.writeToFile('USER', message, data);
+    }
+
+    // Log time taken for an operation (for summary, scan, etc.)
+    logTimeTaken(action, startTime, data = null) {
+        const duration = Date.now() - startTime;
+        const formattedMessage = this.formatMessage('USER', `⏱️ ${action} - Time taken: ${duration}ms`, data);
+        const color = colors.bright + colors.blue;
+        console.log(`${color}${formattedMessage}${colors.reset}`);
+        this.writeToFile('USER', `${action} - Time taken: ${duration}ms`, data);
     }
 }
 
