@@ -595,10 +595,10 @@ export default {
             }
           } else if (error.response && error.response.status >= 500) {
             // Server error, try again later
-            console.log(`Server error while polling, will retry: ${error.message}`);
+            this.errorHandler.handleWarning(`Server error while polling, will retry: ${error.message}`);
           } else {
             // Network error, try again later
-            console.log(`Network error while polling, will retry: ${error.message}`);
+            this.errorHandler.handleWarning(`Network error while polling, will retry: ${error.message}`);
           }
         }
         

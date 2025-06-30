@@ -73,7 +73,6 @@ export default {
     // Optional: Report errors to external service
     reportError(error, errorInfo) {
       // Example: Send to error reporting service
-      // console.log('Reporting error:', { error, errorInfo });
     }
   },
   
