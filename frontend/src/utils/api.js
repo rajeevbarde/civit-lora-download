@@ -212,6 +212,11 @@ export const apiService = {
   // Download management
   async getDownloadQueue() {
   },
+
+  async fetchSettings() {
+    const response = await api.get('/settings');
+    return response.data;
+  },
 };
 
 export default apiService; 

@@ -4,6 +4,7 @@ import ModelDetail from '../components/ModelDetail.vue';
 import LoRASummary from '../components/Summary.vue';
 import LoRAScanner from '../components/FileScanner.vue';
 import CivitDataFetcher from '../components/CivitDataFetcher.vue';
+import Setting from '../components/Setting.vue';
 
 const routes = [
   {
@@ -29,6 +30,11 @@ const routes = [
     path: '/civit-data-fetcher',
     name: 'CivitDataFetcher',
     component: CivitDataFetcher,
+  },
+  {
+    path: '/setting',
+    name: 'Setting',
+    component: Setting,
   },
   {
     path: '/lora-hub',

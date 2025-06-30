@@ -24,6 +24,10 @@
             <span class="link-icon">🔗</span>
             <span class="link-text">Orphan LoRA</span>
           </router-link>
+          <router-link to="/setting" class="nav-link">
+            <span class="link-icon">⚙️</span>
+            <span class="link-text">Setting</span>
+          </router-link>
         </div>
       </div>
     </nav>

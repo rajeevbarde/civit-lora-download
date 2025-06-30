@@ -3,7 +3,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-const { SERVER_CONFIG } = require('./config/constants');
+const { SERVER_CONFIG, DB_CONFIG, DOWNLOAD_CONFIG } = require('./config/constants');
 const { validateDatabase, dbPool } = require('./config/database');
 const logger = require('./utils/logger');
 const { timeoutMiddleware } = require('./middleware/timeout');
@@ -79,6 +79,14 @@ app.get('/api/health', timeoutMiddleware.quick, (req, res) => {
             latest: 'v1',
             supported: ['v1']
         }
+    });
+});
+
+// Settings endpoint for frontend
+app.get('/api/v1/settings', (req, res) => {
+    res.json({
+        DB_PATH: process.env.DB_PATH,
+        DOWNLOAD_BASE_DIR: process.env.DOWNLOAD_BASE_DIR
     });
 });
 
