@@ -334,8 +334,6 @@ export default {
     
     // Clear all operations
     this.concurrentOperations.clear();
-    
-    console.log('Component unmounted, all cleanup completed');
   },
   deactivated() {
     // Clean up intervals when component is deactivated (route change)
@@ -368,7 +366,6 @@ export default {
     async bulkDownloadSelectedModels() {
       const operationId = 'bulkDownload';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Bulk download already in progress, skipping...');
         return;
       }
       
@@ -385,7 +382,6 @@ export default {
         // Process downloads sequentially to prevent race conditions
         for (const model of selectedModelObjects) {
           if (this.isModelDownloading(model.modelId)) {
-            console.log(`Model ${model.fileName} is already downloading, skipping...`);
             continue;
           }
           
@@ -405,15 +401,12 @@ export default {
             });
             
             if (response && response.success) {
-              console.log(`Download queued for: ${model.fileName}`);
               // Start polling for this model
               this.startStatusPolling(model.modelVersionId, model.fileName);
             } else {
-              console.error(`Failed to queue download for: ${model.fileName}`, response.error);
               this.removeFromDownloadingList(model.modelId);
             }
           } catch (err) {
-            console.error(`Download failed for: ${model.fileName}`, err.message);
             this.removeFromDownloadingList(model.modelId);
           }
           
@@ -424,8 +417,6 @@ export default {
         // Clear selection after queuing all downloads
         this.selectedModels = [];
         
-      } catch (error) {
-        console.error('Bulk download error:', error);
       } finally {
         this.isBulkDownloading = false;
         this.endOperation(operationId);
@@ -434,7 +425,6 @@ export default {
     async fetchBaseModels() {
       const operationId = 'fetchBaseModels';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Base models fetch already in progress, skipping...');
         return;
       }
       
@@ -454,7 +444,6 @@ export default {
     async fetchModels() {
       const operationId = 'fetchModels';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Models fetch already in progress, cancelling previous request...');
         this.cancelPendingRequest(operationId);
       }
       
@@ -482,7 +471,6 @@ export default {
         }
       } catch (error) {
         if (error.name === 'AbortError') {
-          console.log('Models fetch was cancelled');
           return;
         }
         this.errorHandler.handleError(error, 'loading models');
@@ -496,7 +484,6 @@ export default {
     async changePage(newPage) {
       const operationId = 'changePage';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Page change already in progress, skipping...');
         return;
       }
       
@@ -529,19 +516,13 @@ export default {
         });
         
         if (response && response.success) {
-          console.log(`Download queued for: ${model.fileName}`);
           // Start polling for status updates
           this.startStatusPolling(model.modelVersionId, model.fileName);
         } else {
-          console.error('Failed to queue download:', response.error || 'Unknown error');
-          // Remove from downloading list on failure
           this.removeFromDownloadingList(model.modelId);
           this.errorHandler.handleError(new Error(response.error || 'Unknown error'), `queuing download for ${model.fileName}`);
         }
       } catch (err) {
-        console.error('Download request failed:', err.response?.data?.error || err.message);
-        
-        // Remove from downloading list on error
         this.removeFromDownloadingList(model.modelId);
         
         // Use the new error handler for consistent error messaging
@@ -560,7 +541,6 @@ export default {
     startStatusPolling(modelVersionId, fileName) {
       // Prevent multiple polling intervals for the same model
       if (this.statusPollingIntervals.has(modelVersionId)) {
-        console.log(`Polling already active for model: ${modelVersionId}`);
         return;
       }
       
@@ -598,17 +578,13 @@ export default {
               this.stopStatusPolling(modelVersionId);
               
               if (response.isDownloaded === 1) {
-                console.log(`Download completed successfully for model: ${modelVersionId}`);
                 this.errorHandler.handleSuccess(`Download completed: ${fileName}`);
               } else {
-                console.log(`Download failed for model: ${modelVersionId}`);
                 this.errorHandler.handleError(new Error('Download failed'), `downloading ${fileName}`);
               }
             }
           }
         } catch (error) {
-          console.error('Error polling for status:', error);
-          
           // If we get a 404, the model might not exist in DB yet
           if (error.response && error.response.status === 404) {
             // Don't immediately fail, wait a bit more as the download might still be processing
@@ -629,21 +605,18 @@ export default {
         // Stop polling after max attempts
         if (pollCount >= maxPolls) {
           this.stopStatusPolling(modelVersionId);
-          console.log(`Stopped polling for model: ${modelVersionId} (max attempts reached)`);
           this.errorHandler.handleWarning(`Download timeout: Check status manually for ${fileName}`);
         }
       }, 2000);
       
       // Store the interval for proper cleanup
       this.statusPollingIntervals.set(modelVersionId, pollInterval);
-      console.log(`Started polling for model: ${modelVersionId}`);
     },
     stopStatusPolling(modelVersionId) {
       const interval = this.statusPollingIntervals.get(modelVersionId);
       if (interval) {
         clearInterval(interval);
         this.statusPollingIntervals.delete(modelVersionId);
-        console.log(`Stopped polling for model: ${modelVersionId}`);
       }
     },
     removeFromDownloadingListByVersionId(modelVersionId) {
@@ -688,7 +661,6 @@ export default {
       this.isCheckingStatus = true;
       try {
         const response = await apiService.getDownloadStatus();
-        console.log('Download queue status:', response);
         
         // Remove any existing status notifications first
         this.notifications = this.notifications.filter(n => !n.message.includes('🔄') && !n.message.includes('⏳') && !n.message.includes('✅') && !n.message.includes('📋'));
@@ -723,7 +695,6 @@ export default {
           await this.fetchModels();
         }
       } catch (error) {
-        console.error('Failed to check download status:', error);
         this.errorHandler.handleError(error, 'checking download status');
       } finally {
         this.isCheckingStatus = false;
@@ -732,15 +703,12 @@ export default {
     startPeriodicCleanup() {
       // Don't start if already running
       if (this.cleanupInterval) {
-        console.log('Periodic cleanup already running');
         return;
       }
       
       // Check for stuck downloads every 30 seconds
       this.cleanupInterval = setInterval(async () => {
         if (this.downloadingModels.length > 0) {
-          console.log(`Periodic cleanup: Checking ${this.downloadingModels.length} downloading models`);
-          
           try {
             // Refresh the table to get latest status
             await this.fetchModels();
@@ -764,18 +732,11 @@ export default {
                 this.errorHandler.handleError(new Error('Download failed'), `downloading ${completed.fileName}`);
               }
             }
-            
-            if (completedModels.length > 0) {
-              console.log(`Periodic cleanup: Found ${completedModels.length} completed downloads`);
-            }
           } catch (error) {
-            console.error('Error during periodic cleanup:', error);
             // Don't stop the interval on error, just log it
           }
         }
       }, 30000); // 30 seconds
-      
-      console.log('Periodic cleanup started');
     },
     formatDate(timestamp) {
       if (!timestamp) return '-';
@@ -800,7 +761,6 @@ export default {
           hour12: true
         });
       } catch (error) {
-        console.error('Error formatting date:', error);
         return timestamp; // Return original if formatting fails
       }
     },
@@ -814,11 +774,8 @@ export default {
       // Clean up all status polling intervals
       this.statusPollingIntervals.forEach((interval, modelVersionId) => {
         clearInterval(interval);
-        console.log(`Cleaned up polling interval for model: ${modelVersionId}`);
       });
       this.statusPollingIntervals.clear();
-      
-      console.log('All intervals cleaned up');
     },
     // Race condition protection methods
     cancelPendingRequest(requestId) {
@@ -826,14 +783,12 @@ export default {
       if (controller) {
         controller.abort();
         this.pendingRequests.delete(requestId);
-        console.log(`Cancelled pending request: ${requestId}`);
       }
     },
     
     cancelAllPendingRequests() {
       this.pendingRequests.forEach((controller, requestId) => {
         controller.abort();
-        console.log(`Cancelled pending request: ${requestId}`);
       });
       this.pendingRequests.clear();
     },

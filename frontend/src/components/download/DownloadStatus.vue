@@ -39,7 +39,6 @@ export default {
     async checkDownloadStatus() {
       try {
         const response = await apiService.getDownloadStatus();
-        console.log('Download queue status:', response);
         
         // Show queue status to user
         const { active, queued, maxConcurrent } = response;

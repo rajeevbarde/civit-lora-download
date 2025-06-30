@@ -562,7 +562,6 @@ export default {
       if (controller) {
         controller.abort();
         this.pendingOperations.delete(operationId);
-        console.log(`Cancelled pending operation: ${operationId}`);
       }
     },
     
@@ -624,7 +623,6 @@ export default {
     async scanForMissingFiles() {
       const operationId = 'scanForMissingFiles';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Scan operation already in progress, skipping...');
         return;
       }
       
@@ -659,16 +657,13 @@ export default {
       try {
         const signal = this.createOperationController(operationId);
         const data = await apiService.findMissingFiles({ signal });
-        console.log('Find missing files API response:', data);
         // Update results if this operation is still active
         if (this.concurrentOperations.has(operationId)) {
           this.scanResults = data;
           this.errorHandler.handleSuccess('Scan completed successfully');
-          console.log('Scan results updated:', this.scanResults);
         }
       } catch (error) {
         if (error.name === 'AbortError') {
-          console.log('Scan operation was cancelled');
           return;
         }
         this.errorHandler.handleError(error, 'scanning for missing files');
@@ -686,7 +681,6 @@ export default {
     async fixFile(file) {
       // Prevent concurrent operations on the same file
       if (this.isFileProcessing(file.fullPath)) {
-        console.log(`File ${file.fileName} is already being processed, skipping...`);
         return;
       }
       
@@ -698,20 +692,16 @@ export default {
       try {
         // Step 1: Compute SHA256 hash of the file
         const hash = await this.computeFileHash(file.fullPath);
-        console.log(`Hash for ${file.fileName}: ${hash}`);
         
         // Step 2: Fetch model version ID from CivitAI
         const civitaiResponse = await this.fetchModelVersionIdByHash(hash);
         const modelVersionId = civitaiResponse.modelVersionId;
-        console.log(`Model Version ID for ${file.fileName}: ${modelVersionId}`);
         
         // Step 3: Call the fix-file API
         const result = await apiService.fixFile({
           modelVersionId: modelVersionId,
           filePath: file.fullPath
         });
-        
-        console.log('File fixed successfully:', result);
         
         // Set success status
         file.status = 'success';
@@ -742,7 +732,6 @@ export default {
     async fetchModelVersionIdByHash(hash) {
       try {
         const url = `https://civitai.com/api/v1/model-versions/by-hash/${hash}`;
-        console.log(`Fetching model info from CivitAI for hash: ${hash}`);
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -1291,7 +1280,6 @@ export default {
     onIdentifyMetadata(file) {
       // Prevent concurrent operations on the same file
       if (this.identifyMetadataLoading[file.fullPath] || this.metadataIdentifiedFiles.has(file.fullPath)) {
-        console.log(`File ${file.fullPath} is already being processed or completed, skipping...`);
         return;
       }
       
@@ -1301,15 +1289,12 @@ export default {
       // Step 1: Compute SHA256 hash of the file
       this.computeFileHash(file.fullPath)
         .then(hash => {
-          console.log(`Hash for ${file.fullPath}: ${hash}`);
-          
           // Step 2: Fetch model version ID from CivitAI
           return this.fetchModelVersionIdByHash(hash);
         })
         .then(civitaiResponse => {
           const modelVersionId = civitaiResponse.modelVersionId;
           const modelId = civitaiResponse.modelId;
-          console.log(`Model Version ID for ${file.fullPath}: ${modelVersionId}`);
           
           // Create the model URL
           const modelUrl = `${this.frontendBaseUrl}/model/${modelId}/${modelVersionId}`;
@@ -1339,7 +1324,6 @@ export default {
     async registerModel(file, model) {
       // Prevent concurrent operations on the same file
       if (this.registrationLoading[file.fullPath] || this.registeredFiles.has(file.fullPath)) {
-        console.log(`Registration for ${file.fullPath} is already in progress or completed, skipping...`);
         return;
       }
       
@@ -1479,7 +1463,6 @@ export default {
     // Cancel all pending operations
     this.pendingOperations.forEach((controller, operationId) => {
       controller.abort();
-      console.log(`Cancelled pending operation: ${operationId}`);
     });
     this.pendingOperations.clear();
     
@@ -1488,8 +1471,6 @@ export default {
     
     // Clear concurrent operations
     this.concurrentOperations.clear();
-    
-    console.log('CivitDataFetcher component unmounted, all cleanup completed');
   }
 }
 </script>

@@ -300,7 +300,6 @@ export default {
       if (controller) {
         controller.abort();
         this.pendingOperations.delete(operationId);
-        console.log(`Cancelled pending operation: ${operationId}`);
       }
     },
     
@@ -389,13 +388,10 @@ export default {
     async fetchSavedPaths() {
       try {
         const data = await apiService.getSavedPathsLegacy();
-        console.log('Fetched saved paths:', data);
         if (Array.isArray(data.paths)) {
           this.savedPaths = data.paths;
-          console.log('Saved paths loaded:', this.savedPaths);
         } else {
           this.savedPaths = [];
-          console.log('No saved paths found or invalid format');
         }
       } catch (error) {
         this.errorHandler.handleError(error, 'fetching saved paths', { showNotification: false });
@@ -431,7 +427,6 @@ export default {
       this.validationResults = null;
       const operationId = 'scanUniqueLoras';
       if (this.isOperationInProgress(operationId)) {
-        console.log('Unique loras scan operation already in progress, skipping...');
         return;
       }
       if (!this.savedPaths || this.savedPaths.length === 0) {
@@ -456,19 +451,11 @@ export default {
       try {
         const signal = this.createOperationController(operationId);
         const data = await apiService.scanUniqueLoras({ signal });
-        console.log('Unique loras scan API response:', data);
         if (this.concurrentOperations.has(operationId)) {
           this.uniqueLorasResults = data;
           // Trigger orphan scan after unique loras scan
           await this.scanOrphanFiles();
         }
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('Unique loras scan operation was cancelled');
-          return;
-        }
-        this.errorHandler.handleError(error, 'scanning unique loras');
-        this.message = 'Unique loras scan failed!';
       } finally {
         this.endOperation(operationId);
         this.removeOperationController(operationId);
@@ -584,7 +571,6 @@ export default {
     // Cancel all pending operations
     this.pendingOperations.forEach((controller, operationId) => {
       controller.abort();
-      console.log(`Cancelled pending operation: ${operationId}`);
     });
     this.pendingOperations.clear();
     
@@ -596,8 +582,6 @@ export default {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
     }
-    
-    console.log('LoRAScanner component unmounted, all cleanup completed');
   }
 };
 </script>

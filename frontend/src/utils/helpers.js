@@ -1,5 +1,3 @@
-import { COLORS } from './constants.js';
-
 // Retry configuration from environment variables
 const RETRY_CONFIG = {
   MAX_RETRIES: parseInt(import.meta.env.VITE_RETRY_MAX_ATTEMPTS) || 3,

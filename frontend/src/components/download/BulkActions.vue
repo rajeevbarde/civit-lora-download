@@ -68,15 +68,12 @@ export default {
             });
             
             if (response && response.success) {
-              console.log(`Download queued for: ${model.fileName}`);
               // Start polling for this model
               this.startStatusPolling(model.modelVersionId, model.fileName);
             } else {
-              console.error(`Failed to queue download for: ${model.fileName}`, response.error);
               this.$emit('remove-downloading', model.modelId);
             }
           } catch (err) {
-            console.error(`Download failed for: ${model.fileName}`, err.message);
             this.$emit('remove-downloading', model.modelId);
           }
         });
@@ -88,7 +85,6 @@ export default {
         this.$emit('clear-selection');
         
       } catch (error) {
-        console.error('Bulk download error:', error);
         this.$emit('notification', 'Bulk download failed', NOTIFICATION_TYPES.ERROR);
       } finally {
         this.$emit('bulk-download-complete');
@@ -128,17 +124,13 @@ export default {
               clearInterval(pollInterval);
               
               if (response.isDownloaded === 1) {
-                console.log(`Download completed successfully for model: ${modelVersionId}`);
                 this.$emit('notification', `✅ Download completed: ${fileName}`, NOTIFICATION_TYPES.SUCCESS);
               } else {
-                console.log(`Download failed for model: ${modelVersionId}`);
                 this.$emit('notification', `❌ Download failed: ${fileName}`, NOTIFICATION_TYPES.ERROR);
               }
             }
           }
         } catch (error) {
-          console.error('Error polling for status:', error);
-          
           // If we get a 404, the model might not exist in DB yet
           if (error.response && error.response.status === 404) {
             // Don't immediately fail, wait a bit more as the download might still be processing
@@ -154,7 +146,6 @@ export default {
         if (pollCount >= maxPolls) {
           clearInterval(pollInterval);
           this.$emit('remove-downloading-by-version', modelVersionId);
-          console.log(`Stopped polling for model: ${modelVersionId} (max attempts reached)`);
           this.$emit('notification', `⏰ Download timeout: Check status manually`, NOTIFICATION_TYPES.WARNING);
         }
       }, 2000);
