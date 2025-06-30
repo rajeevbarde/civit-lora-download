@@ -222,6 +222,16 @@ export const apiService = {
     const response = await api.post('/settings', { DB_PATH, DOWNLOAD_BASE_DIR, CIVITAI_TOKEN });
     return response.data;
   },
+
+  async fetchLogFiles() {
+    const response = await api.get('/log-files');
+    return response.data;
+  },
+
+  async clearLogs() {
+    const response = await api.post('/clear-logs');
+    return response.data;
+  },
 };
 
 export default apiService; 

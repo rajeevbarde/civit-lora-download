@@ -6,7 +6,10 @@
       <form @submit.prevent="saveSettings">
         <div class="form-group">
           <label for="dbPath">DB Path:</label>
-          <input id="dbPath" v-model="dbPathInput" type="text" />
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input id="dbPath" v-model="dbPathInput" type="text" />
+            <button type="button" @click="verifyDbPath">Verify</button>
+          </div>
         </div>
         <div class="form-group">
           <label for="downloadBaseDir">Download Base Dir:</label>
@@ -21,6 +24,17 @@
       <div v-if="success" class="success">
         Settings updated!<br />
         <span class="restart-msg">Please restart the application for changes to take effect.</span>
+      </div>
+      <div class="logs-section">
+        <h2>Log Files</h2>
+        <button @click="clearAllLogs" class="clear-logs-btn">Clear All Logs</button>
+        <ul>
+          <li v-for="file in logFiles" :key="file.name">
+            {{ file.name }} ({{ formatFileSize(file.size) }})
+          </li>
+        </ul>
+        <div v-if="logSuccess" class="success">All logs cleared!</div>
+        <div v-if="logError" class="error">{{ logError }}</div>
       </div>
     </div>
   </div>
@@ -41,6 +55,9 @@ export default {
     const civitaiTokenInput = ref('');
     const error = ref('');
     const success = ref(false);
+    const logFiles = ref([]);
+    const logSuccess = ref(false);
+    const logError = ref('');
 
     async function loadSettings() {
       try {
@@ -51,6 +68,9 @@ export default {
         dbPathInput.value = settings.DB_PATH;
         downloadBaseDirInput.value = settings.DOWNLOAD_BASE_DIR;
         civitaiTokenInput.value = settings.CIVITAI_TOKEN;
+        // Fetch log files
+        const logData = await apiService.fetchLogFiles();
+        logFiles.value = logData.files || [];
       } catch (err) {
         error.value = err.message || 'Failed to load settings';
       }
@@ -59,13 +79,11 @@ export default {
     async function saveSettings() {
       try {
         await apiService.updateSettings({
-          DB_PATH: dbPathInput.value,
           DOWNLOAD_BASE_DIR: downloadBaseDirInput.value,
           CIVITAI_TOKEN: civitaiTokenInput.value
         });
         success.value = true;
         error.value = '';
-        dbPath.value = dbPathInput.value;
         downloadBaseDir.value = downloadBaseDirInput.value;
         civitaiToken.value = civitaiTokenInput.value;
       } catch (err) {
@@ -74,9 +92,37 @@ export default {
       }
     }
 
+    function verifyDbPath() {
+      // Placeholder for future DB path verification logic
+    }
+
+    function formatFileSize(size) {
+      if (size >= 1024 * 1024) {
+        return (size / (1024 * 1024)).toFixed(2) + ' MB';
+      } else if (size >= 1024) {
+        return (size / 1024).toFixed(2) + ' KB';
+      } else {
+        return size + ' B';
+      }
+    }
+
+    async function clearAllLogs() {
+      logSuccess.value = false;
+      logError.value = '';
+      try {
+        await apiService.clearLogs();
+        // Refresh log files
+        const logData = await apiService.fetchLogFiles();
+        logFiles.value = logData.files || [];
+        logSuccess.value = true;
+      } catch (err) {
+        logError.value = err.message || 'Failed to clear logs';
+      }
+    }
+
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError };
   }
 };
 </script>
@@ -125,5 +171,24 @@ button:hover {
   background: #f5f5f5;
   padding: 1rem;
   border-radius: 8px;
+}
+.logs-section {
+  margin-top: 2rem;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
+}
+.clear-logs-btn {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.clear-logs-btn:hover {
+  background: #c53030;
 }
 </style> 

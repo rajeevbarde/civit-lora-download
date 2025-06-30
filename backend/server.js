@@ -121,6 +121,40 @@ app.post('/api/v1/settings', express.json(), (req, res) => {
     }
 });
 
+// Endpoint to list log files and their sizes
+app.get('/api/v1/log-files', (req, res) => {
+    const logDir = require('path').join(__dirname, 'logs');
+    try {
+        const files = fs.readdirSync(logDir);
+        const fileList = files.map(file => {
+            const filePath = require('path').join(logDir, file);
+            const stats = fs.statSync(filePath);
+            return {
+                name: file,
+                size: stats.size
+            };
+        });
+        res.json({ files: fileList });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Endpoint to clear all log files (truncate, not delete)
+app.post('/api/v1/clear-logs', (req, res) => {
+    const logDir = require('path').join(__dirname, 'logs');
+    try {
+        const files = fs.readdirSync(logDir);
+        files.forEach(file => {
+            const filePath = require('path').join(logDir, file);
+            fs.truncateSync(filePath, 0);
+        });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Graceful shutdown handling
 let server;
 
