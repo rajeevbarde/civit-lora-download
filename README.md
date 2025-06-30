@@ -26,5 +26,7 @@ start_servers.bat
 
 This will open two new command windows: one for the backend server and one for the frontend server. Each will automatically install dependencies if needed and start the respective server.
 
+> **Note:** The first time you load the frontend page in your browser, it may take some time to appear. This is normal as the development server initializes and compiles the application for the first time.
+
 
 ----------

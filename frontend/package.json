@@ -1,7 +1,20 @@
 {
   "name": "civit-frontend",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "Frontend for Civit LoRA Download Manager",
+  "author": "Rajeev Barde",
+  "license": "MIT",
+  "repository": {
+    "type": "git"
+  },
+  "keywords": [
+    "vue",
+    "vite",
+    "civitai",
+    "lora",
+    "frontend"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
