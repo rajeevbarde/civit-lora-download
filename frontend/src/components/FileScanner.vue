@@ -207,6 +207,8 @@
               <th>Model Version ID</th>
               <th>Database File Path</th>
               <th>Actual Filename</th>
+              <th v-if="hasSizeMismatchColumn">DB Size (GB)</th>
+              <th v-if="hasSizeMismatchColumn">Disk Size (GB)</th>
               <th>Issue</th>
             </tr>
           </thead>
@@ -216,6 +218,8 @@
               <td>{{ mismatch.modelVersionId }}</td>
               <td>{{ mismatch.file_path }}</td>
               <td>{{ mismatch.actualFileName || 'N/A' }}</td>
+              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_gb_db !== undefined ? mismatch.size_in_gb_db : '' }}</td>
+              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_gb_disk !== undefined ? mismatch.size_in_gb_disk : '' }}</td>
               <td>
                 <span class="issue-badge">{{ mismatch.issue }}</span>
                 <div v-if="mismatch.expectedFileName" class="expected-info">
@@ -562,6 +566,11 @@ export default {
         ...this.uniqueTabs,
         { key: 'orphan', label: 'Orphan Files' }
       ];
+    },
+    hasSizeMismatchColumn() {
+      // Check if any mismatch has a size_in_gb_db or size_in_gb_disk property
+      if (!this.validationResults || !this.validationResults.mismatches) return false;
+      return this.validationResults.mismatches.some(m => m.size_in_gb_db !== undefined || m.size_in_gb_disk !== undefined);
     },
   },
   mounted() {

@@ -156,7 +156,7 @@ class FileService {
         // Process each file
         for (let index = 0; index < downloadedFiles.length; index++) {
             const row = downloadedFiles[index];
-            const { fileName, file_path, modelVersionId } = row;
+            const { fileName, file_path, modelVersionId, size_in_gb } = row;
 
             try {
                 // Check if file_path exists
@@ -194,6 +194,27 @@ class FileService {
                     });
                     continue;
                 }
+
+                // --- New: File size validation ---
+                if (typeof size_in_gb === 'number' && !isNaN(size_in_gb)) {
+                    const stats = fs.statSync(file_path);
+                    const sizeOnDiskGB = stats.size / (1024 * 1024 * 1024);
+                    // Allow 20% difference
+                    const lowerBound = size_in_gb * 0.8;
+                    const upperBound = size_in_gb * 1.2;
+                    if (sizeOnDiskGB < lowerBound || sizeOnDiskGB > upperBound) {
+                        mismatches.push({
+                            fileName,
+                            modelVersionId,
+                            file_path,
+                            size_in_gb_db: size_in_gb,
+                            size_in_gb_disk: parseFloat(sizeOnDiskGB.toFixed(2)),
+                            issue: 'File size mismatch (serious difference)'
+                        });
+                        continue;
+                    }
+                }
+                // --- End file size validation ---
 
                 validated++;
 
