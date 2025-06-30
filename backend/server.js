@@ -7,6 +7,8 @@ const { SERVER_CONFIG, DB_CONFIG, DOWNLOAD_CONFIG } = require('./config/constant
 const { validateDatabase, dbPool } = require('./config/database');
 const logger = require('./utils/logger');
 const { timeoutMiddleware } = require('./middleware/timeout');
+const fs = require('fs');
+const dotenvPath = require('path').join(__dirname, '.env');
 
 // Import services
 const databaseService = require('./services/databaseService');
@@ -88,6 +90,27 @@ app.get('/api/v1/settings', (req, res) => {
         DB_PATH: process.env.DB_PATH,
         DOWNLOAD_BASE_DIR: process.env.DOWNLOAD_BASE_DIR
     });
+});
+
+// Update settings endpoint for frontend
+app.post('/api/v1/settings', express.json(), (req, res) => {
+    const { DB_PATH, DOWNLOAD_BASE_DIR } = req.body;
+    if (!DB_PATH && !DOWNLOAD_BASE_DIR) {
+        return res.status(400).json({ error: 'No values provided' });
+    }
+    try {
+        let envContent = fs.readFileSync(dotenvPath, 'utf-8');
+        if (DB_PATH) {
+            envContent = envContent.replace(/DB_PATH=.*/g, `DB_PATH=${DB_PATH}`);
+        }
+        if (DOWNLOAD_BASE_DIR) {
+            envContent = envContent.replace(/DOWNLOAD_BASE_DIR=.*/g, `DOWNLOAD_BASE_DIR=${DOWNLOAD_BASE_DIR}`);
+        }
+        fs.writeFileSync(dotenvPath, envContent, 'utf-8');
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Graceful shutdown handling

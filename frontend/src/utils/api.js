@@ -217,6 +217,11 @@ export const apiService = {
     const response = await api.get('/settings');
     return response.data;
   },
+
+  async updateSettings({ DB_PATH, DOWNLOAD_BASE_DIR }) {
+    const response = await api.post('/settings', { DB_PATH, DOWNLOAD_BASE_DIR });
+    return response.data;
+  },
 };
 
 export default apiService; 
