@@ -55,7 +55,7 @@ export function useErrorHandler() {
 
     // Log error if requested
     if (logError) {
-      console.error(`Error during ${operation}:`, error);
+      // Optionally send to an error reporting service here
     }
 
     // Show notification if requested

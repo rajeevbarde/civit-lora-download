@@ -32,8 +32,7 @@ export function formatDate(timestamp) {
       hour12: true
     });
   } catch (error) {
-    console.error('Error formatting date:', error);
-    return timestamp; // Return original if formatting fails
+    throw error;
   }
 }
 
@@ -132,7 +131,7 @@ export async function safeAsync(asyncFn, errorMessage = 'Operation failed', onEr
     return await asyncFn();
   } catch (error) {
     const message = error.message || errorMessage;
-    console.error('Safe async error:', message, error);
+    throw error;
     
     if (onError && typeof onError === 'function') {
       onError(error, message);

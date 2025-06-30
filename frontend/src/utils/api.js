@@ -16,8 +16,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('API Request Error:', error);
-    return Promise.reject(error);
+    throw error;
   }
 );
 
@@ -27,36 +26,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Response Error:', error);
-    
-    // Create a more detailed error message
-    let errorMessage = 'An unexpected error occurred';
-    
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
-      errorMessage = 'Network error: Cannot connect to server. Please check your connection and try again.';
-    } else if (error.code === 'ECONNABORTED') {
-      errorMessage = 'Request timeout: The server took too long to respond. Please try again.';
-    } else if (error.response?.status >= 500) {
-      errorMessage = 'Server error: The server encountered an internal error. Please try again later.';
-    } else if (error.response?.status === 404) {
-      errorMessage = 'Resource not found: The requested data could not be found.';
-    } else if (error.response?.status === 403) {
-      errorMessage = 'Access denied: You do not have permission to access this resource.';
-    } else if (error.response?.status === 401) {
-      errorMessage = 'Authentication required: Please log in again.';
-    } else if (error.response?.status >= 400) {
-      errorMessage = error.response.data?.error || `Client error: ${error.response.status} ${error.response.statusText}`;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    // Create a new error with the improved message
-    const enhancedError = new Error(errorMessage);
-    enhancedError.originalError = error;
-    enhancedError.status = error.response?.status;
-    enhancedError.statusText = error.response?.statusText;
-    
-    throw enhancedError;
+    throw error;
   }
 );
 
