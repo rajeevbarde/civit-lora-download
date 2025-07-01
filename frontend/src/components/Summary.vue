@@ -196,12 +196,83 @@
           </div>
         </div>
       </div>
+      <!-- End of File Locations section -->
+    </div>
+    <!-- Latest Updated Checkpoints Section (moved outside summary-content) -->
+    <div class="latest-checkpoints-container">
+      <div class="summary-section">
+        <div class="section-header">
+          <div class="header-content">
+            <span class="header-icon">⏰</span>
+            <div class="header-text">
+              <h2 class="section-title">Latest Updated Checkpoints</h2>
+              <p class="section-description">Recently updated checkpoints with their model and version names</p>
+            </div>
+          </div>
+        </div>
+        <div class="section-content">
+          <div v-if="loadingCheckpoints" class="loading-section">
+            <div class="loading-content">
+              <span class="loading-icon">⏳</span>
+              <span class="loading-text">Loading latest updated checkpoints...</span>
+            </div>
+          </div>
+          <div v-else-if="checkpointsError" class="error-section">
+            <div class="error-content">
+              <span class="error-icon">❌</span>
+              <h3 class="error-title">Error Loading Checkpoints</h3>
+              <p class="error-message">{{ checkpointsError }}</p>
+              <button @click="loadLatestCheckpoints" class="retry-btn">
+                <span class="btn-icon">🔄</span>
+                <span class="btn-text">Retry</span>
+              </button>
+            </div>
+          </div>
+          <div v-else-if="latestCheckpoints && latestCheckpoints.length > 0">
+            <table class="checkpoints-table">
+              <thead>
+                <tr>
+                  <th>Model Name</th>
+                  <th>Model Version</th>
+                  <th>Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(cp, idx) in latestCheckpoints" :key="idx">
+                  <td>{{ cp.modelName }}</td>
+                  <td>{{ cp.modelVersionName }}</td>
+                  <td>{{ formatRelativeTime(cp.last_updated) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="no-data-section">
+            <div class="no-data-content">
+              <span class="no-data-icon">📭</span>
+              <h3 class="no-data-title">No Recent Checkpoints</h3>
+              <p class="no-data-message">No recently updated checkpoints found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { apiService } from '../utils/api.js';
+
+function getRelativeTime(dateString) {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diff = Math.floor((now - date) / 1000); // in seconds
+  if (diff < 60) return `${diff} second${diff !== 1 ? 's' : ''} ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} min${Math.floor(diff / 60) !== 1 ? 's' : ''} ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) !== 1 ? 's' : ''} ago`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) !== 1 ? 's' : ''} ago`;
+  if (diff < 31536000) return `${Math.floor(diff / 2592000)} month${Math.floor(diff / 2592000) !== 1 ? 's' : ''} ago`;
+  return `${Math.floor(diff / 31536000)} year${Math.floor(diff / 31536000) !== 1 ? 's' : ''} ago`;
+}
 
 export default {
   name: 'LoRASummary',
@@ -213,12 +284,16 @@ export default {
       loadingPaths: false,
       pathError: null,
       savedPaths: [],
-      pathCounts: []
+      pathCounts: [],
+      latestCheckpoints: [],
+      loadingCheckpoints: false,
+      checkpointsError: null
     };
   },
   mounted() {
     this.loadMatrixData();
     this.loadPathData();
+    this.loadLatestCheckpoints();
   },
   methods: {
     async loadMatrixData() {
@@ -280,6 +355,20 @@ export default {
       return this.pathCounts.reduce((total, pathData) => {
         return total + (pathData.count || 0);
       }, 0);
+    },
+    async loadLatestCheckpoints() {
+      this.loadingCheckpoints = true;
+      this.checkpointsError = null;
+      try {
+        this.latestCheckpoints = await apiService.getLatestUpdatedCheckpoints();
+      } catch (err) {
+        this.checkpointsError = err.message || 'Failed to load latest updated checkpoints';
+      } finally {
+        this.loadingCheckpoints = false;
+      }
+    },
+    formatRelativeTime(dateString) {
+      return getRelativeTime(dateString);
     }
   }
 };
@@ -1036,5 +1125,31 @@ export default {
     font-size: 0.875rem;
     min-width: 50px;
   }
+}
+
+.checkpoints-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+.checkpoints-table th, .checkpoints-table td {
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+.checkpoints-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+.checkpoints-table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.latest-checkpoints-container {
+  max-width: 1400px;
+  margin: 32px auto 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 </style> 

@@ -68,6 +68,7 @@
       <div class="logs-section">
         <h2>Log Files</h2>
         <button @click="clearAllLogs" class="clear-logs-btn">Clear All Logs</button>
+        <button class="reset-db-btn">Reset database</button>
         <ul>
           <li v-for="file in logFiles" :key="file.name">
             {{ file.name }} ({{ formatFileSize(file.size) }})
@@ -278,6 +279,20 @@ button:hover {
   cursor: pointer;
 }
 .clear-logs-btn:hover {
+  background: #c53030;
+}
+.reset-db-btn {
+  margin-bottom: 1rem;
+  margin-left: 1rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.reset-db-btn:hover {
   background: #c53030;
 }
 .loading {

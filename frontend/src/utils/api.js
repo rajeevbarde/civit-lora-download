@@ -248,6 +248,14 @@ export const apiService = {
     });
     return response.data;
   },
+
+  async getLatestUpdatedCheckpoints(limit = 10, options = {}) {
+    const response = await api.get('/models/latest-updated-checkpoints', {
+      params: { limit },
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

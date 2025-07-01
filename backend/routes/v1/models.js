@@ -77,4 +77,16 @@ router.get('/download-matrix', async (req, res) => {
     }
 });
 
+// Get latest updated checkpoints
+router.get('/latest-updated-checkpoints', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 10;
+        const result = await databaseService.getLatestUpdatedCheckpoints(limit);
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting latest updated checkpoints:', error);
+        res.status(500).json({ error: 'Failed to get latest updated checkpoints' });
+    }
+});
+
 module.exports = router; 
