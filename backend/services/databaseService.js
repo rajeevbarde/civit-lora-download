@@ -523,7 +523,7 @@ class DatabaseService {
     // Get the latest updated checkpoints
     async getLatestUpdatedCheckpoints(limit = 10) {
         const query = `
-            SELECT modelName, modelVersionName, last_updated
+            SELECT modelId, modelVersionId, modelName, modelVersionName, last_updated
             FROM ALLCivitData
             WHERE last_updated IS NOT NULL
             ORDER BY last_updated DESC

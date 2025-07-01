@@ -232,15 +232,17 @@
             <table class="checkpoints-table">
               <thead>
                 <tr>
-                  <th>Model Name</th>
-                  <th>Model Version</th>
+                  <th>Model / Version</th>
                   <th>Last Updated</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(cp, idx) in latestCheckpoints" :key="idx">
-                  <td>{{ cp.modelName }}</td>
-                  <td>{{ cp.modelVersionName }}</td>
+                  <td>
+                    <a :href="`/model/${cp.modelId}/${cp.modelVersionId}`" target="_blank" rel="noopener">
+                      {{ cp.modelName }} / {{ cp.modelVersionName }}
+                    </a>
+                  </td>
                   <td>{{ formatRelativeTime(cp.last_updated) }}</td>
                 </tr>
               </tbody>
@@ -263,9 +265,10 @@
 import { apiService } from '../utils/api.js';
 
 function getRelativeTime(dateString) {
+  // Parse as UTC and convert to local time
+  const utcDate = new Date(dateString + 'Z'); // Ensures UTC parsing
   const now = new Date();
-  const date = new Date(dateString);
-  const diff = Math.floor((now - date) / 1000); // in seconds
+  const diff = Math.floor((now - utcDate) / 1000); // in seconds
   if (diff < 60) return `${diff} second${diff !== 1 ? 's' : ''} ago`;
   if (diff < 3600) return `${Math.floor(diff / 60)} min${Math.floor(diff / 60) !== 1 ? 's' : ''} ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) !== 1 ? 's' : ''} ago`;
