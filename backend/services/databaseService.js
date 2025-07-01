@@ -182,7 +182,7 @@ class DatabaseService {
         let connection;
         try {
             connection = await dbPool.getConnection();
-            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelVersionId = ?', [filePath, modelVersionId]);
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ?, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ?', [filePath, modelVersionId]);
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);
@@ -219,7 +219,7 @@ class DatabaseService {
         let connection;
         try {
             connection = await dbPool.getConnection();
-            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 3 WHERE modelVersionId = ?', [modelVersionId]);
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 3, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ?', [modelVersionId]);
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);
@@ -246,7 +246,7 @@ class DatabaseService {
                     console.log(`[Register] Processing file ${i + 1}/${files.length}: ${file.baseName}`);
                     const result = await dbPool.runUpdate(
                         connection,
-                        'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE LOWER(fileName) = LOWER(?)',
+                        'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ?, last_updated = CURRENT_TIMESTAMP WHERE LOWER(fileName) = LOWER(?)',
                         [file.fullPath, file.baseName]
                     );
                     if (result && result.changes > 0) {
@@ -278,7 +278,7 @@ class DatabaseService {
             // Update the database record with isDownloaded = 1 and file_path
             const result = await dbPool.runUpdate(
                 connection,
-                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ? WHERE modelId = ? AND modelVersionId = ? AND fileName = ?',
+                'UPDATE ALLCivitData SET isDownloaded = 1, file_path = ?, last_updated = CURRENT_TIMESTAMP WHERE modelId = ? AND modelVersionId = ? AND fileName = ?',
                 [fullPath, modelId, modelVersionId, fileName]
             );
             

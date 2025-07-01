@@ -45,6 +45,7 @@ ORDER BY temp_table.modelVersionDownloadCount DESC;
 -- Add new columns after table creation
 ALTER TABLE ALLCivitData ADD COLUMN isDownloaded INTEGER;
 ALTER TABLE ALLCivitData ADD COLUMN file_path TEXT;
+ALTER TABLE ALLCivitData ADD COLUMN last_updated DATETIME;
 
 CREATE INDEX idx_modelVersionId ON ALLCivitData(modelVersionId);
 CREATE INDEX idx_basemodel ON ALLCivitData(basemodel);
