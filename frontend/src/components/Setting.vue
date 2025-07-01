@@ -1,27 +1,50 @@
 <template>
-  <div class="setting-page">
-    <h1>Settings</h1>
-    <div v-if="error" class="error">{{ error }}</div>
-    <div v-else>
-      <form @submit.prevent="saveSettings">
-        <div class="form-group">
-          <label for="dbPath">DB Path:</label>
-          <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input id="dbPath" v-model="dbPathInput" type="text" @input="onDbPathInput" />
-            <button type="button" @click="verifyDbPath">Verify</button>
-            <span v-if="latestPublishedAt" class="latest-published-at">Data is latest up to: {{ new Date(latestPublishedAt).toLocaleString() }}</span>
+  <div class="settings-page">
+    <!-- Settings Header -->
+    <div class="settings-main-header">
+      <span class="settings-main-icon">⚙️</span>
+      <div>
+        <h2 class="settings-main-title">Settings</h2>
+        <p class="settings-main-subtitle">Configure your application and manage logs</p>
+      </div>
+    </div>
+
+    <div class="settings-sections">
+      <!-- DB Path Section -->
+      <div class="settings-card">
+        <div class="settings-section-header">
+          <span class="section-icon">🗄️</span>
+          <div>
+            <h3 class="section-title gradient-text">Database Path</h3>
+            <p class="section-subtitle">Set and verify your SQLite database file</p>
           </div>
-          <div v-if="verifyLoading" class="loading">Verifying database...</div>
+        </div>
+        <div class="settings-section-content">
+          <div class="input-row">
+            <input id="dbPath" v-model="dbPathInput" type="text" @input="onDbPathInput" class="settings-input" placeholder="Enter database file path" />
+            <button type="button" class="settings-btn verify-btn" @click="verifyDbPath">
+              <span class="btn-icon">🔍</span>
+              <span class="btn-text">Verify</span>
+            </button>
+          </div>
+          <div v-if="latestPublishedAt" class="latest-published-at">
+            <span class="published-icon">📅</span>
+            Data is latest up to: {{ new Date(latestPublishedAt).toLocaleString() }}
+          </div>
+          <div v-if="verifyLoading" class="state-row loading-row">
+            <span class="state-icon">⏳</span>
+            <span>Verifying database...</span>
+          </div>
           <div v-if="verifyResult" class="verify-result">
-            <h3>Verification Result</h3>
-            <ul>
-              <li><b>File Exists:</b> {{ verifyResult.fileExists ? 'Yes' : 'No' }}</li>
-              <li><b>Table Exists:</b> {{ verifyResult.tableExists ? 'Yes' : 'No' }}</li>
-              <li><b>Schema Matches:</b> {{ verifyResult.schemaMatches ? 'Yes' : 'No' }}</li>
+            <ul class="verify-list">
+              <li><b>File Exists:</b> <span :class="verifyResult.fileExists ? 'ok' : 'fail'">{{ verifyResult.fileExists ? 'Yes' : 'No' }}</span></li>
+              <li><b>Table Exists:</b> <span :class="verifyResult.tableExists ? 'ok' : 'fail'">{{ verifyResult.tableExists ? 'Yes' : 'No' }}</span></li>
+              <li><b>Schema Matches:</b> <span :class="verifyResult.schemaMatches ? 'ok' : 'fail'">{{ verifyResult.schemaMatches ? 'Yes' : 'No' }}</span></li>
               <li><b>Indexes:</b>
                 <ul>
                   <li v-for="idx in verifyResult.indexResults" :key="idx.name">
-                    {{ idx.name }}: <span :style="{color: idx.exists && idx.match !== false ? 'green' : 'red'}">
+                    <span class="index-icon">📑</span> {{ idx.name }}:
+                    <span :class="idx.exists && idx.match !== false ? 'ok' : 'fail'">
                       {{ idx.exists ? (idx.match !== false ? 'OK' : 'Columns mismatch') : 'Missing' }}
                     </span>
                     <span v-if="idx.exists && idx.match === false">
@@ -31,51 +54,113 @@
                 </ul>
               </li>
             </ul>
-            <div v-if="verifyResult.errors && verifyResult.errors.length" class="error">
+            <div v-if="verifyResult.errors && verifyResult.errors.length" class="state-row error-row">
+              <span class="state-icon">⚠️</span>
               <b>Errors:</b>
               <ul>
                 <li v-for="err in verifyResult.errors" :key="err">{{ err }}</li>
               </ul>
             </div>
-            <div style="margin-top: 1rem;">
+            <div class="verify-actions">
               <button
                 v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.schemaMatches && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
                 type="button"
+                class="settings-btn save-btn"
                 @click="saveDbPath"
                 :disabled="dbPathInput === dbPath"
               >
-                Save DB Path
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">Save DB Path</span>
               </button>
-              <span v-if="dbPathSaveSuccess" class="success">DB path saved!<br /><span class="restart-msg">Please restart the application for changes to take effect.</span></span>
-              <span v-if="dbPathSaveError" class="error">{{ dbPathSaveError }}</span>
+              <span v-if="dbPathSaveSuccess" class="state-row success-row">
+                <span class="state-icon">✅</span>
+                DB path saved! <span class="restart-msg">Please restart the application for changes to take effect.</span>
+              </span>
+              <span v-if="dbPathSaveError" class="state-row error-row">
+                <span class="state-icon">❌</span>
+                {{ dbPathSaveError }}
+              </span>
             </div>
           </div>
         </div>
-        <div class="form-group">
-          <label for="downloadBaseDir">Download Base Dir:</label>
-          <input id="downloadBaseDir" v-model="downloadBaseDirInput" type="text" />
-        </div>
-        <div class="form-group">
-          <label for="civitaiToken">CivitAI Token:</label>
-          <input id="civitaiToken" v-model="civitaiTokenInput" type="text" />
-        </div>
-        <button type="submit">Save</button>
-      </form>
-      <div v-if="success" class="success">
-        Settings updated!<br />
-        <span class="restart-msg">Please restart the application for changes to take effect.</span>
       </div>
-      <div class="logs-section">
-        <h2>Log Files</h2>
-        <button @click="clearAllLogs" class="clear-logs-btn">Clear All Logs</button>
-        <button class="reset-db-btn">Reset database</button>
-        <ul>
+
+      <!-- Download Base Dir Section -->
+      <div class="settings-card">
+        <div class="settings-section-header">
+          <span class="section-icon">📂</span>
+          <div>
+            <h3 class="section-title gradient-text">Download Base Directory</h3>
+            <p class="section-subtitle">Set the base directory for downloads</p>
+          </div>
+        </div>
+        <div class="settings-section-content">
+          <input id="downloadBaseDir" v-model="downloadBaseDirInput" type="text" class="settings-input" placeholder="Enter download base directory" />
+        </div>
+      </div>
+
+      <!-- CivitAI Token Section -->
+      <div class="settings-card">
+        <div class="settings-section-header">
+          <span class="section-icon">🔑</span>
+          <div>
+            <h3 class="section-title gradient-text">CivitAI Token</h3>
+            <p class="section-subtitle">Set your CivitAI API token for authenticated requests</p>
+          </div>
+        </div>
+        <div class="settings-section-content">
+          <input id="civitaiToken" v-model="civitaiTokenInput" type="text" class="settings-input" placeholder="Enter CivitAI token" />
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <div class="settings-card save-section">
+        <button type="button" class="settings-btn save-btn" @click="saveSettings">
+          <span class="btn-icon">💾</span>
+          <span class="btn-text">Save All Settings</span>
+        </button>
+        <div v-if="success" class="state-row success-row">
+          <span class="state-icon">✅</span>
+          Settings updated! <span class="restart-msg">Please restart the application for changes to take effect.</span>
+        </div>
+        <div v-if="error && !verifyLoading" class="state-row error-row">
+          <span class="state-icon">❌</span>
+          {{ error }}
+        </div>
+      </div>
+
+      <!-- Logs Section -->
+      <div class="settings-card logs-section">
+        <div class="settings-section-header">
+          <span class="section-icon">📝</span>
+          <div>
+            <h3 class="section-title gradient-text">Log Files</h3>
+            <p class="section-subtitle">Manage and clear your application logs</p>
+          </div>
+        </div>
+        <div class="logs-actions">
+          <button @click="clearAllLogs" class="settings-btn clear-logs-btn">
+            <span class="btn-icon">🗑️</span>
+            <span class="btn-text">Clear All Logs</span>
+          </button>
+          <button class="settings-btn reset-db-btn">
+            <span class="btn-icon">♻️</span>
+            <span class="btn-text">Reset database</span>
+          </button>
+        </div>
+        <ul class="logs-list">
           <li v-for="file in logFiles" :key="file.name">
-            {{ file.name }} ({{ formatFileSize(file.size) }})
+            <span class="logfile-icon">📄</span> {{ file.name }} <span class="logfile-size">({{ formatFileSize(file.size) }})</span>
           </li>
         </ul>
-        <div v-if="logSuccess" class="success">All logs cleared!</div>
-        <div v-if="logError" class="error">{{ logError }}</div>
+        <div v-if="logSuccess" class="state-row success-row">
+          <span class="state-icon">✅</span>
+          All logs cleared!
+        </div>
+        <div v-if="logError" class="state-row error-row">
+          <span class="state-icon">❌</span>
+          {{ logError }}
+        </div>
       </div>
     </div>
   </div>
@@ -218,33 +303,203 @@ export default {
 </script>
 
 <style scoped>
-.setting-page {
-  padding: 2rem;
+.settings-page {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 100vh;
+  padding: 0 0 2rem 0;
 }
-.form-group {
-  margin-bottom: 1rem;
+.settings-main-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 2.5rem 0 2rem 0;
+  max-width: 900px;
+  margin: 0 auto 2rem auto;
+  border-radius: 0 0 24px 24px;
+  background: linear-gradient(90deg, #667eea 0%, #5eead4 100%);
+  box-shadow: 0 2px 12px 0 rgba(102, 126, 234, 0.08);
 }
-input[type="text"] {
-  width: 100%;
+.settings-main-icon {
+  font-size: 2.5rem;
+  background: white;
+  border-radius: 50%;
   padding: 0.5rem;
-  margin-top: 0.25rem;
-  box-sizing: border-box;
+  box-shadow: 0 2px 8px 0 rgba(102, 126, 234, 0.10);
 }
-button {
-  padding: 0.5rem 1.5rem;
+.settings-main-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #22223b;
+  margin: 0;
+}
+.settings-main-subtitle {
+  font-size: 1.1rem;
+  color: #334155;
+  margin: 0;
+}
+.settings-sections {
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+.settings-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px 0 rgba(102, 126, 234, 0.10);
+  padding: 2rem 2.5rem;
+  margin-bottom: 0;
+}
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+.section-icon {
+  font-size: 1.7rem;
+  background: #f8fafc;
+  border-radius: 50%;
+  padding: 0.5rem;
+  box-shadow: 0 2px 8px 0 rgba(102, 126, 234, 0.08);
+}
+.section-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+}
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.section-subtitle {
   font-size: 1rem;
-  background: #667eea;
+  color: #6c757d;
+  margin: 0;
+  font-weight: 400;
+}
+.settings-section-content {
+  margin-bottom: 0.5rem;
+}
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.settings-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  background: #f8fafc;
+  color: #495057;
+  transition: all 0.3s ease;
+}
+.settings-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: #fff;
+}
+.settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: 8px;
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  min-width: 140px;
+  justify-content: center;
 }
-button:hover {
-  background: #5a67d8;
+.settings-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
-.success {
-  color: green;
-  margin-top: 1rem;
+.settings-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.verify-btn {
+  background: linear-gradient(135deg, #fbbf24 0%, #f472b6 100%);
+  color: #22223b;
+}
+.verify-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e42 0%, #ec4899 100%);
+}
+.save-btn {
+  margin-top: 0.5rem;
+}
+.clear-logs-btn, .reset-db-btn {
+  background: linear-gradient(135deg, #f43f5e 0%, #fbbf24 100%);
+  color: #22223b;
+}
+.clear-logs-btn:hover, .reset-db-btn:hover {
+  background: linear-gradient(135deg, #be185d 0%, #f59e42 100%);
+}
+.logs-actions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+.logs-list {
+  margin: 0 0 1.2rem 0;
+  padding: 0 0 0 1.2rem;
+  font-size: 1.05rem;
+}
+.logfile-icon {
+  margin-right: 0.4rem;
+}
+.logfile-size {
+  color: #64748b;
+  font-size: 0.98rem;
+  margin-left: 0.3rem;
+}
+.state-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.08rem;
+  margin-top: 1.2rem;
+}
+.success-row {
+  color: #059669;
+}
+.error-row {
+  color: #e11d48;
+}
+.loading-row {
+  color: #6366f1;
+}
+.state-icon {
+  font-size: 1.3rem;
+}
+.ok {
+  color: #059669;
+  font-weight: 600;
+}
+.fail {
+  color: #e11d48;
+  font-weight: 600;
+}
+.index-icon {
+  margin-right: 0.3rem;
+}
+.verify-list {
+  margin: 0 0 0.5rem 0;
+  padding: 0 0 0 1.2rem;
+  font-size: 1.05rem;
 }
 .restart-msg {
   color: #b7791f;
@@ -252,63 +507,16 @@ button:hover {
   display: block;
   margin-top: 0.5rem;
 }
-.error {
-  color: red;
-  margin-top: 1rem;
-}
-.current-values {
-  margin-top: 2rem;
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 8px;
-}
-.logs-section {
-  margin-top: 2rem;
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 8px;
-}
-.clear-logs-btn {
-  margin-bottom: 1rem;
-  padding: 0.5rem 1.5rem;
-  font-size: 1rem;
-  background: #e53e3e;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.clear-logs-btn:hover {
-  background: #c53030;
-}
-.reset-db-btn {
-  margin-bottom: 1rem;
-  margin-left: 1rem;
-  padding: 0.5rem 1.5rem;
-  font-size: 1rem;
-  background: #e53e3e;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.reset-db-btn:hover {
-  background: #c53030;
-}
-.loading {
-  margin-top: 1rem;
-  color: #667eea;
-  font-size: 1rem;
-}
-.verify-result {
-  margin-top: 1rem;
-  background: #f5f5f5;
-  padding: 1rem;
-  border-radius: 8px;
-}
-.latest-published-at {
-  margin-left: 1rem;
-  color: #555;
-  font-size: 0.95rem;
+@media (max-width: 700px) {
+  .settings-main-header, .settings-sections, .settings-card, .logs-section {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  .settings-main-header, .settings-sections {
+    max-width: 100vw;
+  }
+  .settings-card, .logs-section {
+    padding: 1.2rem 1rem 1.2rem 1rem;
+  }
 }
 </style> 
