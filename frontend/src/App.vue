@@ -4,8 +4,10 @@
     <nav class="main-nav">
       <div class="nav-container">
         <div class="nav-brand">
-          <span class="brand-icon">🎨</span>
-          <span class="brand-text">LoRA Organiser</span>
+          <router-link to="/" style="display: flex; align-items: center; gap: 0.75rem; text-decoration: none;">
+            <span class="brand-icon">🎨</span>
+            <span class="brand-text">LoRA Organiser</span>
+          </router-link>
         </div>
         <div class="nav-links">
           <router-link to="/summary" class="nav-link">
