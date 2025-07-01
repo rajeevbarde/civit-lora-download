@@ -407,19 +407,19 @@ class DatabaseService {
             { name: 'fileName', type: 'TEXT' },
             { name: 'fileType', type: 'TEXT' },
             { name: 'fileDownloadUrl', type: 'TEXT' },
-            { name: 'size_in_gb', type: null }, // SQLite allows dynamic typing
+            { name: 'size_in_gb', type: null },
             { name: 'publishedAt', type: 'TEXT' },
             { name: 'tags', type: null },
             { name: 'isDownloaded', type: 'INTEGER' },
             { name: 'file_path', type: 'TEXT' },
         ];
         const expectedIndexes = [
-            { name: 'idx_modelVersionId', columns: ['modelVersionId'] },
-            { name: 'idx_basemodel', columns: ['basemodel'] },
-            { name: 'idx_isDownloaded', columns: ['isDownloaded'] },
-            { name: 'idx_fileName', columns: ['fileName'] },
-            { name: 'idx_modelNsfw', columns: ['modelNsfw'] },
-            { name: 'idx_modelversionnsfwlevel', columns: ['modelVersionNsfwLevel'] },
+            { columns: ['modelVersionId'] },
+            { columns: ['basemodel'] },
+            { columns: ['isDownloaded'] },
+            { columns: ['fileName'] },
+            { columns: ['modelNsfw'] },
+            { columns: ['modelVersionNsfwLevel'] },
         ];
         const result = {
             fileExists: false,
@@ -469,32 +469,32 @@ class DatabaseService {
                 }
             }
             result.schemaMatches = schemaOk;
-            // Check indexes
+            // Check indexes (focus on columns, not index name)
             const indexRows = await new Promise((resolve, reject) => {
                 db.all("PRAGMA index_list('ALLCivitData')", (err, rows) => {
                     if (err) return reject(err);
                     resolve(rows);
                 });
             });
-            for (const idx of expectedIndexes) {
-                const foundIdx = indexRows.find(r => r.name === idx.name);
-                if (!foundIdx) {
-                    result.indexResults.push({ name: idx.name, exists: false, columns: idx.columns, error: 'Index not found' });
-                    result.errors.push(`Missing index: ${idx.name}`);
-                    continue;
-                }
-                // Check columns in index
+            // Gather all index columns
+            let allIndexes = [];
+            for (const idxRow of indexRows) {
                 const idxInfo = await new Promise((resolve, reject) => {
-                    db.all(`PRAGMA index_info('${idx.name}')`, (err, rows) => {
+                    db.all(`PRAGMA index_info('${idxRow.name}')`, (err, rows) => {
                         if (err) return reject(err);
                         resolve(rows);
                     });
                 });
-                const idxCols = idxInfo.map(r => r.name);
-                const match = JSON.stringify(idxCols) === JSON.stringify(idx.columns);
-                result.indexResults.push({ name: idx.name, exists: true, columns: idxCols, match, expected: idx.columns });
-                if (!match) {
-                    result.errors.push(`Index ${idx.name} columns mismatch: expected [${idx.columns}], got [${idxCols}]`);
+                allIndexes.push({ name: idxRow.name, columns: idxInfo.map(r => r.name) });
+            }
+            for (const expected of expectedIndexes) {
+                // Find any index with the same columns (order and set match)
+                const found = allIndexes.find(idx => idx.columns.length === expected.columns.length && idx.columns.every((col, i) => col === expected.columns[i]));
+                if (found) {
+                    result.indexResults.push({ columns: expected.columns, exists: true, indexName: found.name });
+                } else {
+                    result.indexResults.push({ columns: expected.columns, exists: false });
+                    result.errors.push(`Missing index on columns: [${expected.columns.join(', ')}]`);
                 }
             }
             db.close();
