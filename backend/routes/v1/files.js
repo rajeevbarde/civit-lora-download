@@ -179,6 +179,20 @@ router.post('/register-lora', async (req, res) => {
     }
 });
 
+// Verify DB file, table, schema, and indexes
+router.post('/verify-db', async (req, res) => {
+    try {
+        const { dbPath } = req.body;
+        if (!dbPath) {
+            return res.status(400).json({ error: 'dbPath is required' });
+        }
+        const result = await databaseService.verifyAllCivitDataSchemaAndIndexes(dbPath);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get safetensor counts for saved paths
 router.get('/safetensor-counts', async (req, res) => {
     try {

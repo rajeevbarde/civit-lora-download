@@ -10,6 +10,33 @@
             <input id="dbPath" v-model="dbPathInput" type="text" />
             <button type="button" @click="verifyDbPath">Verify</button>
           </div>
+          <div v-if="verifyLoading" class="loading">Verifying database...</div>
+          <div v-if="verifyResult" class="verify-result">
+            <h3>Verification Result</h3>
+            <ul>
+              <li><b>File Exists:</b> {{ verifyResult.fileExists ? 'Yes' : 'No' }}</li>
+              <li><b>Table Exists:</b> {{ verifyResult.tableExists ? 'Yes' : 'No' }}</li>
+              <li><b>Schema Matches:</b> {{ verifyResult.schemaMatches ? 'Yes' : 'No' }}</li>
+              <li><b>Indexes:</b>
+                <ul>
+                  <li v-for="idx in verifyResult.indexResults" :key="idx.name">
+                    {{ idx.name }}: <span :style="{color: idx.exists && idx.match !== false ? 'green' : 'red'}">
+                      {{ idx.exists ? (idx.match !== false ? 'OK' : 'Columns mismatch') : 'Missing' }}
+                    </span>
+                    <span v-if="idx.exists && idx.match === false">
+                      (Expected: [{{ idx.expected.join(', ') }}], Got: [{{ idx.columns.join(', ') }}])
+                    </span>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+            <div v-if="verifyResult.errors && verifyResult.errors.length" class="error">
+              <b>Errors:</b>
+              <ul>
+                <li v-for="err in verifyResult.errors" :key="err">{{ err }}</li>
+              </ul>
+            </div>
+          </div>
         </div>
         <div class="form-group">
           <label for="downloadBaseDir">Download Base Dir:</label>
@@ -58,6 +85,8 @@ export default {
     const logFiles = ref([]);
     const logSuccess = ref(false);
     const logError = ref('');
+    const verifyResult = ref(null);
+    const verifyLoading = ref(false);
 
     async function loadSettings() {
       try {
@@ -93,7 +122,19 @@ export default {
     }
 
     function verifyDbPath() {
-      // Placeholder for future DB path verification logic
+      verifyResult.value = null;
+      verifyLoading.value = true;
+      error.value = '';
+      apiService.verifyDbFileSchema(dbPathInput.value)
+        .then(result => {
+          verifyResult.value = result;
+        })
+        .catch(err => {
+          error.value = err.message || 'Verification failed';
+        })
+        .finally(() => {
+          verifyLoading.value = false;
+        });
     }
 
     function formatFileSize(size) {
@@ -122,7 +163,7 @@ export default {
 
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading };
   }
 };
 </script>
@@ -190,5 +231,16 @@ button:hover {
 }
 .clear-logs-btn:hover {
   background: #c53030;
+}
+.loading {
+  margin-top: 1rem;
+  color: #667eea;
+  font-size: 1rem;
+}
+.verify-result {
+  margin-top: 1rem;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 8px;
 }
 </style> 

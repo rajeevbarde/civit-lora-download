@@ -380,6 +380,129 @@ class DatabaseService {
             }
         }
     }
+
+    /**
+     * Verifies the ALLCivitData table and its indexes/schema in the given SQLite DB file.
+     * @param {string} dbPath - Path to the SQLite database file.
+     * @returns {Promise<Object>} - Result object with details for file, table, schema, and indexes.
+     */
+    async verifyAllCivitDataSchemaAndIndexes(dbPath) {
+        const fs = require('fs');
+        const sqlite3 = require('sqlite3').verbose();
+        const expectedSchema = [
+            { name: 'modelId', type: 'INT' },
+            { name: 'modelName', type: 'TEXT' },
+            { name: 'modelDescription', type: 'TEXT' },
+            { name: 'modelType', type: 'TEXT' },
+            { name: 'modelNsfw', type: 'NUM' },
+            { name: 'modelNsfwLevel', type: 'INT' },
+            { name: 'modelDownloadCount', type: 'INT' },
+            { name: 'modelVersionId', type: 'INT' },
+            { name: 'modelVersionName', type: 'TEXT' },
+            { name: 'modelVersionDescription', type: 'TEXT' },
+            { name: 'basemodel', type: 'TEXT' },
+            { name: 'basemodeltype', type: 'TEXT' },
+            { name: 'modelVersionNsfwLevel', type: 'INT' },
+            { name: 'modelVersionDownloadCount', type: 'INT' },
+            { name: 'fileName', type: 'TEXT' },
+            { name: 'fileType', type: 'TEXT' },
+            { name: 'fileDownloadUrl', type: 'TEXT' },
+            { name: 'size_in_gb', type: null }, // SQLite allows dynamic typing
+            { name: 'publishedAt', type: 'TEXT' },
+            { name: 'tags', type: null },
+            { name: 'isDownloaded', type: 'INTEGER' },
+            { name: 'file_path', type: 'TEXT' },
+        ];
+        const expectedIndexes = [
+            { name: 'idx_modelVersionId', columns: ['modelVersionId'] },
+            { name: 'idx_basemodel', columns: ['basemodel'] },
+            { name: 'idx_isDownloaded', columns: ['isDownloaded'] },
+            { name: 'idx_fileName', columns: ['fileName'] },
+            { name: 'idx_modelNsfw', columns: ['modelNsfw'] },
+            { name: 'idx_modelversionnsfwlevel', columns: ['modelVersionNsfwLevel'] },
+        ];
+        const result = {
+            fileExists: false,
+            tableExists: false,
+            schemaMatches: false,
+            indexResults: [],
+            errors: [],
+        };
+        try {
+            if (!fs.existsSync(dbPath)) {
+                result.errors.push(`File does not exist: ${dbPath}`);
+                return result;
+            }
+            result.fileExists = true;
+            const db = new sqlite3.Database(dbPath);
+            // Check table exists
+            const tableInfo = await new Promise((resolve, reject) => {
+                db.all("SELECT name FROM sqlite_master WHERE type='table' AND name='ALLCivitData'", (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows);
+                });
+            });
+            if (!tableInfo || tableInfo.length === 0) {
+                result.errors.push('Table ALLCivitData does not exist');
+                db.close();
+                return result;
+            }
+            result.tableExists = true;
+            // Check schema
+            const pragma = await new Promise((resolve, reject) => {
+                db.all("PRAGMA table_info('ALLCivitData')", (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows);
+                });
+            });
+            // Compare columns
+            let schemaOk = true;
+            for (let i = 0; i < expectedSchema.length; i++) {
+                const col = expectedSchema[i];
+                const found = pragma.find(r => r.name === col.name);
+                if (!found) {
+                    schemaOk = false;
+                    result.errors.push(`Missing column: ${col.name}`);
+                } else if (col.type && found.type.toUpperCase() !== col.type) {
+                    schemaOk = false;
+                    result.errors.push(`Column ${col.name} type mismatch: expected ${col.type}, got ${found.type}`);
+                }
+            }
+            result.schemaMatches = schemaOk;
+            // Check indexes
+            const indexRows = await new Promise((resolve, reject) => {
+                db.all("PRAGMA index_list('ALLCivitData')", (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows);
+                });
+            });
+            for (const idx of expectedIndexes) {
+                const foundIdx = indexRows.find(r => r.name === idx.name);
+                if (!foundIdx) {
+                    result.indexResults.push({ name: idx.name, exists: false, columns: idx.columns, error: 'Index not found' });
+                    result.errors.push(`Missing index: ${idx.name}`);
+                    continue;
+                }
+                // Check columns in index
+                const idxInfo = await new Promise((resolve, reject) => {
+                    db.all(`PRAGMA index_info('${idx.name}')`, (err, rows) => {
+                        if (err) return reject(err);
+                        resolve(rows);
+                    });
+                });
+                const idxCols = idxInfo.map(r => r.name);
+                const match = JSON.stringify(idxCols) === JSON.stringify(idx.columns);
+                result.indexResults.push({ name: idx.name, exists: true, columns: idxCols, match, expected: idx.columns });
+                if (!match) {
+                    result.errors.push(`Index ${idx.name} columns mismatch: expected [${idx.columns}], got [${idxCols}]`);
+                }
+            }
+            db.close();
+        } catch (err) {
+            result.errors.push(err.message);
+        }
+        return result;
+    }
 }
 
 module.exports = new DatabaseService(); 

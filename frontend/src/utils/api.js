@@ -232,6 +232,14 @@ export const apiService = {
     const response = await api.post('/clear-logs');
     return response.data;
   },
+
+  // Verify DB file, table, schema, and indexes
+  async verifyDbFileSchema(dbPath, options = {}) {
+    const response = await api.post('/files/verify-db', { dbPath }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 
