@@ -503,6 +503,22 @@ class DatabaseService {
         }
         return result;
     }
+
+    // Get the latest publishedAt value from ALLCivitData
+    async getLatestPublishedAt() {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const row = await dbPool.runQuerySingle(connection, "SELECT publishedAt FROM ALLCivitData WHERE publishedAt IS NOT NULL ORDER BY publishedAt DESC LIMIT 1");
+            return row ? row.publishedAt : null;
+        } catch (err) {
+            return null;
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

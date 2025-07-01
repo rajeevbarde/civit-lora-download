@@ -7,8 +7,9 @@
         <div class="form-group">
           <label for="dbPath">DB Path:</label>
           <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <input id="dbPath" v-model="dbPathInput" type="text" />
+            <input id="dbPath" v-model="dbPathInput" type="text" @input="onDbPathInput" />
             <button type="button" @click="verifyDbPath">Verify</button>
+            <span v-if="latestPublishedAt" class="latest-published-at">Data is latest up to: {{ new Date(latestPublishedAt).toLocaleString() }}</span>
           </div>
           <div v-if="verifyLoading" class="loading">Verifying database...</div>
           <div v-if="verifyResult" class="verify-result">
@@ -35,6 +36,18 @@
               <ul>
                 <li v-for="err in verifyResult.errors" :key="err">{{ err }}</li>
               </ul>
+            </div>
+            <div style="margin-top: 1rem;">
+              <button
+                v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.schemaMatches && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
+                type="button"
+                @click="saveDbPath"
+                :disabled="dbPathInput === dbPath"
+              >
+                Save DB Path
+              </button>
+              <span v-if="dbPathSaveSuccess" class="success">DB path saved!<br /><span class="restart-msg">Please restart the application for changes to take effect.</span></span>
+              <span v-if="dbPathSaveError" class="error">{{ dbPathSaveError }}</span>
             </div>
           </div>
         </div>
@@ -87,6 +100,9 @@ export default {
     const logError = ref('');
     const verifyResult = ref(null);
     const verifyLoading = ref(false);
+    const dbPathSaveSuccess = ref(false);
+    const dbPathSaveError = ref('');
+    const latestPublishedAt = ref(null);
 
     async function loadSettings() {
       try {
@@ -100,8 +116,19 @@ export default {
         // Fetch log files
         const logData = await apiService.fetchLogFiles();
         logFiles.value = logData.files || [];
+        // Fetch latest publishedAt
+        fetchLatestPublishedAt();
       } catch (err) {
         error.value = err.message || 'Failed to load settings';
+      }
+    }
+
+    async function fetchLatestPublishedAt() {
+      try {
+        const { latest } = await apiService.getLatestPublishedAt();
+        latestPublishedAt.value = latest;
+      } catch (err) {
+        latestPublishedAt.value = null;
       }
     }
 
@@ -121,6 +148,23 @@ export default {
       }
     }
 
+    async function saveDbPath() {
+      dbPathSaveSuccess.value = false;
+      dbPathSaveError.value = '';
+      try {
+        await apiService.updateSettings({ DB_PATH: dbPathInput.value });
+        dbPath.value = dbPathInput.value;
+        dbPathSaveSuccess.value = true;
+      } catch (err) {
+        dbPathSaveError.value = err.message || 'Failed to save DB path';
+      }
+    }
+
+    function onDbPathInput() {
+      dbPathSaveSuccess.value = false;
+      dbPathSaveError.value = '';
+    }
+
     function verifyDbPath() {
       verifyResult.value = null;
       verifyLoading.value = true;
@@ -128,6 +172,10 @@ export default {
       apiService.verifyDbFileSchema(dbPathInput.value)
         .then(result => {
           verifyResult.value = result;
+          // If verification is successful, refresh latest publishedAt
+          if (result.fileExists && result.tableExists && result.schemaMatches && result.indexResults.every(idx => idx.exists && idx.match !== false)) {
+            fetchLatestPublishedAt();
+          }
         })
         .catch(err => {
           error.value = err.message || 'Verification failed';
@@ -163,7 +211,7 @@ export default {
 
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError, saveDbPath, onDbPathInput, latestPublishedAt };
   }
 };
 </script>
@@ -242,5 +290,10 @@ button:hover {
   background: #f5f5f5;
   padding: 1rem;
   border-radius: 8px;
+}
+.latest-published-at {
+  margin-left: 1rem;
+  color: #555;
+  font-size: 0.95rem;
 }
 </style> 

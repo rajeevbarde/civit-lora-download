@@ -240,6 +240,14 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Get the latest publishedAt value
+  async getLatestPublishedAt(options = {}) {
+    const response = await api.get('/files/latest-published-at', {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

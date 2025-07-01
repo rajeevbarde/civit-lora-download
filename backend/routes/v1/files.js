@@ -193,6 +193,16 @@ router.post('/verify-db', async (req, res) => {
     }
 });
 
+// Get the latest publishedAt value
+router.get('/latest-published-at', async (req, res) => {
+    try {
+        const latest = await databaseService.getLatestPublishedAt();
+        res.json({ latest });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get safetensor counts for saved paths
 router.get('/safetensor-counts', async (req, res) => {
     try {
