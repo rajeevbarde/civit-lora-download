@@ -262,6 +262,13 @@ export const apiService = {
     const response = await api.post('/files/reset-db');
     return response.data;
   },
+
+  async getAllCivitDataRowCount(options = {}) {
+    const response = await api.get('/models/row-count', {
+      signal: options.signal
+    });
+    return response.data.total;
+  },
 };
 
 export default apiService; 

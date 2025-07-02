@@ -136,7 +136,7 @@
           </button>
           <button class="settings-btn reset-db-btn" @click="showResetDbDialog = true">
             <span class="btn-icon">♻️</span>
-            <span class="btn-text">Reset database</span>
+            <span class="btn-text">UnRegister All LoRAs</span>
           </button>
         </div>
         <div class="logs-list">

@@ -89,4 +89,14 @@ router.get('/latest-updated-checkpoints', async (req, res) => {
     }
 });
 
+// Get total row count from ALLCivitData
+router.get('/row-count', async (req, res) => {
+    try {
+        const total = await databaseService.getAllCivitDataRowCount();
+        res.json({ total });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

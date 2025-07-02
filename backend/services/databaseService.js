@@ -510,6 +510,20 @@ class DatabaseService {
             }
         }
     }
+
+    // Get total row count from ALLCivitData
+    async getAllCivitDataRowCount() {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const result = await dbPool.runQuerySingle(connection, 'SELECT COUNT(*) as total FROM ALLCivitData');
+            return result.total;
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 
