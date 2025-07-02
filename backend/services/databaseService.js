@@ -37,7 +37,7 @@ class DatabaseService {
                 modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
                 modelVersionId, modelVersionName, modelVersionDescription,
                 basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-                fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
+                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
             FROM ALLCivitData
             ${whereClause}
         `;
@@ -72,7 +72,7 @@ class DatabaseService {
                 modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
                 modelVersionId, modelVersionName, modelVersionDescription,
                 basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-                fileName, fileType, fileDownloadUrl, size_in_gb, publishedAt, tags, isDownloaded, file_path
+                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
             FROM ALLCivitData
             WHERE modelVersionId = ?
         `;
@@ -148,7 +148,7 @@ class DatabaseService {
     // Get downloaded files for validation
     async getDownloadedFiles() {
         const query = `
-            SELECT fileName, file_path, modelVersionId, size_in_gb
+            SELECT fileName, file_path, modelVersionId, size_in_kb
             FROM ALLCivitData
             WHERE isDownloaded = 1
         `;
@@ -195,7 +195,7 @@ class DatabaseService {
         const query = `
             SELECT 
                 modelId, modelName, modelVersionId, modelVersionName,
-                fileName, fileType, fileDownloadUrl, size_in_gb,
+                fileName, fileType, fileDownloadUrl, size_in_kb,
                 basemodel, basemodeltype, modelVersionNsfwLevel,
                 publishedAt, isDownloaded, file_path
             FROM ALLCivitData
@@ -407,7 +407,7 @@ class DatabaseService {
             { name: 'fileName', type: 'TEXT' },
             { name: 'fileType', type: 'TEXT' },
             { name: 'fileDownloadUrl', type: 'TEXT' },
-            { name: 'size_in_gb', type: null },
+            { name: 'size_in_kb', type: null },
             { name: 'publishedAt', type: 'TEXT' },
             { name: 'tags', type: null },
             { name: 'isDownloaded', type: 'INTEGER' },

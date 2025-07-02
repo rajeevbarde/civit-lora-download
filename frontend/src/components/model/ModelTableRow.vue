@@ -61,7 +61,7 @@
         class="checkbox-model"
       >
     </td>
-    <td>{{ model.size_in_gb }}</td>
+    <td>{{ (model.size_in_kb / 1024 / 1024).toFixed(2) }}</td>
     <td>{{ formatDate(model.publishedAt) }}</td>
     <td>{{ model.isDownloaded }}</td>
     <td>{{ model.file_path }}</td>

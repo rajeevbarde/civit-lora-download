@@ -208,7 +208,7 @@
                          :disabled="!canSelectModel(model)"
                          class="checkbox-model" />
                 </td>
-                <td class="size-cell">{{ convertToMB(model.size_in_gb) }}</td>
+                <td class="size-cell">{{ convertToMB(model.size_in_kb) }}</td>
                 <td class="downloads-cell">{{ model.modelVersionDownloadCount?.toLocaleString() }}</td>
                 <td class="path-cell">{{ model.file_path }}</td>
                 <td class="date-cell">{{ formatDate(model.publishedAt) }}</td>
@@ -817,9 +817,10 @@ export default {
     endOperation(operationId) {
       this.concurrentOperations.delete(operationId);
     },
-    convertToMB(gb) {
-      if (gb === null || gb === undefined) return '-';
-      return Math.round(gb * 1024) + ' MB';
+    convertToMB(kb) {
+      if (kb === null || kb === undefined) return '-';
+      const mb = kb / 1024;
+      return Math.round(mb) + ' MB';
     }
   }
 }

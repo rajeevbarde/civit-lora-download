@@ -218,8 +218,8 @@
               <td>{{ mismatch.modelVersionId }}</td>
               <td>{{ mismatch.file_path }}</td>
               <td>{{ mismatch.actualFileName || 'N/A' }}</td>
-              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_gb_db !== undefined ? mismatch.size_in_gb_db : '' }}</td>
-              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_gb_disk !== undefined ? mismatch.size_in_gb_disk : '' }}</td>
+              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_kb_db !== undefined ? (mismatch.size_in_kb_db / 1024 / 1024).toFixed(2) : '' }}</td>
+              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_kb_disk !== undefined ? (mismatch.size_in_kb_disk / 1024 / 1024).toFixed(2) : '' }}</td>
               <td>
                 <span class="issue-badge">{{ mismatch.issue }}</span>
                 <div v-if="mismatch.expectedFileName" class="expected-info">
@@ -568,9 +568,9 @@ export default {
       ];
     },
     hasSizeMismatchColumn() {
-      // Check if any mismatch has a size_in_gb_db or size_in_gb_disk property
+      // Check if any mismatch has a size_in_kb_db or size_in_kb_disk property
       if (!this.validationResults || !this.validationResults.mismatches) return false;
-      return this.validationResults.mismatches.some(m => m.size_in_gb_db !== undefined || m.size_in_gb_disk !== undefined);
+      return this.validationResults.mismatches.some(m => m.size_in_kb_db !== undefined || m.size_in_kb_disk !== undefined);
     },
   },
   mounted() {
