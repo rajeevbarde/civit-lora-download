@@ -2,7 +2,7 @@
   <div class="civit-data-fetcher">
     <!-- Enhanced Header Section -->
     <div class="header-section">
-      <h1 class="page-title">Orphan LoRA Identifier</h1>
+      <h1 class="page-title">Orphan & Duplicate LoRA Identifier</h1>
       <p class="page-description">
         Identify and manage orphan LoRA files by checking with CivitAI, updating the database, and renaming files as needed.
       </p>
@@ -65,13 +65,13 @@
       <div v-else>
         <div class="duplicate-tabs">
           <button :class="['duplicate-tab', { active: activeDuplicateTab === 'disk' }]" @click="activeDuplicateTab = 'disk'">
-            Duplicate on Disk ({{ duplicateOnDisk.length }})
+            Duplicate LoRA files on Harddrive ({{ duplicateOnDisk.length }})
           </button>
           <button :class="['duplicate-tab', { active: activeDuplicateTab === 'db' }]" @click="activeDuplicateTab = 'db'">
-            Duplicate in DB ({{ duplicateInDb.length }})
+            Duplicate LoRA filename in Database ({{ duplicateInDb.length }})
           </button>
           <button :class="['duplicate-tab', { active: activeDuplicateTab === 'diskdb' }]" @click="activeDuplicateTab = 'diskdb'">
-            Duplicate on Disk & DB ({{ duplicateOnDiskAndDb.length }})
+            Both ({{ duplicateOnDiskAndDb.length }})
           </button>
         </div>
         <div class="duplicate-tab-content">

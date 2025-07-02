@@ -380,7 +380,6 @@ export default {
       }
       try {
         const data = await apiService.savePathLegacy(this.directoryPath);
-        this.message = 'Path saved successfully!';
         this.errorHandler.handleSuccess('Path saved successfully');
         this.fetchSavedPaths();
         this.directoryPath = '';
@@ -405,7 +404,6 @@ export default {
     async deletePath(path) {
       try {
         const data = await apiService.deletePathLegacy(path);
-        this.message = 'Path deleted successfully!';
         this.errorHandler.handleSuccess('Path deleted successfully');
         this.fetchSavedPaths();
       } catch (error) {
