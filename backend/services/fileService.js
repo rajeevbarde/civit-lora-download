@@ -198,19 +198,17 @@ class FileService {
                 // --- New: File size validation ---
                 if (typeof size_in_kb === 'number' && !isNaN(size_in_kb)) {
                     const stats = fs.statSync(file_path);
-                    const sizeOnDiskGB = stats.size / (1024 * 1024 * 1024);
-                    const size_in_gb = size_in_kb / (1024 * 1024); // Convert KB to GB for comparison
-                    // Allow 20% difference
-                    const lowerBound = size_in_gb * 0.8;
-                    const upperBound = size_in_gb * 1.2;
-                    if (sizeOnDiskGB < lowerBound || sizeOnDiskGB > upperBound) {
+                    const sizeOnDiskKB = stats.size / 1024;
+                    // Allow 5% difference
+                    const lowerBound = size_in_kb * 0.95;
+                    const upperBound = size_in_kb * 1.05;
+                    if (sizeOnDiskKB < lowerBound || sizeOnDiskKB > upperBound) {
                         mismatches.push({
                             fileName,
                             modelVersionId,
                             file_path,
                             size_in_kb_db: size_in_kb,
-                            size_in_gb_db: parseFloat(size_in_gb.toFixed(2)),
-                            size_in_gb_disk: parseFloat(sizeOnDiskGB.toFixed(2)),
+                            size_in_kb_disk: parseFloat(sizeOnDiskKB.toFixed(2)),
                             issue: 'File size mismatch (serious difference)'
                         });
                         continue;
