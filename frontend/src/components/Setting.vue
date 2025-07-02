@@ -41,17 +41,9 @@
               <li><b>Table Exists:</b> <span :class="verifyResult.tableExists ? 'ok' : 'fail'">{{ verifyResult.tableExists ? 'Yes' : 'No' }}</span></li>
               <li><b>Schema Matches:</b> <span :class="verifyResult.schemaMatches ? 'ok' : 'fail'">{{ verifyResult.schemaMatches ? 'Yes' : 'No' }}</span></li>
               <li><b>Indexes:</b>
-                <ul>
-                  <li v-for="idx in verifyResult.indexResults" :key="idx.name">
-                    <span class="index-icon">📑</span> {{ idx.name }}:
-                    <span :class="idx.exists && idx.match !== false ? 'ok' : 'fail'">
-                      {{ idx.exists ? (idx.match !== false ? 'OK' : 'Columns mismatch') : 'Missing' }}
-                    </span>
-                    <span v-if="idx.exists && idx.match === false">
-                      (Expected: [{{ idx.expected.join(', ') }}], Got: [{{ idx.columns.join(', ') }}])
-                    </span>
-                  </li>
-                </ul>
+                <span :class="verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'ok' : 'fail'">
+                  {{ verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'Yes' : 'No' }}
+                </span>
               </li>
             </ul>
             <div v-if="verifyResult.errors && verifyResult.errors.length" class="state-row error-row">
@@ -148,11 +140,11 @@
             <span class="btn-text">Reset database</span>
           </button>
         </div>
-        <ul class="logs-list">
-          <li v-for="file in logFiles" :key="file.name">
+        <div class="logs-list">
+          <div v-for="file in logFiles" :key="file.name">
             <span class="logfile-icon">📄</span> {{ file.name }} <span class="logfile-size">({{ formatFileSize(file.size) }})</span>
-          </li>
-        </ul>
+          </div>
+        </div>
         <div v-if="logSuccess" class="state-row success-row">
           <span class="state-icon">✅</span>
           All logs cleared!
