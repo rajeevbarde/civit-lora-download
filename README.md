@@ -20,4 +20,34 @@ Easily organize and download LoRA models using a pre-scraped CivitAI database—
 
 🎉 **Congratulations!** If you can see the app's homepage as shown below with warning, your basic setup is done.
 
-![App Homepage Screenshot](docs/images/homepage_sampledb.png)
+<img src="docs/images/homepage_sampledb.png" alt="App Homepage Screenshot" width="400"/>
+
+## About the Warning Message
+
+The warning appears because this app uses a sample of a community-scraped CivitAI database (Data till May 2025). The full collection is available via a Reddit post [here](https://www.reddit.com/r/StableDiffusion/comments/1kfvt73/civitai_model_database_checkpoints_and_loras/). This just lets you know you're viewing a limited dataset.
+
+I used that database to create a new minimal version focused on LoRA models.
+
+**To use the minimal LoRA database:**
+
+1. Download the file from [this link](#) (link placeholder).
+2. Save the downloaded file in a suitable folder where you can easily find and access it later.
+3. Follow the next App configuration guide to complete the setup.
+
+## App Configuration Guide
+
+For author's App settings, see [AUTHORCONFIG.md](AUTHORCONFIG.md).
+
+### Database Path Location
+
+1. Set the full file path to the database file you downloaded in the previous steps.
+2. Press the **Verify** button to check the database file.
+3. Press the **Save DB path** button to save your configuration.
+
+![Database Path Location Screenshot](docs/images/db_path_location.png)
+
+### Download Directory and API Token
+
+1. Save the full folder path where all the LoRA files will get downloaded.
+2. Add your Civitai API token.
+3. Press the **Save All settings** button to apply your changes.
