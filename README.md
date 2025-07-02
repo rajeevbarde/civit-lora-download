@@ -20,4 +20,4 @@ Easily organize and download LoRA models using a pre-scraped CivitAI database—
 
 🎉 **Congratulations!** If you can see the app's homepage as shown below with warning, your basic setup is done.
 
-![App Homepage Screenshot](docs/images/homepage_sampledb.jpg)
+![App Homepage Screenshot](docs/images/homepage_sampledb.png)
