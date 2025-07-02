@@ -324,8 +324,9 @@
                   <th>File Name</th>
                   <th>File Paths</th>
                   <th>Hash Check</th>
-                  <th>Identify Metadata</th>
-                  <th>Actions</th>
+                  <th>Database check</th>
+                  <th>Identify metadata</th>
+                  <th>Action</th>
                   <th>Result</th>
                 </tr>
               </thead>
@@ -350,61 +351,141 @@
                     </div>
                   </td>
                   <td>
-                    <button 
-                      @click="identifyMetadataForGroup(group.filename)"
-                      :disabled="metadataLoading[group.filename] || !hashCheckedFiles.has(group.filename) || identifiedFiles.has(group.filename)"
-                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : identifiedFiles.has(group.filename) ? 'Already identified' : ''"
-                      class="metadata-btn"
+                    <button
+                      class="db-check-btn"
+                      @click="onDatabaseCheck({ fullPath: group.paths[0] })"
+                      :disabled="!hashCheckedFiles.has(group.filename) || !hashDetails[group.filename] || hashDetails[group.filename].uniqueHashes.size !== 1 || dbCheckLoading[group.paths[0]] || dbCheckedFiles.has(group.paths[0])"
+                      :title="!hashCheckedFiles.has(group.filename) ? 'Please check hash first' : (hashDetails[group.filename] && hashDetails[group.filename].uniqueHashes.size !== 1 ? 'Files must be identical in hash' : dbCheckedFiles.has(group.paths[0]) ? 'Already checked' : '')"
                     >
-                      {{ metadataLoading[group.filename] ? 'Searching...' : 'Identify' }}
+                      {{ dbCheckLoading[group.paths[0]] ? 'Checking...' : dbCheckedFiles.has(group.paths[0]) ? 'Completed' : 'Check' }}
                     </button>
-                    <div v-if="metadataResults[group.filename]" class="metadata-result">
-                      <div v-html="metadataResults[group.filename]"></div>
-                    </div>
-                  </td>
-                  <td>
-                    <!-- Actions column - show for both identical and non-identical hash files -->
-                    <div v-if="hashCheckedFiles.has(group.filename) && hashResults[group.filename] && identicalHashModels[group.filename]">
-                      <div v-for="(path, pathIdx) in group.paths" :key="pathIdx" class="action-item">
-                        <div class="file-path">{{ path }}</div>
-                        <select 
-                          v-model="selectedActions[path]" 
-                          class="action-dropdown"
-                          :disabled="!identicalHashModels[group.filename] || identicalHashModels[group.filename].length === 0"
-                        >
-                          <option 
-                            v-for="model in getModelsForPath(path, group.filename)" 
-                            :key="`${model.modelId}-${model.modelVersionId}`"
-                            :value="`${model.modelId}/${model.modelVersionId}/${model.fileName}`"
-                          >
-                            {{ model.modelId }}/{{ model.modelVersionId }}/{{ model.fileName }}
-                          </option>
-                          <option value="_duplicate">rename as _duplicate</option>
-                        </select>
+                    <div v-if="dbCheckResults[group.paths[0]]" class="db-check-result">
+                      <div v-if="dbCheckResults[group.paths[0]].success" class="db-check-success">
+                        <div class="db-check-count">Found {{ dbCheckResults[group.paths[0]].count }} model(s):</div>
+                        <div v-for="(model, index) in dbCheckResults[group.paths[0]].models" :key="index" class="model-link-item">
+                          <div class="model-link-container">
+                            <a 
+                              :href="model.url" 
+                              target="_blank" 
+                              class="model-link"
+                            >
+                              {{ model.modelId }}/{{ model.modelVersionId }}
+                            </a>
+                            <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                          </div>
+                        </div>
                       </div>
-                      <button 
-                        @click="registerActions(group.filename)"
-                        :disabled="!hasSelectedActions(group.filename)"
-                        class="register-btn"
-                      >
-                        Register
-                      </button>
+                      <div v-else class="db-check-error">
+                        {{ dbCheckResults[group.paths[0]].message }}
+                      </div>
                     </div>
                   </td>
                   <td>
-                    <!-- Result column - display registration results -->
-                    <div v-if="registrationResults[group.filename]" class="registration-result">
-                      <div v-for="(result, path) in registrationResults[group.filename]" :key="path" class="result-item">
-                        <div class="result-path"><strong>Path:</strong> {{ path }}</div>
-                        <div class="result-action"><strong>Action:</strong> {{ result.action }}</div>
-                        <div class="result-status" :class="result.status">
-                          <strong>Status:</strong> {{ result.message }}
+                    <button
+                      class="identify-metadata-btn"
+                      @click="onIdentifyMetadata({ fullPath: group.paths[0] })"
+                      :disabled="identifyMetadataLoading[group.paths[0]] || metadataIdentifiedFiles.has(group.paths[0]) || !dbCheckedFiles.has(group.paths[0])"
+                      :title="!dbCheckedFiles.has(group.paths[0]) ? 'Please complete database check first' : metadataIdentifiedFiles.has(group.paths[0]) ? 'Already identified' : ''"
+                    >
+                      {{ identifyMetadataLoading[group.paths[0]] ? 'Identifying...' : metadataIdentifiedFiles.has(group.paths[0]) ? 'Completed' : 'Identify' }}
+                    </button>
+                    <div v-if="identifyMetadataResults[group.paths[0]]" class="identify-metadata-result">
+                      <div v-html="identifyMetadataResults[group.paths[0]]"></div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="action-section">
+                      <div v-if="comparisonResults[group.paths[0]]" class="comparison-result">
+                        <div class="comparison-header">Comparison Results:</div>
+                        <div v-if="comparisonResults[group.paths[0]].status === 'both_not_found'" class="comparison-both-not-found">
+                          ❌ Not found in database or CivitAI
+                        </div>
+                        <div v-else-if="comparisonResults[group.paths[0]].status === 'only_civitai_found'" class="comparison-only-civitai">
+                          ✅ Found in CivitAI only
+                          <div class="model-info">
+                            Model: {{ comparisonResults[group.paths[0]].metadataModel.modelId }}/{{ comparisonResults[group.paths[0]].metadataModel.modelVersionId }}
+                            <span v-if="comparisonResults[group.paths[0]].isAlreadyRegistered" class="already-registered-note">(Already registered)</span>
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel({ fullPath: group.paths[0] }, comparisonResults[group.paths[0]].metadataModel)"
+                            :disabled="registrationLoading[group.paths[0]] || registeredFiles.has(group.paths[0]) || comparisonResults[group.paths[0]].isAlreadyRegistered"
+                          >
+                            {{ registrationLoading[group.paths[0]] ? 'Registering...' : 
+                               registeredFiles.has(group.paths[0]) ? 'Completed' : 
+                               comparisonResults[group.paths[0]].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
+                          </button>
+                        </div>
+                        <div v-else-if="comparisonResults[group.paths[0]].status === 'only_db_found'" class="comparison-only-db">
+                          ✅ Found in database only
+                          <div class="db-models">
+                            <div v-for="(model, index) in comparisonResults[group.paths[0]].dbModels" :key="index" class="db-model-item">
+                              <div class="model-link-container">
+                                <span>{{ model.modelId }}/{{ model.modelVersionId }}</span>
+                                <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div v-else-if="comparisonResults[group.paths[0]].status === 'match_found'" class="comparison-match">
+                          ✅ Perfect match found!
+                          <div class="match-info">
+                            Model: {{ comparisonResults[group.paths[0]].metadataModel.modelId }}/{{ comparisonResults[group.paths[0]].metadataModel.modelVersionId }}
+                            <span v-if="comparisonResults[group.paths[0]].isAlreadyRegistered" class="already-registered-note">(Already registered)</span>
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel({ fullPath: group.paths[0] }, comparisonResults[group.paths[0]].metadataModel)"
+                            :disabled="registrationLoading[group.paths[0]] || registeredFiles.has(group.paths[0]) || comparisonResults[group.paths[0]].isAlreadyRegistered"
+                          >
+                            {{ registrationLoading[group.paths[0]] ? 'Registering...' : 
+                               registeredFiles.has(group.paths[0]) ? 'Completed' : 
+                               comparisonResults[group.paths[0]].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
+                          </button>
+                        </div>
+                        <div v-else-if="comparisonResults[group.paths[0]].status === 'mismatch'" class="comparison-mismatch">
+                          ⚠️ Mismatch detected
+                          <div class="mismatch-details">
+                            <div class="civitai-model">
+                              CivitAI: {{ comparisonResults[group.paths[0]].metadataModel.modelId }}/{{ comparisonResults[group.paths[0]].metadataModel.modelVersionId }}
+                            </div>
+                            <div class="db-models">
+                              Database: 
+                              <div v-for="(model, index) in comparisonResults[group.paths[0]].dbModels" :key="index" class="db-model-item">
+                                <div class="model-link-container">
+                                  <span>{{ model.modelId }}/{{ model.modelVersionId }}</span>
+                                  <span v-if="model.isRegistered" class="registered-indicator" title="Registered (isDownloaded=1, file_path exists)">✅</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <button 
+                            class="register-btn"
+                            @click="registerModel({ fullPath: group.paths[0] }, comparisonResults[group.paths[0]].metadataModel)"
+                            :disabled="registrationLoading[group.paths[0]] || registeredFiles.has(group.paths[0]) || comparisonResults[group.paths[0]].isAlreadyRegistered"
+                          >
+                            {{ registrationLoading[group.paths[0]] ? 'Registering...' : 
+                               registeredFiles.has(group.paths[0]) ? 'Completed' : 
+                               comparisonResults[group.paths[0]].isAlreadyRegistered ? 'Already Registered' : 'Register' }}
+                          </button>
+                        </div>
+                      </div>
+                      <div v-else class="action-placeholder">
+                        Complete Check & Identify to see comparison
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div v-if="registrationResults[group.paths[0]]" class="registration-result">
+                      <div class="result-item">
+                        <div class="result-status" :class="registrationResults[group.paths[0]].status">
+                          <strong>Status:</strong> {{ registrationResults[group.paths[0]].message }}
                         </div>
                       </div>
                     </div>
                   </td>
                 </tr>
-                <tr v-if="duplicateOnDiskAndDbGrouped.length === 0"><td colspan="6" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
+                <tr v-if="duplicateOnDiskAndDbGrouped.length === 0"><td colspan="7" class="no-unique-files">No duplicates on disk & DB found.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1408,7 +1489,12 @@ export default {
     // Compare database check and metadata identification results
     comparisonResults() {
       const results = {};
-      this.duplicateInDb.forEach(file => {
+      // Include both duplicateInDb and duplicateOnDiskAndDb
+      const allFiles = [
+        ...(this.duplicateInDb || []),
+        ...(this.duplicateOnDiskAndDb || [])
+      ];
+      allFiles.forEach(file => {
         const dbCheckResult = this.dbCheckResults[file.fullPath];
         const metadataResult = this.identifyMetadataResults[file.fullPath];
         
@@ -1999,6 +2085,9 @@ h3 {
   width: 15%;
 }
 .unique-loras-table th:nth-child(6), .unique-loras-table td:nth-child(6) { /* Result */
+  width: 15%;
+}
+.unique-loras-table th:nth-child(7), .unique-loras-table td:nth-child(7) { /* Result */
   width: 15%;
 }
 .unique-loras-table th {
