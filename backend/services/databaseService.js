@@ -539,6 +539,23 @@ class DatabaseService {
             }
         }
     }
+
+    // Reset all rows in ALLCivitData: set isDownloaded=0, file_path=null, last_updated=null
+    async resetAllCivitData() {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const result = await dbPool.runUpdate(
+                connection,
+                'UPDATE ALLCivitData SET isDownloaded = 0, file_path = NULL, last_updated = NULL'
+            );
+            return { success: true, changes: result.changes };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

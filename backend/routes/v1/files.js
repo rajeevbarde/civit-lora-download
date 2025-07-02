@@ -219,4 +219,14 @@ router.get('/safetensor-counts', async (req, res) => {
     }
 });
 
+// Reset all rows in ALLCivitData
+router.post('/reset-db', async (req, res) => {
+    try {
+        const result = await databaseService.resetAllCivitData();
+        res.json({ success: true, message: 'Database reset successfully', changes: result.changes });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router; 

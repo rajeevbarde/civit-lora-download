@@ -256,6 +256,12 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Reset database
+  async resetDatabase() {
+    const response = await api.post('/files/reset-db');
+    return response.data;
+  },
 };
 
 export default apiService; 

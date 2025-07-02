@@ -143,7 +143,7 @@
             <span class="btn-icon">🗑️</span>
             <span class="btn-text">Clear All Logs</span>
           </button>
-          <button class="settings-btn reset-db-btn">
+          <button class="settings-btn reset-db-btn" @click="handleResetDatabase">
             <span class="btn-icon">♻️</span>
             <span class="btn-text">Reset database</span>
           </button>
@@ -160,6 +160,15 @@
         <div v-if="logError" class="state-row error-row">
           <span class="state-icon">❌</span>
           {{ logError }}
+        </div>
+        <!-- Reset DB Success/Error -->
+        <div v-if="resetDbSuccess" class="state-row success-row">
+          <span class="state-icon">✅</span>
+          Database reset successfully!
+        </div>
+        <div v-if="resetDbError" class="state-row error-row">
+          <span class="state-icon">❌</span>
+          {{ resetDbError }}
         </div>
       </div>
     </div>
@@ -189,6 +198,8 @@ export default {
     const dbPathSaveSuccess = ref(false);
     const dbPathSaveError = ref('');
     const latestPublishedAt = ref(null);
+    const resetDbSuccess = ref(false);
+    const resetDbError = ref('');
 
     async function loadSettings() {
       try {
@@ -295,9 +306,24 @@ export default {
       }
     }
 
+    async function handleResetDatabase() {
+      resetDbSuccess.value = false;
+      resetDbError.value = '';
+      try {
+        const result = await apiService.resetDatabase();
+        if (result.success) {
+          resetDbSuccess.value = true;
+        } else {
+          resetDbError.value = result.error || 'Failed to reset database';
+        }
+      } catch (err) {
+        resetDbError.value = err.message || 'Failed to reset database';
+      }
+    }
+
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError, saveDbPath, onDbPathInput, latestPublishedAt };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError, saveDbPath, onDbPathInput, latestPublishedAt, resetDbSuccess, resetDbError, handleResetDatabase };
   }
 };
 </script>
