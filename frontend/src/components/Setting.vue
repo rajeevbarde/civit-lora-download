@@ -143,7 +143,7 @@
             <span class="btn-icon">🗑️</span>
             <span class="btn-text">Clear All Logs</span>
           </button>
-          <button class="settings-btn reset-db-btn" @click="handleResetDatabase">
+          <button class="settings-btn reset-db-btn" @click="showResetDbDialog = true">
             <span class="btn-icon">♻️</span>
             <span class="btn-text">Reset database</span>
           </button>
@@ -169,6 +169,22 @@
         <div v-if="resetDbError" class="state-row error-row">
           <span class="state-icon">❌</span>
           {{ resetDbError }}
+        </div>
+        <!-- Reset DB Confirmation Modal -->
+        <div v-if="showResetDbDialog" class="modal-overlay">
+          <div class="modal-content">
+            <div class="modal-header">
+              <span class="modal-warning-icon">⚠️</span>
+              <span class="modal-title">Warning</span>
+            </div>
+            <div class="modal-body">
+              This will <b>unregister all Lora</b>. Are you sure you want to continue?
+            </div>
+            <div class="modal-actions">
+              <button class="modal-btn yes" @click="confirmResetDb">YES</button>
+              <button class="modal-btn cancel" @click="showResetDbDialog = false">CANCEL</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -200,6 +216,7 @@ export default {
     const latestPublishedAt = ref(null);
     const resetDbSuccess = ref(false);
     const resetDbError = ref('');
+    const showResetDbDialog = ref(false);
 
     async function loadSettings() {
       try {
@@ -321,9 +338,15 @@ export default {
       }
     }
 
+    // Called when user confirms YES
+    function confirmResetDb() {
+      showResetDbDialog.value = false;
+      handleResetDatabase();
+    }
+
     onMounted(loadSettings);
 
-    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError, saveDbPath, onDbPathInput, latestPublishedAt, resetDbSuccess, resetDbError, handleResetDatabase };
+    return { dbPath, downloadBaseDir, civitaiToken, dbPathInput, downloadBaseDirInput, civitaiTokenInput, error, success, saveSettings, verifyDbPath, logFiles, formatFileSize, clearAllLogs, logSuccess, logError, verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError, saveDbPath, onDbPathInput, latestPublishedAt, resetDbSuccess, resetDbError, handleResetDatabase, showResetDbDialog, confirmResetDb };
   }
 };
 </script>
@@ -544,5 +567,71 @@ export default {
   .settings-card, .logs-section {
     padding: 1.2rem 1rem 1.2rem 1rem;
   }
+}
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 2rem 2.5rem;
+  min-width: 320px;
+  max-width: 90vw;
+  text-align: center;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+.modal-warning-icon {
+  font-size: 2rem;
+}
+.modal-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #e11d48;
+}
+.modal-body {
+  font-size: 1.08rem;
+  margin-bottom: 1.5rem;
+}
+.modal-actions {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+.modal-btn {
+  padding: 0.7rem 1.7rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.modal-btn.yes {
+  background: linear-gradient(135deg, #f43f5e 0%, #fbbf24 100%);
+  color: #22223b;
+}
+.modal-btn.cancel {
+  background: #e5e7eb;
+  color: #22223b;
+}
+.modal-btn.yes:hover {
+  background: linear-gradient(135deg, #be185d 0%, #f59e42 100%);
+}
+.modal-btn.cancel:hover {
+  background: #cbd5e1;
 }
 </style> 
