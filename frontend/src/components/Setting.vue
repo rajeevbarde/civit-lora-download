@@ -39,7 +39,6 @@
             <ul class="verify-list">
               <li><b>File Exists:</b> <span :class="verifyResult.fileExists ? 'ok' : 'fail'">{{ verifyResult.fileExists ? 'Yes' : 'No' }}</span></li>
               <li><b>Table Exists:</b> <span :class="verifyResult.tableExists ? 'ok' : 'fail'">{{ verifyResult.tableExists ? 'Yes' : 'No' }}</span></li>
-              <li><b>Schema Matches:</b> <span :class="verifyResult.schemaMatches ? 'ok' : 'fail'">{{ verifyResult.schemaMatches ? 'Yes' : 'No' }}</span></li>
               <li><b>Indexes:</b>
                 <span :class="verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'ok' : 'fail'">
                   {{ verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'Yes' : 'No' }}
@@ -55,7 +54,7 @@
             </div>
             <div class="verify-actions">
               <button
-                v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.schemaMatches && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
+                v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
                 type="button"
                 class="settings-btn save-btn"
                 @click="saveDbPath"
@@ -279,7 +278,7 @@ export default {
         .then(result => {
           verifyResult.value = result;
           // If verification is successful, refresh latest publishedAt
-          if (result.fileExists && result.tableExists && result.schemaMatches && result.indexResults.every(idx => idx.exists && idx.match !== false)) {
+          if (result.fileExists && result.tableExists && result.indexResults.every(idx => idx.exists && idx.match !== false)) {
             fetchLatestPublishedAt();
           }
         })

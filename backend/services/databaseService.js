@@ -389,30 +389,6 @@ class DatabaseService {
     async verifyAllCivitDataSchemaAndIndexes(dbPath) {
         const fs = require('fs');
         const sqlite3 = require('sqlite3').verbose();
-        const expectedSchema = [
-            { name: 'modelId', type: 'INT' },
-            { name: 'modelName', type: 'TEXT' },
-            { name: 'modelDescription', type: 'TEXT' },
-            { name: 'modelType', type: 'TEXT' },
-            { name: 'modelNsfw', type: 'NUM' },
-            { name: 'modelNsfwLevel', type: 'INT' },
-            { name: 'modelDownloadCount', type: 'INT' },
-            { name: 'modelVersionId', type: 'INT' },
-            { name: 'modelVersionName', type: 'TEXT' },
-            { name: 'modelVersionDescription', type: 'TEXT' },
-            { name: 'basemodel', type: 'TEXT' },
-            { name: 'basemodeltype', type: 'TEXT' },
-            { name: 'modelVersionNsfwLevel', type: 'INT' },
-            { name: 'modelVersionDownloadCount', type: 'INT' },
-            { name: 'fileName', type: 'TEXT' },
-            { name: 'fileType', type: 'TEXT' },
-            { name: 'fileDownloadUrl', type: 'TEXT' },
-            { name: 'size_in_kb', type: null },
-            { name: 'publishedAt', type: 'TEXT' },
-            { name: 'tags', type: null },
-            { name: 'isDownloaded', type: 'INTEGER' },
-            { name: 'file_path', type: 'TEXT' },
-        ];
         const expectedIndexes = [
             { columns: ['modelVersionId'] },
             { columns: ['basemodel'] },
@@ -424,7 +400,6 @@ class DatabaseService {
         const result = {
             fileExists: false,
             tableExists: false,
-            schemaMatches: false,
             indexResults: [],
             errors: [],
         };
@@ -448,27 +423,6 @@ class DatabaseService {
                 return result;
             }
             result.tableExists = true;
-            // Check schema
-            const pragma = await new Promise((resolve, reject) => {
-                db.all("PRAGMA table_info('ALLCivitData')", (err, rows) => {
-                    if (err) return reject(err);
-                    resolve(rows);
-                });
-            });
-            // Compare columns
-            let schemaOk = true;
-            for (let i = 0; i < expectedSchema.length; i++) {
-                const col = expectedSchema[i];
-                const found = pragma.find(r => r.name === col.name);
-                if (!found) {
-                    schemaOk = false;
-                    result.errors.push(`Missing column: ${col.name}`);
-                } else if (col.type && found.type.toUpperCase() !== col.type) {
-                    schemaOk = false;
-                    result.errors.push(`Column ${col.name} type mismatch: expected ${col.type}, got ${found.type}`);
-                }
-            }
-            result.schemaMatches = schemaOk;
             // Check indexes (focus on columns, not index name)
             const indexRows = await new Promise((resolve, reject) => {
                 db.all("PRAGMA index_list('ALLCivitData')", (err, rows) => {
