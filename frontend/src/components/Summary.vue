@@ -6,9 +6,16 @@
       <p class="page-subtitle">Comprehensive overview of your LoRA model collection and file organization</p>
     </div>
     
+    <!-- Tab Navigation -->
+    <div class="summary-tabs">
+      <button class="tab-btn" :class="{active: activeTab === 'overview'}" @click="scrollToSection('overview')">Model Overview</button>
+      <button class="tab-btn" :class="{active: activeTab === 'locations'}" @click="scrollToSection('locations')">File Locations</button>
+      <button class="tab-btn" :class="{active: activeTab === 'lora'}" @click="scrollToSection('lora')">Latest Updated LoRA</button>
+    </div>
+    
     <div class="summary-content">
       <!-- Enhanced Download Matrix Section -->
-      <div class="summary-section">
+      <div class="summary-section" id="overview">
         <div class="section-header">
           <div class="header-content">
             <span class="header-icon">📊</span>
@@ -103,7 +110,7 @@
       </div>
       
       <!-- Enhanced Filepath Analytics Section -->
-      <div class="summary-section">
+      <div class="summary-section" id="locations">
         <div class="section-header">
           <div class="header-content">
             <span class="header-icon">📁</span>
@@ -199,14 +206,14 @@
       <!-- End of File Locations section -->
     </div>
     <!-- Latest Updated Checkpoints Section (moved outside summary-content) -->
-    <div class="latest-checkpoints-container">
+    <div class="latest-checkpoints-container" id="lora">
       <div class="summary-section">
         <div class="section-header">
           <div class="header-content">
             <span class="header-icon">⏰</span>
             <div class="header-text">
-              <h2 class="section-title">Latest Updated Checkpoints</h2>
-              <p class="section-description">Recently updated checkpoints with their model and version names</p>
+              <h2 class="section-title">Latest Updated LoRA</h2>
+              <p class="section-description">Recently updated LoRA models with their model and version names</p>
             </div>
           </div>
         </div>
@@ -214,13 +221,13 @@
           <div v-if="loadingCheckpoints" class="loading-section">
             <div class="loading-content">
               <span class="loading-icon">⏳</span>
-              <span class="loading-text">Loading latest updated checkpoints...</span>
+              <span class="loading-text">Loading latest updated LoRA...</span>
             </div>
           </div>
           <div v-else-if="checkpointsError" class="error-section">
             <div class="error-content">
               <span class="error-icon">❌</span>
-              <h3 class="error-title">Error Loading Checkpoints</h3>
+              <h3 class="error-title">Error Loading LoRA</h3>
               <p class="error-message">{{ checkpointsError }}</p>
               <button @click="loadLatestCheckpoints" class="retry-btn">
                 <span class="btn-icon">🔄</span>
@@ -237,7 +244,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(cp, idx) in latestCheckpoints" :key="idx">
+                <tr v-for="(cp, idx) in topLatestCheckpoints" :key="idx">
                   <td>
                     <a :href="`/model/${cp.modelId}/${cp.modelVersionId}`" target="_blank" rel="noopener">
                       {{ cp.modelName }} / {{ cp.modelVersionName }}
@@ -251,8 +258,8 @@
           <div v-else class="no-data-section">
             <div class="no-data-content">
               <span class="no-data-icon">📭</span>
-              <h3 class="no-data-title">No Recent Checkpoints</h3>
-              <p class="no-data-message">No recently updated checkpoints found.</p>
+              <h3 class="no-data-title">No Recent LoRA</h3>
+              <p class="no-data-message">No recently updated LoRA found.</p>
             </div>
           </div>
         </div>
@@ -290,8 +297,14 @@ export default {
       pathCounts: [],
       latestCheckpoints: [],
       loadingCheckpoints: false,
-      checkpointsError: null
+      checkpointsError: null,
+      activeTab: 'overview'
     };
+  },
+  computed: {
+    topLatestCheckpoints() {
+      return this.latestCheckpoints.slice(0, 10);
+    }
   },
   mounted() {
     this.loadMatrixData();
@@ -372,6 +385,13 @@ export default {
     },
     formatRelativeTime(dateString) {
       return getRelativeTime(dateString);
+    },
+    scrollToSection(section) {
+      this.activeTab = section;
+      const el = document.getElementById(section);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
   }
 };
@@ -1154,5 +1174,27 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 32px;
+}
+
+.summary-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.tab-btn {
+  background: #f1f5f9;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px 8px 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: #667eea;
+  color: #fff;
 }
 </style> 
