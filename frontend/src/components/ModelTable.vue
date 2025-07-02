@@ -3,7 +3,7 @@
     <!-- Enhanced Header Section -->
     <div class="header-section">
       <h1 class="page-title">LoRA Hub</h1>
-      <p class="page-subtitle">Browse, filter, and manage your LoRA model collection</p>
+      <p class="page-subtitle">Browse, filter, and manage your LoRA collection</p>
     </div>
     
     <!-- Enhanced Notifications -->

@@ -525,7 +525,7 @@ class DatabaseService {
         const query = `
             SELECT modelId, modelVersionId, modelName, modelVersionName, last_updated
             FROM ALLCivitData
-            WHERE last_updated IS NOT NULL
+            WHERE isDownloaded=1 AND file_path IS NOT NULL AND last_updated IS NOT NULL
             ORDER BY last_updated DESC
             LIMIT ?
         `;

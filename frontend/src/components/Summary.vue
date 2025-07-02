@@ -2,14 +2,14 @@
   <div class="lora-summary-page">
     <!-- Enhanced Header Section -->
     <div class="header-section">
-      <h1 class="page-title">LoRA Summary Dashboard</h1>
+      <h1 class="page-title">LoRA Dashboard</h1>
       <p class="page-subtitle">Comprehensive overview of your LoRA model collection and file organization</p>
     </div>
     
     <!-- Tab Navigation -->
     <div class="summary-tabs">
       <button class="tab-btn" :class="{active: activeTab === 'overview'}" @click="scrollToSection('overview')">Model Overview</button>
-      <button class="tab-btn" :class="{active: activeTab === 'locations'}" @click="scrollToSection('locations')">File Locations</button>
+      <button class="tab-btn" :class="{active: activeTab === 'locations'}" @click="scrollToSection('locations')">LoRA File Locations</button>
       <button class="tab-btn" :class="{active: activeTab === 'lora'}" @click="scrollToSection('lora')">Latest Updated LoRA</button>
     </div>
     
@@ -21,7 +21,7 @@
             <span class="header-icon">📊</span>
             <div class="header-text">
               <h2 class="section-title">Model Overview</h2>
-              <p class="section-description">Overview of your downloaded LoRA models organized by base model type and content rating</p>
+              <p class="section-description">Overview of your Registered LoRA organized by base model and rating</p>
             </div>
           </div>
         </div>
@@ -115,7 +115,7 @@
           <div class="header-content">
             <span class="header-icon">📁</span>
             <div class="header-text">
-              <h2 class="section-title">File Locations</h2>
+              <h2 class="section-title">LoRA File Locations</h2>
               <p class="section-description">Summary of your LoRA file locations and total file counts for easy organization</p>
             </div>
           </div>
