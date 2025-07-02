@@ -11,7 +11,7 @@
       <div v-if="savedPaths.length" class="saved-paths-container">
         <div class="paths-header">
           <span class="paths-icon">📁</span>
-          <span class="paths-label">Saved Directory Paths</span>
+          <span class="paths-label">Existing LoRA Folders</span>
           <span class="paths-count">({{ savedPaths.length }})</span>
         </div>
         <div class="paths-list">
@@ -40,7 +40,7 @@
       <div class="add-path-section">
         <div class="add-path-header">
           <span class="add-path-icon">➕</span>
-          <span class="add-path-label">Add New Directory Path</span>
+          <span class="add-path-label">Add existing LoRA folders containing files</span>
         </div>
         <div class="add-path-form">
           <div class="input-group">

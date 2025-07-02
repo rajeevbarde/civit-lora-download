@@ -82,7 +82,7 @@
           <span class="section-icon">📂</span>
           <div>
             <h3 class="section-title gradient-text">Download Base Directory</h3>
-            <p class="section-subtitle">Set the base directory for downloads</p>
+            <p class="section-subtitle">Set the base directory for downloads [The full path should be listed in 'Scanner' folder]</p>
           </div>
         </div>
         <div class="settings-section-content">
