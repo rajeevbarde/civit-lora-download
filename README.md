@@ -1,32 +1,23 @@
 # civit-lora-download
 
-civit-lora-download is a Node.js-based application for managing and interacting with a SQLite database of model data (ALLCivitData). It provides both backend and frontend components, enabling users to fetch, view, and manage model information through a web interface. Setup involves downloading a pre-existing SQLite database, running a provided SQL script to prepare the required table, and launching both servers via a single batch file for streamlined operation.
+Easily organize and download LoRA models using a pre-scraped CivitAI database—all in one simple app.
 
 ## Prerequisites
 - Node.js v20 must be installed on your system. [Download Node.js here](https://nodejs.org/en/download)
 
+## Setup
 
-## Database Setup
+1. Clone this project:
+   ```
+   git clone https://github.com/rajeevbarde/civit-lora-download.git
+   ```
 
-The table used for this project is named `ALLCivitData`.
+2. Run `start_servers.bat` to launch both the frontend and backend servers at once. This will also automatically download and install all necessary files and dependencies.
 
-### Steps to Set Up the Database:
-1. Download the SQLite database from [this Google Drive link](https://drive.google.com/drive/folders/1jMbwb3HUcDNB2H6n1GXt2WKK-COpbdrQ).
-2. Once downloaded, execute the SQL script found in `civitalldata.sql` against the downloaded database. This will generate the `ALLCivitData` table from the existing database.
+3. Visit [http://localhost:5173/](http://localhost:5173/) in your browser. If the page doesn't load, check the console for the correct port number.
 
-Make sure you have SQLite Client installed to run the SQL script.
+---
 
-## Starting the Application
+🎉 **Congratulations!** If you can see the app's homepage as shown below with warning, your basic setup is done.
 
-To start both the frontend and backend servers simultaneously, simply run the `start_servers.bat` file (double-click it or run it from the command line):
-
-```
-start_servers.bat
-```
-
-This will open two new command windows: one for the backend server and one for the frontend server. Each will automatically install dependencies if needed and start the respective server.
-
-> **Note:** The first time you load the frontend page in your browser, it may take some time to appear. This is normal as the development server initializes and compiles the application for the first time.
-
-
-----------
+![App Homepage Screenshot](docs/images/homepage_sampledb.jpg)
