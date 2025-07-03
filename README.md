@@ -2,7 +2,7 @@
 
 Easily organize and download LoRA models using a pre-scraped CivitAI database—all in one simple app.
 
-## Features ([screenshots](FEATURES.MD))
+## Features ([screenshots](FEATURES.md))
 
 - Effortlessly organize your LoRA models on your local hard drive
 - Download LoRA models directly from Civitai

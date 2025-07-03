@@ -31,7 +31,7 @@ Below are screenshots demonstrating key features of the app:
 
 **Orphan Files**
 
-<img src="docs/images/orphan_files.png" alt="orphan_files.png" width="500"/>
+<img src="docs/images/Orphan_files.png" alt="orphan_files.png" width="500"/>
 
 ---
 
