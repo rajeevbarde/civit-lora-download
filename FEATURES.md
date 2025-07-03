@@ -15,6 +15,7 @@ Below are screenshots demonstrating key features of the app:
 
 <img src="docs/images/lorahub.png" alt="lorahub.png" width="500"/>
 
+<img src="docs/images/download_view.png" alt="lorahub.png"/>
 ---
 
 **Duplicate LoRA Example 1**
