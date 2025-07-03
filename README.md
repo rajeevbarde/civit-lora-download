@@ -2,6 +2,14 @@
 
 Easily organize and download LoRA models using a pre-scraped CivitAI database—all in one simple app.
 
+## Features ([screenshots](FEATURES.MD))
+
+- Effortlessly organize your LoRA models on your local hard drive
+- Download LoRA models directly from Civitai
+- Scan and register existing LoRA models already present on your hard drive
+- Detect and list orphan files (files not linked to any model)
+- Identify and manage duplicate LoRA models on your HDD
+
 ## Prerequisites
 - Node.js v20 must be installed on your system. [Download Node.js here](https://nodejs.org/en/download)
 
@@ -38,13 +46,15 @@ I used that database to create a new minimal version focused on LoRA models.
 
 For author's App settings, see [AUTHORCONFIG.md](AUTHORCONFIG.md).
 
+**It is strongly recommended that any folder path saved in the app should NOT be inside this project folder.**
+
 ### Database Path Location
 
 1. Set the full file path to the database file you downloaded in the previous steps.
 2. Press the **Verify** button to check the database file.
 3. Press the **Save DB path** button to save your configuration.
 
-![Database Path Location Screenshot](docs/images/db_path_location.png)
+<img src="docs/images/settings.png" alt="App Homepage Screenshot" width="400"/>
 
 ### Download Directory and API Token
 
