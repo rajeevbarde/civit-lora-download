@@ -40,7 +40,7 @@ I used that database to create a new minimal version focused on LoRA models.
 
 **To use the minimal LoRA database:**
 
-1. Download the file from [this link](#) (link placeholder).
+1. Download the file from [this link](https://drive.proton.me/urls/2ERE25EKZW#sXQbMZspNTUa).
 2. Save the downloaded file in a suitable folder where you can easily find and access it later.
 3. Follow the next App configuration guide to complete the setup.
 
@@ -63,3 +63,16 @@ For author's App settings, see [AUTHORCONFIG.md](AUTHORCONFIG.md).
 1. Save the full folder path where all the LoRA files will get downloaded.
 2. Add your Civitai API token.
 3. Press the **Save All settings** button to apply your changes.
+
+## Future plans
+
+1. Download LoRA from Hugging Face and Civitai that are not present in the database, and register them automatically.
+2. Create a similar app for managing and organizing checkpoint models.
+
+## Support & Donations
+
+If you find this project helpful, consider supporting it!
+
+**MetaMask (ETH/BSC/Polygon):**
+
+`0x2900e256ad4C5a6035ee90B975243C13c8e71049`
