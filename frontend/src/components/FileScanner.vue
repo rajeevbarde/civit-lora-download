@@ -167,8 +167,7 @@
                 <th v-else>Full Path</th>
                 <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">File name in db</th>
                 <th v-else-if="tab.key === 'duplicate-issues'">File name</th>
-                <th v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">Status</th>
-                <th v-if="hasSizeMismatchColumn">Fix it! (Retry from Lora hub)</th>
+                <th>Fix it! (Retry from Lora hub)</th>
               </tr>
             </thead>
             <tbody>
@@ -177,10 +176,7 @@
                 <td v-else>{{ file.fullPath }}</td>
                 <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.baseName }}</td>
                 <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
-                <td v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">
-                  <span :class="getStatusClass(file.status)">{{ file.status }}</span>
-                </td>
-                <td v-if="hasSizeMismatchColumn">
+                <td>
                   <template v-if="file.status === 'File size mismatch'">
                     <button class="delete-failed-btn" @click="handleDeleteFileAndFail(file, idx)" :disabled="file.deleting">
                       {{ file.deleting ? 'Processing...' : 'Delete File and Failed' }}
@@ -216,10 +212,10 @@
               <th>Model Version ID</th>
               <th>Database File Path</th>
               <th>Actual Filename</th>
-              <th v-if="hasSizeMismatchColumn">DB Size (GB)</th>
-              <th v-if="hasSizeMismatchColumn">Disk Size (GB)</th>
+              <th>DB Size (GB)</th>
+              <th>Disk Size (GB)</th>
               <th>Issue</th>
-              <th v-if="hasSizeMismatchColumn">Fix it! (Retry from Lora hub)</th>
+              <th>Fix it! (Retry from Lora hub)</th>
             </tr>
           </thead>
           <tbody>
@@ -228,15 +224,15 @@
               <td>{{ mismatch.modelVersionId }}</td>
               <td>{{ mismatch.file_path }}</td>
               <td>{{ mismatch.actualFileName || 'N/A' }}</td>
-              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_kb_db !== undefined ? (mismatch.size_in_kb_db / 1024 / 1024).toFixed(2) : '' }}</td>
-              <td v-if="hasSizeMismatchColumn">{{ mismatch.size_in_kb_disk !== undefined ? (mismatch.size_in_kb_disk / 1024 / 1024).toFixed(2) : '' }}</td>
+              <td>{{ mismatch.size_in_kb_db !== undefined ? (mismatch.size_in_kb_db / 1024 / 1024).toFixed(2) : '' }}</td>
+              <td>{{ mismatch.size_in_kb_disk !== undefined ? (mismatch.size_in_kb_disk / 1024 / 1024).toFixed(2) : '' }}</td>
               <td>
                 <span class="issue-badge">{{ mismatch.issue }}</span>
                 <div v-if="mismatch.expectedFileName" class="expected-info">
                   Expected: {{ mismatch.expectedFileName }}
                 </div>
               </td>
-              <td v-if="hasSizeMismatchColumn">
+              <td>
                 <template v-if="mismatch.issue === 'File size mismatch'">
                   <button class="delete-failed-btn" @click="handleDeleteFileAndFail(mismatch, idx)" :disabled="mismatch.deleting">
                     {{ mismatch.deleting ? 'Processing...' : 'Delete File and Failed' }}
@@ -599,11 +595,6 @@ export default {
         ...this.uniqueTabs,
         { key: 'orphan', label: 'Orphan Files' }
       ];
-    },
-    hasSizeMismatchColumn() {
-      // Check if any mismatch has a size_in_kb_db or size_in_kb_disk property
-      if (!this.validationResults || !this.validationResults.mismatches) return false;
-      return this.validationResults.mismatches.some(m => m.size_in_kb_db !== undefined || m.size_in_kb_disk !== undefined);
     },
   },
   mounted() {
