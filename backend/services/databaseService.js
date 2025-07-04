@@ -541,6 +541,19 @@ class DatabaseService {
             }
         }
     }
+
+    // Set model as in progress (isDownloaded = 0)
+    async updateModelAsInProgress(modelVersionId) {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 0, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ?', [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

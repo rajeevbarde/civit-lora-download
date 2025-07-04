@@ -18,6 +18,13 @@ class DownloadService {
                 throw new Error('Missing required parameters: url, fileName, baseModel, modelVersionId');
             }
 
+            // Set status to in progress (0) before starting download
+            try {
+                await databaseService.updateModelAsInProgress(modelVersionId);
+            } catch (statusErr) {
+                logger.error('Failed to set model as in progress', { modelVersionId, error: statusErr.message });
+            }
+
             logger.userAction('Download started', { fileName, baseModel, modelVersionId });
 
             // Ensure directory exists
