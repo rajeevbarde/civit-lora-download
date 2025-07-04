@@ -177,12 +177,10 @@
                 <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.baseName }}</td>
                 <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
                 <td>
-                  <template v-if="file.status === 'File size mismatch'">
-                    <button class="delete-failed-btn" @click="handleDeleteFileAndFail(file, idx)" :disabled="file.deleting">
-                      {{ file.deleting ? 'Processing...' : 'Delete File and Failed' }}
-                    </button>
-                    <span v-if="file.deleteError" class="delete-error">{{ file.deleteError }}</span>
-                  </template>
+                  <button class="delete-failed-btn" @click="handleDeleteFileAndFail(file, idx)" :disabled="file.deleting">
+                    {{ file.deleting ? 'Processing...' : 'Delete File and Failed' }}
+                  </button>
+                  <span v-if="file.deleteError" class="delete-error">{{ file.deleteError }}</span>
                 </td>
               </tr>
             </tbody>
@@ -233,12 +231,10 @@
                 </div>
               </td>
               <td>
-                <template v-if="mismatch.issue === 'File size mismatch'">
-                  <button class="delete-failed-btn" @click="handleDeleteFileAndFail(mismatch, idx)" :disabled="mismatch.deleting">
-                    {{ mismatch.deleting ? 'Processing...' : 'Delete File and Failed' }}
-                  </button>
-                  <span v-if="mismatch.deleteError" class="delete-error">{{ mismatch.deleteError }}</span>
-                </template>
+                <button class="delete-failed-btn" @click="handleDeleteFileAndFail(mismatch, idx)" :disabled="mismatch.deleting">
+                  {{ mismatch.deleting ? 'Processing...' : 'Delete File and Failed' }}
+                </button>
+                <span v-if="mismatch.deleteError" class="delete-error">{{ mismatch.deleteError }}</span>
               </td>
             </tr>
           </tbody>
