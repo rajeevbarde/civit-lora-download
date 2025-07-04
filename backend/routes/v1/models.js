@@ -113,4 +113,18 @@ router.get('/related-lora/:modelId', async (req, res) => {
     }
 });
 
+// Mark model as ignored
+router.post('/ignore', async (req, res) => {
+    try {
+        const { modelVersionId } = req.body;
+        if (!modelVersionId) {
+            return res.status(400).json({ error: 'modelVersionId is required' });
+        }
+        await databaseService.markModelAsIgnored(modelVersionId);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

@@ -284,6 +284,15 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Mark model as ignored
+  async ignoreModel(modelVersionId) {
+    const response = await api.post('/models/ignore', { modelVersionId });
+    if (!response.data || response.data.success !== true) {
+      throw new Error('Failed to ignore model');
+    }
+    return response.data;
+  },
 };
 
 export default apiService; 

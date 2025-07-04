@@ -573,6 +573,19 @@ class DatabaseService {
             }
         }
     }
+
+    // Mark model as ignored
+    async markModelAsIgnored(modelVersionId) {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 4, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ?', [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

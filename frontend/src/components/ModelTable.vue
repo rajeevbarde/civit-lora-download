@@ -56,6 +56,7 @@
             <option value="0">Not Downloaded</option>
             <option value="1">Downloaded</option>
             <option value="3">Failed</option>
+            <option value="4">Ignored</option>
           </select>
         </div>
         <div class="filter-group">
@@ -188,13 +189,19 @@
                 </td>
                 <td class="filename-cell">{{ model.fileName }}</td>
                 <td class="download-cell">
-                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3" 
+                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3 && model.isDownloaded !== 4" 
                           @click="downloadModelFile(model)" 
                           class="download-btn"
                           :disabled="isModelDownloading(model.modelId)"
                           :class="{ 'loading': isModelDownloading(model.modelId) }">
                     <span class="btn-icon">⬇️</span>
                     <span class="btn-text">{{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}</span>
+                  </button>
+                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3 && model.isDownloaded !== 4"
+                          @click="ignoreModelStatus(model)"
+                          class="ignore-btn">
+                    <span class="btn-icon">🚫</span>
+                    <span class="btn-text">Ignore</span>
                   </button>
                   <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
                           @click="downloadModelFile(model)" 
@@ -207,6 +214,10 @@
                   <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">
                     <span class="status-icon">✅</span>
                     <span class="status-text">Downloaded</span>
+                  </span>
+                  <span v-else-if="model.isDownloaded === 4" class="status-ignored">
+                    <span class="status-icon">🚫</span>
+                    <span class="status-text">Ignored</span>
                   </span>
                   <span v-else class="no-download">-</span>
                 </td>
@@ -260,13 +271,16 @@
 import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
 import { useRouter } from 'vue-router';
+import { inject } from 'vue';
 import { formatDate } from '@/utils/helpers.js';
 
 export default {
   setup() {
     const errorHandler = useErrorHandler();
     const router = useRouter();
-    return { errorHandler, router };
+    const showSuccess = inject('showSuccess');
+    const showError = inject('showError');
+    return { errorHandler, router, showSuccess, showError };
   },
   data() {
     return {
@@ -880,6 +894,16 @@ export default {
         } finally {
           this.relatedLoraLoading[modelId] = false;
         }
+      }
+    },
+    async ignoreModelStatus(model) {
+      try {
+        await apiService.ignoreModel(model.modelVersionId);
+        if (this.showSuccess) this.showSuccess('Model ignored successfully.');
+        // Update the model in-place for instant UI feedback
+        model.isDownloaded = 4;
+      } catch (error) {
+        if (this.showError) this.showError('Failed to ignore model.');
       }
     },
   }
@@ -1816,5 +1840,28 @@ export default {
   color: #b91c1c;
   font-weight: bold;
   font-size: 0.92em;
+}
+
+.status-ignored {
+  color: #888;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ignore-btn {
+  background: #ffe5b2;
+  color: #b85c00;
+  border: 1px solid #ffb84d;
+  border-radius: 4px;
+  padding: 4px 10px;
+  margin-left: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+}
+.ignore-btn:hover {
+  background: #ffd699;
+  color: #a04a00;
 }
 </style>
