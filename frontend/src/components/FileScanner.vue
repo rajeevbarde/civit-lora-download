@@ -167,7 +167,6 @@
                 <th v-else>Full Path</th>
                 <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">File name in db</th>
                 <th v-else-if="tab.key === 'duplicate-issues'">File name</th>
-                <th>Fix it! (Retry from Lora hub)</th>
               </tr>
             </thead>
             <tbody>
@@ -176,12 +175,6 @@
                 <td v-else>{{ file.fullPath }}</td>
                 <td v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">{{ file.baseName }}</td>
                 <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
-                <td>
-                  <button class="delete-failed-btn" @click="handleDeleteFileAndFail(file, idx)" :disabled="file.deleting">
-                    {{ file.deleting ? 'Processing...' : 'Delete File and Failed' }}
-                  </button>
-                  <span v-if="file.deleteError" class="delete-error">{{ file.deleteError }}</span>
-                </td>
               </tr>
             </tbody>
           </table>
