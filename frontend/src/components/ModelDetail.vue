@@ -46,30 +46,30 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in relatedLora" :key="item.modelId + '-' + item.modelVersionId">
+          <tr v-for="item in relatedLora.filter(i => i && i.modelVersionId != null)" :key="item.modelId + '-' + item.modelVersionId">
             <td>
-              <template v-if="item.modelVersionId === model.modelVersionId">
+              <template v-if="item && model && item.modelVersionId === model.modelVersionId">
                 <span class="current-lora-name">{{ item.modelName }} / {{ item.modelVersionName }}</span>
                 <span class="current-lora-label">&nbsp;(Current)</span>
               </template>
               <template v-else>
-                <a :href="`/model/${item.modelId}/${item.modelVersionId}`" target="_blank" rel="noopener noreferrer">
+                <a v-if="item && item.modelId && item.modelVersionId" :href="`/model/${item.modelId}/${item.modelVersionId}`" target="_blank" rel="noopener noreferrer">
                   {{ item.modelName }} / {{ item.modelVersionName }}
                 </a>
               </template>
             </td>
-            <td>{{ item.basemodel }}</td>
+            <td>{{ item && item.basemodel }}</td>
             <td>
               <span class="published-date-group">
-                <span class="published-date">{{ formatDate(item.publishedAt) }}</span>
-                <span v-if="item.modelVersionId === model.modelVersionId" class="current-lora-label">&nbsp;(Current)</span>
-                <span v-else class="relative-age-label">&nbsp;{{ getRelativeAge(item.publishedAt) }}</span>
+                <span class="published-date">{{ formatDate(item && item.publishedAt) }}</span>
+                <span v-if="item && model && item.modelVersionId === model.modelVersionId" class="current-lora-label">&nbsp;(Current)</span>
+                <span v-else class="relative-age-label">&nbsp;{{ getRelativeAge(item && item.publishedAt) }}</span>
               </span>
             </td>
             <td>
-              <span v-if="item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED" style="color:#28a745;font-weight:600;">Downloaded</span>
-              <span v-else-if="item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" style="color:#007bff;font-weight:600;">Downloading</span>
-              <span v-else-if="item.isDownloaded === DOWNLOAD_STATUS.FAILED" style="color:#dc3545;font-weight:600;">Failed</span>
+              <span v-if="item && item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED" style="color:#28a745;font-weight:600;">Downloaded</span>
+              <span v-else-if="item && item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" style="color:#007bff;font-weight:600;">Downloading</span>
+              <span v-else-if="item && item.isDownloaded === DOWNLOAD_STATUS.FAILED" style="color:#dc3545;font-weight:600;">Failed</span>
               <span v-else style="color:#6c757d;font-weight:600;">Not Downloaded</span>
             </td>
           </tr>
