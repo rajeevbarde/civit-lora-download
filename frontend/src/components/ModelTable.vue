@@ -189,7 +189,7 @@
                 </td>
                 <td class="filename-cell">{{ model.fileName }}</td>
                 <td class="download-cell">
-                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3 && model.isDownloaded !== 4" 
+                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== DOWNLOAD_STATUS.IGNORED" 
                           @click="downloadModelFile(model)" 
                           class="download-btn"
                           :disabled="isModelDownloading(model.modelId)"
@@ -197,13 +197,13 @@
                     <span class="btn-icon">⬇️</span>
                     <span class="btn-text">{{ isModelDownloading(model.modelId) ? 'Downloading...' : 'Download' }}</span>
                   </button>
-                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== 1 && model.isDownloaded !== 2 && model.isDownloaded !== 3 && model.isDownloaded !== 4"
+                  <button v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== DOWNLOAD_STATUS.IGNORED"
                           @click="ignoreModelStatus(model)"
                           class="ignore-btn">
                     <span class="btn-icon">🚫</span>
                     <span class="btn-text">Ignore</span>
                   </button>
-                  <button v-else-if="model.fileDownloadUrl && model.isDownloaded === 3" 
+                  <button v-else-if="model.fileDownloadUrl && model.isDownloaded === DOWNLOAD_STATUS.FAILED" 
                           @click="downloadModelFile(model)" 
                           class="retry-btn"
                           :disabled="isModelDownloading(model.modelId)"
@@ -211,11 +211,11 @@
                     <span class="btn-icon">🔄</span>
                     <span class="btn-text">{{ isModelDownloading(model.modelId) ? 'Retrying...' : 'Retry' }}</span>
                   </button>
-                  <span v-else-if="model.isDownloaded === 1 || model.isDownloaded === 2" class="status-downloaded">
+                  <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED" class="status-downloaded">
                     <span class="status-icon">✅</span>
                     <span class="status-text">Downloaded</span>
                   </span>
-                  <span v-else-if="model.isDownloaded === 4" class="status-ignored">
+                  <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.IGNORED" class="status-ignored">
                     <span class="status-icon">🚫</span>
                     <span class="status-text">Ignored</span>
                   </span>
@@ -273,6 +273,7 @@ import { useErrorHandler } from '@/composables/useErrorHandler.js';
 import { useRouter } from 'vue-router';
 import { inject } from 'vue';
 import { formatDate } from '@/utils/helpers.js';
+import { DOWNLOAD_STATUS } from '@/utils/constants.js';
 
 export default {
   setup() {
@@ -310,6 +311,7 @@ export default {
       concurrentOperations: new Set(),
       relatedLoraMap: {}, // modelId -> array of related lora
       relatedLoraLoading: {}, // modelId -> loading state
+      DOWNLOAD_STATUS,
     }
   },
   computed: {
@@ -375,8 +377,10 @@ export default {
     canSelectModel(model) {
       // Only allow selection of models that can be downloaded
       return model.fileDownloadUrl && 
-             model.isDownloaded !== 1 && 
-             model.isDownloaded !== 2;
+             model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && 
+             model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && 
+             model.isDownloaded !== DOWNLOAD_STATUS.FAILED && 
+             model.isDownloaded !== DOWNLOAD_STATUS.IGNORED;
     },
     toggleSelectAll() {
       const selectableModels = this.models.filter(model => this.canSelectModel(model));
@@ -599,12 +603,12 @@ export default {
             });
             
             // Check if download is complete (status changed from 0 to 1 or 3)
-            if (response.isDownloaded === 1 || response.isDownloaded === 3) {
+            if (response.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || response.isDownloaded === DOWNLOAD_STATUS.FAILED) {
               // Download completed (success or failed)
               this.removeFromDownloadingListByVersionId(modelVersionId);
               this.stopStatusPolling(modelVersionId);
               
-              if (response.isDownloaded === 1) {
+              if (response.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED) {
                 this.errorHandler.handleSuccess(`Download completed: ${fileName}`);
               } else {
                 this.errorHandler.handleError(new Error('Download failed'), `downloading ${fileName}`);
@@ -744,7 +748,7 @@ export default {
             const completedModels = [];
             for (const modelId of this.downloadingModels.map(item => item.modelId)) {
               const model = this.models.find(m => m.modelId === modelId);
-              if (model && (model.isDownloaded === 1 || model.isDownloaded === 3)) {
+              if (model && (model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || model.isDownloaded === DOWNLOAD_STATUS.FAILED)) {
                 completedModels.push({ modelId, status: model.isDownloaded, fileName: model.fileName });
               }
             }
@@ -753,7 +757,7 @@ export default {
             for (const completed of completedModels) {
               this.removeFromDownloadingList(completed.modelId);
               
-              if (completed.status === 1) {
+              if (completed.status === DOWNLOAD_STATUS.DOWNLOADED) {
                 this.errorHandler.handleSuccess(`Download completed: ${completed.fileName}`);
               } else {
                 this.errorHandler.handleError(new Error('Download failed'), `downloading ${completed.fileName}`);
@@ -901,7 +905,7 @@ export default {
         await apiService.ignoreModel(model.modelVersionId);
         if (this.showSuccess) this.showSuccess('Model ignored successfully.');
         // Update the model in-place for instant UI feedback
-        model.isDownloaded = 4;
+        model.isDownloaded = DOWNLOAD_STATUS.IGNORED;
       } catch (error) {
         if (this.showError) this.showError('Failed to ignore model.');
       }

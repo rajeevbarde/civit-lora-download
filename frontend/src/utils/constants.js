@@ -17,6 +17,7 @@ export const DOWNLOAD_STATUS = {
   DOWNLOADED: 1,
   DOWNLOADING: 2,
   FAILED: 3,
+  IGNORED: 4,
 };
 
 // Notification Types

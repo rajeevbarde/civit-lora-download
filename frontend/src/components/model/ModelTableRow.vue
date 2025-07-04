@@ -97,7 +97,8 @@ export default {
       return (model) => {
         return model.fileDownloadUrl && 
                model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && 
-               model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING;
+               model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING &&
+               model.isDownloaded !== DOWNLOAD_STATUS.IGNORED;
       };
     },
     

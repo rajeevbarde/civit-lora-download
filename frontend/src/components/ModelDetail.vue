@@ -20,7 +20,7 @@
         <span v-else>Download</span>
       </button>
       <button
-        v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== 4"
+        v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== DOWNLOAD_STATUS.IGNORED"
         @click="ignoreModel"
         :disabled="downloading"
         class="ignore-btn"
@@ -40,7 +40,7 @@
         <span v-else>Retry</span>
       </button>
       <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" class="status-downloaded" style="font-weight:600; color:#28a745;">Downloaded</span>
-      <span v-else-if="model.isDownloaded === 4" class="status-ignored" style="font-weight:600; color:#b85c00;">Ignored</span>
+      <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.IGNORED" class="status-ignored" style="font-weight:600; color:#b85c00;">Ignored</span>
     </div>
 
     <!-- Related LoRA Table -->
@@ -80,6 +80,7 @@
               <span v-if="item && item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED" style="color:#28a745;font-weight:600;">Downloaded</span>
               <span v-else-if="item && item.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" style="color:#007bff;font-weight:600;">Downloading</span>
               <span v-else-if="item && item.isDownloaded === DOWNLOAD_STATUS.FAILED" style="color:#dc3545;font-weight:600;">Failed</span>
+              <span v-else-if="item && item.isDownloaded === DOWNLOAD_STATUS.IGNORED" style="color:#b85c00;font-weight:600;">Ignored</span>
               <span v-else style="color:#6c757d;font-weight:600;">Not Downloaded</span>
             </td>
           </tr>
@@ -319,7 +320,7 @@ export default {
       if (!this.model || !this.model.modelVersionId) return;
       try {
         await apiService.ignoreModel(this.model.modelVersionId);
-        this.model.isDownloaded = 4;
+        this.model.isDownloaded = DOWNLOAD_STATUS.IGNORED;
         this.showNotification('Model ignored successfully.', 'success');
       } catch (err) {
         this.showNotification('Failed to ignore model.', 'error');
