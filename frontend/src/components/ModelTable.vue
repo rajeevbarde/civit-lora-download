@@ -134,11 +134,6 @@
 
     <!-- Enhanced Table Section -->
     <div v-else class="table-section">
-      <div class="table-header">
-        <h2 class="table-title">Model Collection</h2>
-        <p class="table-subtitle">Browse and manage your LoRA models</p>
-      </div>
-      
       <div class="table-container">
         <div class="table-wrapper">
           <table class="models-table">
@@ -919,15 +914,15 @@ export default {
 /* Enhanced Header Section Styles */
 .header-section {
   text-align: center;
-  margin-bottom: 3rem;
-  padding: 2rem 0;
+  margin-bottom: 1.2rem;
+  padding: 1rem 0;
 }
 
 .page-title {
-  font-size: 2.5rem;
+  font-size: 2.1rem;
   font-weight: 800;
   color: #2c3e50;
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.5rem 0;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -935,13 +930,14 @@ export default {
 }
 
 .page-subtitle {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   color: #6c757d;
   margin: 0;
   font-weight: 400;
   max-width: 600px;
   margin: 0 auto;
-  line-height: 1.6;
+  line-height: 1.4;
+  padding-bottom: 0.2rem;
 }
 
 /* Enhanced Notifications Section */
@@ -1394,25 +1390,6 @@ export default {
   border: 1px solid #e9ecef;
 }
 
-.table-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-
-.table-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin: 0 0 0.75rem 0;
-}
-
-.table-subtitle {
-  font-size: 1.1rem;
-  color: #6c757d;
-  margin: 0;
-  font-weight: 400;
-}
-
 .table-container {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 12px;
@@ -1767,14 +1744,6 @@ export default {
   .table-section {
     padding: 1.5rem;
     margin: 1.5rem 0;
-  }
-  
-  .table-title {
-    font-size: 1.5rem;
-  }
-  
-  .table-subtitle {
-    font-size: 1rem;
   }
   
   .table-container {
