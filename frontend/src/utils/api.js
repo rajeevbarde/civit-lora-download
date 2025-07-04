@@ -277,6 +277,13 @@ export const apiService = {
     });
     return response.data;
   },
+
+  async getRelatedLoraByModelId(modelId, options = {}) {
+    const response = await api.get(`/models/related-lora/${modelId}`, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

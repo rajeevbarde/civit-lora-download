@@ -99,4 +99,18 @@ router.get('/row-count', async (req, res) => {
     }
 });
 
+// Get related LoRA by modelId
+router.get('/related-lora/:modelId', async (req, res) => {
+    try {
+        const { modelId } = req.params;
+        if (!modelId) {
+            return res.status(400).json({ error: 'modelId is required' });
+        }
+        const result = await databaseService.getRelatedLoraByModelId(modelId);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

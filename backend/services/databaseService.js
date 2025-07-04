@@ -554,6 +554,25 @@ class DatabaseService {
             }
         }
     }
+
+    // Get all models with the same modelId (for Related LoRA)
+    async getRelatedLoraByModelId(modelId) {
+        const query = `
+            SELECT modelId, modelVersionId, modelName, modelVersionName, publishedAt, isDownloaded, basemodel
+            FROM ALLCivitData
+            WHERE modelId = ?
+            ORDER BY publishedAt DESC
+        `;
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query, [modelId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 
