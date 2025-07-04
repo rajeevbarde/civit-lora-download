@@ -172,6 +172,15 @@
                     <span class="model-name">{{ model.modelName }}</span>
                     <span class="version-name">/ {{ model.modelVersionName }}</span>
                   </a>
+                  <div class="related-lora-block">
+                    <span class="related-lora-label">Related LoRA:</span>
+                    <template v-if="getRelatedLoraStatus(model).hasRelated">
+                      <span class="related-lora-yes"> {{ 'yes' }}<span v-if="getRelatedLoraStatus(model).relative"> ({{ getRelatedLoraStatus(model).relative }})</span></span>
+                    </template>
+                    <template v-else>
+                      <span class="related-lora-no"> no</span>
+                    </template>
+                  </div>
                 </td>
                 <td class="base-model-cell">
                   <span class="base-model">{{ model.basemodel }}</span>
@@ -251,6 +260,7 @@
 import { apiService } from '@/utils/api.js';
 import { useErrorHandler } from '@/composables/useErrorHandler.js';
 import { useRouter } from 'vue-router';
+import { formatDate } from '@/utils/helpers.js';
 
 export default {
   setup() {
@@ -283,7 +293,9 @@ export default {
       // Race condition protection
       pendingRequests: new Map(),
       isFetching: false,
-      concurrentOperations: new Set()
+      concurrentOperations: new Set(),
+      relatedLoraMap: {}, // modelId -> array of related lora
+      relatedLoraLoading: {}, // modelId -> loading state
     }
   },
   computed: {
@@ -464,10 +476,11 @@ export default {
         const signal = this.createRequestController(operationId);
         const response = await apiService.getModels(params, { signal });
         
-        // Update data if this operation is still active
         if (this.concurrentOperations.has(operationId)) {
           this.models = response.data;
           this.totalItems = response.total;
+          // After models are loaded, fetch related lora for visible models
+          this.fetchRelatedLoraForVisibleModels();
         }
       } catch (error) {
         if (error.name === 'AbortError') {
@@ -821,7 +834,54 @@ export default {
       if (kb === null || kb === undefined) return '-';
       const mb = kb / 1024;
       return Math.round(mb) + ' MB';
-    }
+    },
+    getRelatedLoraStatus(model) {
+      const arr = this.relatedLoraMap[model.modelId];
+      if (!arr) return { loading: true };
+      if (arr.length <= 1) return { hasRelated: false };
+      // Find the closest publishedAt (older/newer)
+      const currentDate = new Date(model.publishedAt);
+      const others = arr.filter(m => m.modelVersionId !== model.modelVersionId);
+      let closest = null;
+      let minDiff = Infinity;
+      for (const r of others) {
+        if (!r.publishedAt) continue;
+        const diff = new Date(r.publishedAt) - currentDate;
+        if (Math.abs(diff) < Math.abs(minDiff)) {
+          minDiff = diff;
+          closest = r;
+        }
+      }
+      let relative = '';
+      if (closest) {
+        const diffMs = new Date(closest.publishedAt) - currentDate;
+        const absMs = Math.abs(diffMs);
+        const diffDay = Math.floor(absMs / (1000 * 60 * 60 * 24));
+        const diffMonth = Math.floor(diffDay / 30);
+        const diffYear = Math.floor(diffDay / 365);
+        if (diffYear > 0) relative = `${diffYear} year${diffYear > 1 ? 's' : ''} ${diffMs > 0 ? 'newer' : 'older'}`;
+        else if (diffMonth > 0) relative = `${diffMonth} month${diffMonth > 1 ? 's' : ''} ${diffMs > 0 ? 'newer' : 'older'}`;
+        else if (diffDay > 0) relative = `${diffDay} day${diffDay > 1 ? 's' : ''} ${diffDay > 0 ? 'newer' : 'older'}`;
+        else relative = diffMs > 0 ? 'newer' : 'older';
+      }
+      return { hasRelated: true, relative };
+    },
+    async fetchRelatedLoraForVisibleModels() {
+      // For each unique modelId on the current page, fetch related lora if not already fetched
+      const uniqueModelIds = [...new Set(this.models.map(m => m.modelId))];
+      for (const modelId of uniqueModelIds) {
+        if (this.relatedLoraMap[modelId] || this.relatedLoraLoading[modelId]) continue;
+        this.relatedLoraLoading[modelId] = true;
+        try {
+          const result = await apiService.getRelatedLoraByModelId(modelId);
+          this.relatedLoraMap[modelId] = Array.isArray(result) ? result : [];
+        } catch (err) {
+          this.relatedLoraMap[modelId] = [];
+        } finally {
+          this.relatedLoraLoading[modelId] = false;
+        }
+      }
+    },
   }
 }
 </script>
@@ -1731,5 +1791,30 @@ export default {
   width: 100%;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.related-lora-block {
+  margin-top: 8px;
+  display: block;
+  line-height: 1.2;
+}
+
+.related-lora-label {
+  color: #b0b3b8;
+  font-size: 0.92em;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+.related-lora-yes {
+  color: #17643a;
+  font-weight: bold;
+  font-size: 0.92em;
+}
+
+.related-lora-no {
+  color: #b91c1c;
+  font-weight: bold;
+  font-size: 0.92em;
 }
 </style>
