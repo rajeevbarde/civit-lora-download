@@ -229,7 +229,7 @@ router.post('/reset-db', async (req, res) => {
     }
 });
 
-// Delete file and mark as failed (isdownloaded=2, file_path=null)
+// Delete file and mark as failed (isdownloaded=3, file_path=null)
 router.post('/delete-and-fail', async (req, res) => {
     try {
         const { modelVersionId, file_path } = req.body;
@@ -243,7 +243,7 @@ router.post('/delete-and-fail', async (req, res) => {
         } else {
             return res.status(404).json({ error: 'File not found on disk' });
         }
-        // Update the DB: isdownloaded=2, file_path=null
+        // Update the DB: isdownloaded=3, file_path=null
         await databaseService.runUpdateMarkAsFailed(modelVersionId);
         res.json({ success: true, message: 'File deleted and DB updated' });
     } catch (error) {

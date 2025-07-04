@@ -200,8 +200,8 @@ class FileService {
                     const stats = fs.statSync(file_path);
                     const sizeOnDiskKB = stats.size / 1024;
                     // Allow 5% difference
-                    const lowerBound = size_in_kb * 0.95;
-                    const upperBound = size_in_kb * 1.05;
+                    const lowerBound = size_in_kb * 0.90;
+                    const upperBound = size_in_kb * 1.10;
                     if (sizeOnDiskKB < lowerBound || sizeOnDiskKB > upperBound) {
                         mismatches.push({
                             fileName,

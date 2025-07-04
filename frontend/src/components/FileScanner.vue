@@ -568,19 +568,19 @@ export default {
       }
     },
     async handleDeleteFileAndFail(mismatch, idx) {
-      this.$set(this.validationResults.mismatches[idx], 'deleting', true);
-      this.$set(this.validationResults.mismatches[idx], 'deleteError', '');
+      this.validationResults.mismatches[idx].deleting = true;
+      this.validationResults.mismatches[idx].deleteError = '';
       try {
         await apiService.deleteFileAndFail({ modelVersionId: mismatch.modelVersionId, file_path: mismatch.file_path });
         // Remove the row from mismatches after successful deletion
         this.validationResults.mismatches.splice(idx, 1);
-        this.$forceUpdate();
+        this.$forceUpdate && this.$forceUpdate();
         this.errorHandler.handleSuccess('File deleted and marked as failed.');
       } catch (error) {
-        this.$set(this.validationResults.mismatches[idx], 'deleteError', error.response?.data?.error || error.message || 'Failed to delete and mark as failed.');
+        this.validationResults.mismatches[idx].deleteError = error.response?.data?.error || error.message || 'Failed to delete and mark as failed.';
       } finally {
         if (this.validationResults.mismatches[idx]) {
-          this.$set(this.validationResults.mismatches[idx], 'deleting', false);
+          this.validationResults.mismatches[idx].deleting = false;
         }
       }
     },
@@ -1497,5 +1497,25 @@ progress {
     margin-left: 0;
     align-self: flex-end;
   }
+}
+
+.delete-failed-btn {
+  background-color: #ff9800;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+.delete-failed-btn:hover:not(:disabled) {
+  background-color: #fb8c00;
+}
+.delete-failed-btn:disabled {
+  background-color: #ffe0b2;
+  color: #bdbdbd;
+  cursor: not-allowed;
 }
 </style> 
