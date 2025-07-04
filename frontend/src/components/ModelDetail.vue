@@ -20,6 +20,15 @@
         <span v-else>Download</span>
       </button>
       <button
+        v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== 4"
+        @click="ignoreModel"
+        :disabled="downloading"
+        class="ignore-btn"
+        style="min-width:100px; margin-left:10px;"
+      >
+        <span>Ignore</span>
+      </button>
+      <button
         v-else-if="model.fileDownloadUrl && model.isDownloaded === DOWNLOAD_STATUS.FAILED"
         @click="downloadModelFile"
         :disabled="downloading"
@@ -31,6 +40,7 @@
         <span v-else>Retry</span>
       </button>
       <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" class="status-downloaded" style="font-weight:600; color:#28a745;">Downloaded</span>
+      <span v-else-if="model.isDownloaded === 4" class="status-ignored" style="font-weight:600; color:#b85c00;">Ignored</span>
     </div>
 
     <!-- Related LoRA Table -->
@@ -304,6 +314,16 @@ export default {
       if (diffHr !== 0) return Math.abs(diffHr) + ' hour' + (Math.abs(diffHr) > 1 ? 's' : '') + (diffHr > 0 ? ' newer' : ' older');
       if (diffMin !== 0) return Math.abs(diffMin) + ' min' + (Math.abs(diffMin) > 1 ? 's' : '') + (diffMin > 0 ? ' newer' : ' older');
       return '';
+    },
+    async ignoreModel() {
+      if (!this.model || !this.model.modelVersionId) return;
+      try {
+        await apiService.ignoreModel(this.model.modelVersionId);
+        this.model.isDownloaded = 4;
+        this.showNotification('Model ignored successfully.', 'success');
+      } catch (err) {
+        this.showNotification('Failed to ignore model.', 'error');
+      }
     },
   },
 };
@@ -733,5 +753,25 @@ export default {
 .current-lora-name {
   color: #17643a;
   font-weight: 700;
+}
+
+.ignore-btn {
+  background: #ffe5b2;
+  color: #b85c00;
+  border: 1px solid #ffb84d;
+  border-radius: 4px;
+  padding: 6px 18px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.ignore-btn:hover {
+  background: #ffd699;
+  color: #a04a00;
+}
+.status-ignored {
+  color: #b85c00;
+  font-weight: 600;
+  margin-left: 10px;
 }
 </style>
