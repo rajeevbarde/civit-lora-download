@@ -6,6 +6,36 @@
       <p class="page-subtitle">View detailed information about your selected model version</p>
     </div>
 
+    <!-- Download Button Section -->
+    <div v-if="model" class="download-btn-section" style="text-align:center; margin-bottom: 1.5rem;">
+      <button
+        v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED"
+        @click="downloadModelFile"
+        :disabled="downloading"
+        class="download-btn"
+        style="position:relative; min-width:140px;"
+      >
+        <LoadingSpinner v-if="downloading" :loading="true" message="" size="small" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);" />
+        <span v-if="downloading" style="margin-left:28px;">Downloading...</span>
+        <span v-else>Download</span>
+      </button>
+      <button
+        v-else-if="model.fileDownloadUrl && model.isDownloaded === DOWNLOAD_STATUS.FAILED"
+        @click="downloadModelFile"
+        :disabled="downloading"
+        class="retry-btn"
+        style="position:relative; min-width:140px;"
+      >
+        <LoadingSpinner v-if="downloading" :loading="true" message="" size="small" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);" />
+        <span v-if="downloading" style="margin-left:28px;">Retrying...</span>
+        <span v-else>Retry</span>
+      </button>
+      <span v-else-if="model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADING" class="status-downloaded" style="font-weight:600; color:#28a745;">Downloaded</span>
+    </div>
+
+    <!-- Notification System -->
+    <NotificationSystem ref="notificationSystem" />
+
     <!-- Enhanced CivitAI Link Section -->
     <div v-if="model && model.modelId && model.modelVersionId" class="civitai-link-section">
       <div class="link-header">
@@ -77,9 +107,12 @@
 <script>
 import { useRoute } from 'vue-router';
 import { apiService } from '@/utils/api.js';
-import { API_CONFIG } from '@/utils/constants.js';
+import { API_CONFIG, DOWNLOAD_STATUS } from '@/utils/constants.js';
+import NotificationSystem from '@/components/common/NotificationSystem.vue';
+import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
 
 export default {
+  components: { NotificationSystem, LoadingSpinner },
   setup() {
     const route = useRoute();
     return { route };
@@ -89,38 +122,34 @@ export default {
       model: null,
       loading: false,
       error: null,
-      civitaiBaseUrl: API_CONFIG.CIVITAI_BASE_URL.replace('/api/v1', '')
+      civitaiBaseUrl: API_CONFIG.CIVITAI_BASE_URL.replace('/api/v1', ''),
+      downloading: false,
+      DOWNLOAD_STATUS,
+      pollingInterval: null,
+      pollCount: 0,
+      maxPolls: 300 // 10 minutes at 2s interval
     };
   },
   mounted() {
     this.fetchModelDetails();
+  },
+  beforeUnmount() {
+    this.stopPolling();
   },
   methods: {
     async fetchModelDetails() {
       try {
         this.loading = true;
         this.error = null;
-        
         const modelVersionId = Number(this.route.params.modelVersionId);
         const urlModelId = Number(this.route.params.modelId);
-        
-        if (isNaN(modelVersionId)) {
-          throw new Error("Invalid model version ID");
-        }
-        
-        if (isNaN(urlModelId)) {
-          throw new Error("Invalid model ID");
-        }
-
-        // Fetch from your API using modelVersionId
+        if (isNaN(modelVersionId)) throw new Error("Invalid model version ID");
+        if (isNaN(urlModelId)) throw new Error("Invalid model ID");
         const response = await apiService.getModelDetail(modelVersionId);
         this.model = response;
-        
-        // Validate that the modelId from URL matches the modelId from backend
         if (this.model && this.model.modelId !== urlModelId) {
           throw new Error(`URL model ID (${urlModelId}) does not match backend model ID (${this.model.modelId})`);
         }
-
       } catch (err) {
         console.error(err);
         this.error = err.message || "Failed to load model details.";
@@ -128,6 +157,77 @@ export default {
         this.loading = false;
       }
     },
+    showNotification(message, type = 'info') {
+      if (this.$refs.notificationSystem && this.$refs.notificationSystem.showNotification) {
+        this.$refs.notificationSystem.showNotification(message, type);
+      }
+    },
+    stopPolling() {
+      if (this.pollingInterval) {
+        clearInterval(this.pollingInterval);
+        this.pollingInterval = null;
+      }
+    },
+    startPollingForStatus() {
+      this.stopPolling();
+      this.pollCount = 0;
+      this.pollingInterval = setInterval(async () => {
+        this.pollCount++;
+        if (!this.model || !this.model.modelVersionId) {
+          this.stopPolling();
+          return;
+        }
+        try {
+          const response = await apiService.getModelDetail(this.model.modelVersionId);
+          if (response) {
+            this.model = { ...response };
+            if (response.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED) {
+              this.showNotification('Download completed: ' + (response.fileName || ''), 'success');
+              this.downloading = false;
+              this.stopPolling();
+            } else if (response.isDownloaded === DOWNLOAD_STATUS.FAILED) {
+              this.showNotification('Download failed: ' + (response.fileName || ''), 'error');
+              this.downloading = false;
+              this.stopPolling();
+            }
+          }
+        } catch (err) {
+          // Optionally handle polling errors
+        }
+        if (this.pollCount >= this.maxPolls) {
+          this.showNotification('Download status polling timed out.', 'warning');
+          this.downloading = false;
+          this.stopPolling();
+        }
+      }, 2000);
+    },
+    async downloadModelFile() {
+      if (!this.model || !this.model.fileDownloadUrl) return;
+      this.downloading = true;
+      this.error = null;
+      try {
+        const payload = {
+          url: this.model.fileDownloadUrl,
+          fileName: this.model.fileName,
+          baseModel: this.model.basemodel,
+          modelVersionId: this.model.modelVersionId
+        };
+        const response = await apiService.downloadModelFile(payload);
+        if (response && response.success) {
+          this.showNotification('Download started: ' + (this.model.fileName || ''), 'info');
+          this.startPollingForStatus();
+        } else {
+          this.showNotification('Failed to start download: ' + (this.model.fileName || ''), 'error');
+          this.downloading = false;
+        }
+        // Optionally, refresh model details immediately
+        await this.fetchModelDetails();
+      } catch (err) {
+        this.error = err.message || 'Download failed.';
+        this.showNotification('Download failed: ' + (this.model.fileName || ''), 'error');
+        this.downloading = false;
+      }
+    }
   },
 };
 </script>
@@ -455,5 +555,34 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.download-btn-section {
+  margin-bottom: 1.5rem;
+}
+.download-btn, .retry-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin: 0 8px;
+}
+.download-btn:disabled, .retry-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+.retry-btn {
+  background-color: #ffc107;
+  color: #212529;
+}
+.status-downloaded {
+  font-size: 1rem;
+  color: #28a745;
+  font-weight: 600;
 }
 </style>
