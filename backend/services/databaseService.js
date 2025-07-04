@@ -524,6 +524,23 @@ class DatabaseService {
             }
         }
     }
+
+    // Mark model as failed and clear file_path (for delete-and-fail)
+    async runUpdateMarkAsFailed(modelVersionId) {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runUpdate(
+                connection,
+                'UPDATE ALLCivitData SET isDownloaded = 2, file_path = NULL, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ? AND isDownloaded = 1 AND file_path IS NOT NULL',
+                [modelVersionId]
+            );
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

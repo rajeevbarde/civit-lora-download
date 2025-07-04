@@ -229,4 +229,26 @@ router.post('/reset-db', async (req, res) => {
     }
 });
 
+// Delete file and mark as failed (isdownloaded=2, file_path=null)
+router.post('/delete-and-fail', async (req, res) => {
+    try {
+        const { modelVersionId, file_path } = req.body;
+        if (!modelVersionId || !file_path) {
+            return res.status(400).json({ error: 'modelVersionId and file_path are required' });
+        }
+        // Delete the file from disk
+        const fs = require('fs');
+        if (fs.existsSync(file_path)) {
+            fs.unlinkSync(file_path);
+        } else {
+            return res.status(404).json({ error: 'File not found on disk' });
+        }
+        // Update the DB: isdownloaded=2, file_path=null
+        await databaseService.runUpdateMarkAsFailed(modelVersionId);
+        res.json({ success: true, message: 'File deleted and DB updated' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router; 

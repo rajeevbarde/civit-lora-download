@@ -269,6 +269,14 @@ export const apiService = {
     });
     return response.data.total;
   },
+
+  // Delete file and mark as failed
+  async deleteFileAndFail({ modelVersionId, file_path }, options = {}) {
+    const response = await api.post('/files/delete-and-fail', { modelVersionId, file_path }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

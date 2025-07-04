@@ -168,6 +168,7 @@
                 <th v-if="tab.key === 'unique-downloaded' || tab.key === 'unique-not-downloaded'">File name in db</th>
                 <th v-else-if="tab.key === 'duplicate-issues'">File name</th>
                 <th v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">Status</th>
+                <th v-if="hasSizeMismatchColumn">Fix it! (Retry from Lora hub)</th>
               </tr>
             </thead>
             <tbody>
@@ -178,6 +179,14 @@
                 <td v-else-if="tab.key === 'duplicate-issues'">{{ file.baseName }}</td>
                 <td v-if="tab.key !== 'orphan' && tab.key === 'duplicate-issues'">
                   <span :class="getStatusClass(file.status)">{{ file.status }}</span>
+                </td>
+                <td v-if="hasSizeMismatchColumn">
+                  <template v-if="file.status === 'File size mismatch'">
+                    <button class="delete-failed-btn" @click="handleDeleteFileAndFail(file, idx)" :disabled="file.deleting">
+                      {{ file.deleting ? 'Processing...' : 'Delete File and Failed' }}
+                    </button>
+                    <span v-if="file.deleteError" class="delete-error">{{ file.deleteError }}</span>
+                  </template>
                 </td>
               </tr>
             </tbody>
@@ -210,6 +219,7 @@
               <th v-if="hasSizeMismatchColumn">DB Size (GB)</th>
               <th v-if="hasSizeMismatchColumn">Disk Size (GB)</th>
               <th>Issue</th>
+              <th v-if="hasSizeMismatchColumn">Fix it! (Retry from Lora hub)</th>
             </tr>
           </thead>
           <tbody>
@@ -225,6 +235,14 @@
                 <div v-if="mismatch.expectedFileName" class="expected-info">
                   Expected: {{ mismatch.expectedFileName }}
                 </div>
+              </td>
+              <td v-if="hasSizeMismatchColumn">
+                <template v-if="mismatch.issue === 'File size mismatch'">
+                  <button class="delete-failed-btn" @click="handleDeleteFileAndFail(mismatch, idx)" :disabled="mismatch.deleting">
+                    {{ mismatch.deleting ? 'Processing...' : 'Delete File and Failed' }}
+                  </button>
+                  <span v-if="mismatch.deleteError" class="delete-error">{{ mismatch.deleteError }}</span>
+                </template>
               </td>
             </tr>
           </tbody>
@@ -555,6 +573,23 @@ export default {
         if (this.registerStartTime) this.registerTimer = (performance.now() - this.registerStartTime) / 1000;
         this.registerInterval = null;
         this.registerStartTime = null;
+      }
+    },
+    async handleDeleteFileAndFail(mismatch, idx) {
+      this.$set(this.validationResults.mismatches[idx], 'deleting', true);
+      this.$set(this.validationResults.mismatches[idx], 'deleteError', '');
+      try {
+        await apiService.deleteFileAndFail({ modelVersionId: mismatch.modelVersionId, file_path: mismatch.file_path });
+        // Remove the row from mismatches after successful deletion
+        this.validationResults.mismatches.splice(idx, 1);
+        this.$forceUpdate();
+        this.errorHandler.handleSuccess('File deleted and marked as failed.');
+      } catch (error) {
+        this.$set(this.validationResults.mismatches[idx], 'deleteError', error.response?.data?.error || error.message || 'Failed to delete and mark as failed.');
+      } finally {
+        if (this.validationResults.mismatches[idx]) {
+          this.$set(this.validationResults.mismatches[idx], 'deleting', false);
+        }
       }
     },
   },
