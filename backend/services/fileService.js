@@ -12,48 +12,42 @@ class FileService {
         return ALLOWED_EXTENSIONS.some(e => e.toLowerCase() === ext.toLowerCase());
     }
 
-    // Recursively get all files from directory with proper error handling
-    getAllFiles(dirPath, arrayOfFiles = []) {
+    // Recursively get all files from directory with proper error handling (ASYNC VERSION)
+    async getAllFiles(dirPath, arrayOfFiles = []) {
+        const fsPromises = fs.promises;
         try {
             // Check if directory exists and is accessible
-            if (!fs.existsSync(dirPath)) {
-                logger.warn('Directory does not exist', { path: dirPath });
-                return arrayOfFiles;
-            }
-
-            const stats = fs.statSync(dirPath);
+            await fsPromises.access(dirPath, fs.constants.R_OK);
+            const stats = await fsPromises.stat(dirPath);
             if (!stats.isDirectory()) {
                 logger.warn('Path is not a directory', { path: dirPath });
                 return arrayOfFiles;
             }
-
-            const files = fs.readdirSync(dirPath);
-            
-            for (const file of files) {
+            const files = await fsPromises.readdir(dirPath);
+            // Use Promise.all to parallelize subdirectory/file checks
+            await Promise.all(files.map(async (file) => {
                 try {
                     const fullPath = path.join(dirPath, file);
-                    const fileStats = fs.statSync(fullPath);
-                    
+                    const fileStats = await fsPromises.stat(fullPath);
                     if (fileStats.isDirectory()) {
-                        this.getAllFiles(fullPath, arrayOfFiles);
+                        await this.getAllFiles(fullPath, arrayOfFiles);
                     } else {
                         if (this.hasAllowedExt(fullPath)) {
                             arrayOfFiles.push(fullPath);
                         }
                     }
                 } catch (fileError) {
-                    logger.warn('Error processing file in directory', { 
-                        file, 
-                        directory: dirPath, 
-                        error: fileError.message 
+                    logger.warn('Error processing file in directory', {
+                        file,
+                        directory: dirPath,
+                        error: fileError.message
                     });
-                    // Continue with other files
                 }
-            }
+            }));
         } catch (error) {
-            logger.error('Error reading directory', { 
-                path: dirPath, 
-                error: error.message 
+            logger.error('Error reading directory', {
+                path: dirPath,
+                error: error.message
             });
         }
         return arrayOfFiles;
@@ -284,7 +278,7 @@ class FileService {
             }
 
             logger.debug('Path is valid, scanning for files', { path: p });
-            const pathFiles = this.getAllFiles(p, []);
+            const pathFiles = await this.getAllFiles(p, []);
             allFiles.push(...pathFiles);
             logger.info('Path scan completed', { path: p, fileCount: pathFiles.length });
         }
@@ -483,21 +477,23 @@ class FileService {
     async scanUniqueLoras(paths, dbFileNames) {
         const startTime = Date.now();
         logger.userAction('Unique lora scan started', { pathCount: paths.length });
-
         logger.info('Scanning for unique loras', { pathCount: paths.length });
 
-        // First, get all files from disk
+        // First, get all files from disk in parallel
         const allDiskFiles = [];
-        for (const p of paths) {
+        // Parallelize per-path scanning
+        const filesPerPath = await Promise.all(paths.map(async (p) => {
             const validation = this.validatePath(p);
             if (validation.valid) {
-                const files = this.getAllFiles(p, []);
-                allDiskFiles.push(...files.map(f => ({
+                const files = await this.getAllFiles(p, []);
+                return files.map(f => ({
                     fullPath: f,
                     baseName: path.basename(f).toLowerCase()
-                })));
+                }));
             }
-        }
+            return [];
+        }));
+        filesPerPath.forEach(files => allDiskFiles.push(...files));
 
         logger.info('Found files on disk', { totalFiles: allDiskFiles.length });
 
@@ -685,55 +681,29 @@ class FileService {
     // Get safetensor file counts for each directory
     async getSafetensorCounts(paths) {
         logger.info('Getting safetensor counts for directories', { pathCount: paths.length });
-
-        const results = [];
-
-        for (const dirPath of paths) {
+        // Parallelize per-path scanning
+        const results = await Promise.all(paths.map(async (dirPath) => {
             try {
                 const validation = this.validatePath(dirPath);
                 if (validation.valid) {
-                    const files = this.getAllFiles(dirPath, []);
+                    const files = await this.getAllFiles(dirPath, []);
                     const count = files.length;
-                    
-                    results.push({
-                        path: dirPath,
-                        count: count
-                    });
-                    
-                    logger.debug('Safetensor count for directory', { 
-                        path: dirPath, 
-                        count: count 
-                    });
+                    logger.debug('Safetensor count for directory', { path: dirPath, count: count });
+                    return { path: dirPath, count: count };
                 } else {
-                    results.push({
-                        path: dirPath,
-                        count: 0
-                    });
-                    
-                    logger.warn('Invalid directory path', { 
-                        path: dirPath, 
-                        error: validation.error 
-                    });
+                    logger.warn('Invalid directory path', { path: dirPath, error: validation.error });
+                    return { path: dirPath, count: 0 };
                 }
             } catch (error) {
-                results.push({
-                    path: dirPath,
-                    count: 0
-                });
-                
-                logger.error('Error counting safetensor files', { 
-                    path: dirPath, 
-                    error: error.message 
-                });
+                logger.error('Error counting safetensor files', { path: dirPath, error: error.message });
+                return { path: dirPath, count: 0 };
             }
-        }
-
-        logger.info('Safetensor count completed', { 
+        }));
+        logger.info('Safetensor count completed', {
             totalPaths: paths.length,
             successfulCounts: results.filter(r => r.count > 0).length,
             zeroCounts: results.filter(r => r.count === 0).length
         });
-
         return results;
     }
 }
