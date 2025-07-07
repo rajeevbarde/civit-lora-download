@@ -553,31 +553,52 @@ export default {
       }
     },
     async downloadModelFile(model) {
+      let timeoutId;
+      let finished = false;
+      // Add model to downloading list with modelVersionId for proper tracking
+      this.downloadingModels.push({
+        modelId: model.modelId,
+        modelVersionId: model.modelVersionId,
+        fileName: model.fileName
+      });
+
+      // Start a 20-second timeout to mark as failed if not started
+      timeoutId = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        this.removeFromDownloadingList(model.modelId);
+        model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
+        this.errorHandler.handleError(new Error('Download did not start within 20 seconds'), `downloading ${model.fileName}`);
+        // Force UI update if needed
+        this.$forceUpdate && this.$forceUpdate();
+      }, 20000);
+
       try {
-        // Add model to downloading list with modelVersionId for proper tracking
-        this.downloadingModels.push({
-          modelId: model.modelId,
-          modelVersionId: model.modelVersionId,
-          fileName: model.fileName
-        });
-        
         const response = await apiService.downloadModelFile({
           url: model.fileDownloadUrl,
           fileName: model.fileName,
           baseModel: model.basemodel,
           modelVersionId: model.modelVersionId
         });
-        
+
+        if (finished) return; // Timeout already triggered
+        finished = true;
+        clearTimeout(timeoutId);
+
         if (response && response.success) {
           // Start polling for status updates
           this.startStatusPolling(model.modelVersionId, model.fileName);
         } else {
           this.removeFromDownloadingList(model.modelId);
+          model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
           this.errorHandler.handleError(new Error(response.error || 'Unknown error'), `queuing download for ${model.fileName}`);
         }
       } catch (err) {
+        if (finished) return; // Timeout already triggered
+        finished = true;
+        clearTimeout(timeoutId);
         this.removeFromDownloadingList(model.modelId);
-        
+        model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
         // Use the new error handler for consistent error messaging
         this.errorHandler.handleError(err, `downloading ${model.fileName}`);
       }
