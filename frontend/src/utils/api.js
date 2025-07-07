@@ -174,7 +174,8 @@ export const apiService = {
   // Summary
   async registerUnregisteredFiles(files, options = {}) {
     const response = await api.post('/files/register-unregistered', { files }, {
-      signal: options.signal
+      signal: options.signal,
+      timeout: options.timeout,
     });
     return response.data;
   },

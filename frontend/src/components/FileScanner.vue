@@ -538,7 +538,7 @@ export default {
         const payload = files.map(f => ({ baseName: f.baseName, fullPath: f.fullPath }));
         // Prediction: 1 file = 1 sec
         this.registerPredictedSeconds = files.length;
-        const result = await apiService.registerUnregisteredFiles(payload);
+        const result = await apiService.registerUnregisteredFiles(payload, { timeout: 2700000 });
         if (result && result.updated > 0) {
           this.errorHandler.handleSuccess(`Registered ${result.updated} files successfully.`);
           this.registerResult = { updated: result.updated, errors: result.errors };
