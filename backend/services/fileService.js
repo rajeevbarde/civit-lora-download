@@ -254,40 +254,30 @@ class FileService {
     async findMissingFiles(paths, dbFileNames) {
         const startTime = Date.now();
         logger.userAction('Orphan scan started', { pathCount: paths.length });
-
         logger.info('Finding missing files', { pathCount: paths.length });
-
         if (!paths.length) {
             logger.error('No saved paths to scan');
             throw new Error('No saved paths to scan.');
         }
-
-        // Get all files from the scanned paths
-        const allFiles = [];
+        // Get all files from the scanned paths in parallel
         const scanErrors = [];
-
-        for (let pathIndex = 0; pathIndex < paths.length; pathIndex++) {
-            const p = paths[pathIndex];
-            logger.info(`Scanning path ${pathIndex + 1}/${paths.length}`, { path: p });
-
+        const filesPerPath = await Promise.all(paths.map(async (p) => {
             const validation = this.validatePath(p);
             if (!validation.valid) {
                 scanErrors.push({ path: p, error: validation.error });
                 logger.warn('Path validation failed', { path: p, error: validation.error });
-                continue;
+                return [];
             }
-
             logger.debug('Path is valid, scanning for files', { path: p });
             const pathFiles = await this.getAllFiles(p, []);
-            allFiles.push(...pathFiles);
             logger.info('Path scan completed', { path: p, fileCount: pathFiles.length });
-        }
-
+            return pathFiles;
+        }));
+        const allFiles = filesPerPath.flat();
         logger.info('File scanning completed', { 
             totalFiles: allFiles.length, 
             scanErrors: scanErrors.length 
         });
-
         if (allFiles.length === 0) {
             logger.warn('No files found to check against database');
             return {
@@ -297,7 +287,6 @@ class FileService {
                 totalMissing: 0
             };
         }
-
         // Find files that are not in the database
         const missingFiles = [];
         for (let index = 0; index < allFiles.length; index++) {
