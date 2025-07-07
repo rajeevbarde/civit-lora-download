@@ -307,6 +307,7 @@ export default {
       relatedLoraMap: {}, // modelId -> array of related lora
       relatedLoraLoading: {}, // modelId -> loading state
       DOWNLOAD_STATUS,
+      isRestoringFilters: false,
     }
   },
   computed: {
@@ -321,30 +322,56 @@ export default {
   },
   watch: {
     selectedBaseModel() {
+      if (this.isRestoringFilters) return;
       this.currentPage = 1;
-      this.selectedModels = []; // Clear selection when filters change
+      this.selectedModels = [];
+      this.saveFiltersToLocalStorage();
       this.fetchModels();
     },
     selectedDownloaded() {
+      if (this.isRestoringFilters) return;
       this.currentPage = 1;
-      this.selectedModels = []; // Clear selection when filters change
+      this.selectedModels = [];
+      this.saveFiltersToLocalStorage();
       this.fetchModels();
     },
     selectedModelNsfw() {
+      if (this.isRestoringFilters) return;
       this.currentPage = 1;
       this.selectedModels = [];
+      this.saveFiltersToLocalStorage();
       this.fetchModels();
     },
     selectedVersionNsfwLevelRange() {
+      if (this.isRestoringFilters) return;
       this.currentPage = 1;
       this.selectedModels = [];
+      this.saveFiltersToLocalStorage();
       this.fetchModels();
     }
   },
   mounted() {
+    // Restore filter state from localStorage
+    const savedFilters = localStorage.getItem('loraHubFilters');
+    if (savedFilters) {
+      this.isRestoringFilters = true;
+      try {
+        const filters = JSON.parse(savedFilters);
+        if (filters.selectedBaseModel !== undefined) this.selectedBaseModel = filters.selectedBaseModel;
+        if (filters.selectedDownloaded !== undefined) this.selectedDownloaded = filters.selectedDownloaded;
+        if (filters.selectedModelNsfw !== undefined) this.selectedModelNsfw = filters.selectedModelNsfw;
+        if (filters.selectedVersionNsfwLevelRange !== undefined) this.selectedVersionNsfwLevelRange = filters.selectedVersionNsfwLevelRange;
+      } catch (e) {
+        // Ignore parse errors and use defaults
+      }
+      this.$nextTick(() => {
+        this.isRestoringFilters = false;
+        this.fetchModels(); // Always fetch after restoring filters
+      });
+    } else {
+      this.fetchModels();
+    }
     this.fetchBaseModels();
-    this.fetchModels();
-    
     // Start periodic cleanup to check for stuck downloads
     this.startPeriodicCleanup();
   },
@@ -904,6 +931,15 @@ export default {
       } catch (error) {
         if (this.showError) this.showError('Failed to ignore model.');
       }
+    },
+    saveFiltersToLocalStorage() {
+      const filters = {
+        selectedBaseModel: this.selectedBaseModel,
+        selectedDownloaded: this.selectedDownloaded,
+        selectedModelNsfw: this.selectedModelNsfw,
+        selectedVersionNsfwLevelRange: this.selectedVersionNsfwLevelRange
+      };
+      localStorage.setItem('loraHubFilters', JSON.stringify(filters));
     },
   }
 }
