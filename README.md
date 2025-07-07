@@ -14,6 +14,7 @@ Easily organize and download LoRA models using a pre-scraped CivitAI database—
 
 ## Prerequisites
 - Node.js v20 must be installed on your system. [Download Node.js here](https://nodejs.org/en/download)
+- Windows 11 only. You can try linux, share errors if found.
 
 ## Setup
 
