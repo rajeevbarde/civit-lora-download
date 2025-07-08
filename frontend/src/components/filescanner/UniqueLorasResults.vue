@@ -22,12 +22,12 @@
         <!-- Tab Description -->
         <template v-if="tab.key === 'unique-downloaded'">
           <div class="tab-description">
-            LoRA files are registered with Civitai db. They do not have duplicate issues.
+            LoRA files are registered with local Civitai database. They do not have duplicate issues.
           </div>
         </template>
         <template v-else-if="tab.key === 'unique-not-downloaded'">
           <div class="tab-description">
-            LoRA files are present in your hdd but not registered with db. They do not have duplicate issues.
+            LoRA files are present in your harddrive but not registered with local Civitai database. They do not have duplicate issues.
           </div>
         </template>
         <template v-else-if="tab.key === 'duplicate-issues'">
@@ -38,7 +38,7 @@
         </template>
         <template v-else-if="tab.key === 'orphan'">
           <div class="tab-description with-link">
-            <span>LoRA files present in harddrive but does not exist in Civitai db.</span>
+            <span>LoRA files present in harddrive but does not exist in Civitai database.</span>
             <router-link to="/civit-data-fetcher" class="fix-link">Fix it.</router-link>
           </div>
         </template>
@@ -134,7 +134,7 @@ export default {
     return {
       activeUniqueTab: 'unique-downloaded',
       uniqueTabs: [
-        { key: 'unique-downloaded', label: 'LoRA Registered with Civitai db' },
+        { key: 'unique-downloaded', label: 'LoRA Registered with local Civitai database' },
         { key: 'unique-not-downloaded', label: 'LoRA not Registered' },
         { key: 'duplicate-issues', label: 'Duplicate Issues' }
       ]
@@ -189,9 +189,11 @@ export default {
 <style scoped>
 .unique-loras-container {
   margin-top: 2rem;
-  background: #f9f9f9;
-  padding: 1rem;
-  border-radius: 5px;
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
 }
 
 .unique-loras-summary {
@@ -201,36 +203,48 @@ export default {
 
 .unique-tab-navigation {
   display: flex;
-  border-bottom: 2px solid #ddd;
-  margin-bottom: 1rem;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 8px 8px 0 0;
+  padding: 0.5rem 0.5rem 0 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .unique-tab-button {
-  background: #f8f8f8;
-  border: 1px solid #ddd;
-  border-bottom: none;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border: none;
   padding: 0.75rem 1.5rem;
   margin-right: 0.25rem;
   cursor: pointer;
-  border-radius: 5px 5px 0 0;
+  border-radius: 6px 6px 0 0;
   font-weight: 500;
+  color: #546e7a;
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .unique-tab-button.active {
-  background: #fff;
-  border-bottom: 2px solid #fff;
-  margin-bottom: -2px;
-  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .unique-tab-button:hover:not(.active) {
-  background: #e9e9e9;
+  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  color: #37474f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .unique-tab-content {
   background: #fff;
-  padding: 1rem;
-  border-radius: 0 0 5px 5px;
+  padding: 1.5rem;
+  border-radius: 0 0 8px 8px;
+  min-height: 200px;
 }
 
 .unique-tab-panel h3 {
@@ -262,19 +276,32 @@ export default {
 }
 
 .register-btn {
-  background: #5cb85c;
+  background: #1976d2;
   color: #fff;
   border: none;
-  border-radius: 3px;
-  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  padding: 0.75rem 1.5rem;
   font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
   margin-bottom: 1rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.register-btn:hover:not(:disabled) {
+  background: #1565c0;
+  box-shadow: 0 4px 8px rgba(25, 118, 210, 0.3);
+  transform: translateY(-1px);
 }
 
 .register-btn:disabled {
-  background: #b2d8b2;
+  background: #bdbdbd;
   cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .register-timer {
@@ -296,24 +323,81 @@ export default {
 
 .no-unique-files {
   text-align: center;
-  color: #666;
+  color: #757575;
   font-style: italic;
-  padding: 2rem;
+  padding: 3rem 2rem;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 2px dashed #e0e0e0;
+  margin: 1rem 0;
 }
 
 .unique-loras-table {
   width: 100%;
-  border-collapse: collapse;
-}
-
-.unique-loras-table th, .unique-loras-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 1rem 0;
 }
 
 .unique-loras-table th {
-  background: #f8f8f8;
-  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 16px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.unique-loras-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #424242;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.unique-loras-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.unique-loras-table tbody tr:hover {
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+  border-left: 4px solid #667eea;
+}
+
+.unique-loras-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Material Design elevation on hover */
+.unique-loras-table tbody tr:hover {
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+  transform: translateY(-1px);
+  transition: all 0.3s ease;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+  .unique-loras-table {
+    font-size: 12px;
+  }
+  
+  .unique-loras-table th,
+  .unique-loras-table td {
+    padding: 8px 6px;
+  }
 }
 </style> 
