@@ -141,8 +141,8 @@
               </tr>
             </thead>
             <tbody>
-              <!-- Loop through all model properties -->
-              <tr v-for="(value, key) in model" :key="key" class="detail-row">
+              <!-- Loop through filtered and processed model properties -->
+              <tr v-for="(value, key) in processedModelData" :key="key" class="detail-row">
                 <td class="field-cell">{{ key }}</td>
                 <td class="value-cell">
                   <div v-if="typeof value === 'string' && value.includes('<')" class="html-content">
@@ -193,6 +193,171 @@
     },
     beforeUnmount() {
       this.stopPolling();
+    },
+    computed: {
+      processedModelData() {
+        if (!this.model) return {};
+        
+        const excludedFields = ['modelId', 'modelType', 'modelVersionId', 'fileType', 'fileDownloadUrl', 'isDownloaded', 'modelDownloadCount', 'modelVersionNsfwLevel'];
+        const processed = {};
+        
+        // Define NSFW groups based on the backend logic
+        const nsfwGroups = {
+          'Safe': [0],
+          'Mild': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+          'Moderate': [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+          'NSFW': [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
+          'Extreme NSFW': [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+        };
+        
+        // First pass: collect and process special fields
+        let modelName = '';
+        let modelVersionName = '';
+        let description = '';
+        let modelVersionDescription = '';
+        
+        for (const [key, value] of Object.entries(this.model)) {
+          if (excludedFields.includes(key)) continue;
+          
+          if (key === 'modelName') modelName = value;
+          if (key === 'modelVersionName') modelVersionName = value;
+          if (key === 'description') description = value;
+          if (key === 'modelVersionDescription') modelVersionDescription = value;
+        }
+        
+        // Second pass: build the processed object with proper ordering
+        for (const [key, value] of Object.entries(this.model)) {
+          // Skip excluded fields
+          if (excludedFields.includes(key)) continue;
+          
+          let processedValue = value;
+          let processedKey = key;
+          
+          // Combine Model Name and Model Version Name
+          if (key === 'modelName') {
+            processedValue = modelVersionName ? `${value} / ${modelVersionName}` : value;
+            processedKey = 'Model Name / Version';
+          } else if (key === 'modelVersionName') {
+            // Skip this field as it's combined with modelName
+            continue;
+          }
+          
+          // Handle modelNsfw (1 = NSFW, 0 = SFW)
+          if (key === 'modelNsfw') {
+            processedValue = value === 1 ? 'NSFW' : 'SFW';
+            processedKey = 'NSFW Status';
+          }
+          
+          // Handle modelNsfwLevel using the groups
+          if (key === 'modelNsfwLevel') {
+            for (const [groupName, levels] of Object.entries(nsfwGroups)) {
+              if (levels.includes(value)) {
+                processedValue = groupName;
+                break;
+              }
+            }
+            processedKey = 'NSFW Level';
+          }
+          
+          // Combine basemodel and basemodeltype
+          if (key === 'basemodel') {
+            const baseModelType = this.model.basemodeltype;
+            processedValue = baseModelType ? `${value} (${baseModelType})` : value;
+          } else if (key === 'basemodeltype') {
+            // Skip this field as it's combined with basemodel
+            continue;
+          }
+          
+          // Convert size_in_kb to MB
+          if (key === 'size_in_kb' && value !== null && value !== undefined) {
+            const sizeInMB = (value / 1024).toFixed(2);
+            processedValue = `${sizeInMB} MB`;
+            processedKey = 'Size';
+          }
+          
+          // Format publishedAt to local timezone
+          if (key === 'publishedAt' && value) {
+            processedValue = new Date(value).toLocaleString();
+            processedKey = 'Published Date';
+          }
+          
+          // Handle file_path display based on download status
+          if (key === 'file_path') {
+            const downloadStatus = this.model.isDownloaded;
+            if (downloadStatus === 1) {
+              // Downloaded - show full path
+              processedValue = value && value.trim() !== '' ? value : 'Path not available';
+            } else if (downloadStatus === 0) {
+              // Not downloaded
+              processedValue = 'Not downloaded';
+            } else if (downloadStatus === 3) {
+              // Failed
+              processedValue = 'Download failed';
+            } else if (downloadStatus === 4) {
+              // Ignored
+              processedValue = 'Download ignored';
+            } else {
+              // Unknown status
+              processedValue = 'Unknown status';
+            }
+            processedKey = 'File Path';
+          }
+          
+          // Format other field names for better display
+          if (key === 'fileName') processedKey = 'File Name';
+          if (key === 'description') processedKey = 'Description';
+          if (key === 'modelVersionDescription') processedKey = 'Model Version Description';
+          if (key === 'tags') processedKey = 'Tags';
+          if (key === 'nsfw') processedKey = 'NSFW';
+          if (key === 'downloadCount') processedKey = 'Download Count';
+          if (key === 'rating') processedKey = 'Rating';
+          if (key === 'ratingCount') processedKey = 'Rating Count';
+          if (key === 'commentCount') processedKey = 'Comment Count';
+          if (key === 'favoriteCount') processedKey = 'Favorite Count';
+          if (key === 'creator') processedKey = 'Creator';
+          if (key === 'creatorId') processedKey = 'Creator ID';
+          
+          processed[processedKey] = processedValue;
+        }
+        
+        // Reorder fields to put modelVersionDescription after description
+        const orderedFields = {};
+        const fieldOrder = [
+          'Model Name / Version',
+          'Description',
+          'Model Version Description',
+          'NSFW Status',
+          'NSFW Level',
+          'Creator',
+          'Creator ID',
+          'Published Date',
+          'Size',
+          'File Name',
+          'File Path',
+          'Base Model',
+          'Tags',
+          'Rating',
+          'Rating Count',
+          'Comment Count',
+          'Favorite Count'
+        ];
+        
+        // Add fields in the specified order
+        for (const fieldName of fieldOrder) {
+          if (processed[fieldName] !== undefined) {
+            orderedFields[fieldName] = processed[fieldName];
+          }
+        }
+        
+        // Add any remaining fields that weren't in the order list
+        for (const [key, value] of Object.entries(processed)) {
+          if (!fieldOrder.includes(key)) {
+            orderedFields[key] = value;
+          }
+        }
+        
+        return orderedFields;
+      }
     },
     methods: {
       async fetchModelDetails() {
