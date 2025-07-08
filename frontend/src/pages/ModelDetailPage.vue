@@ -199,8 +199,22 @@ export default {
     async downloadModelFile() {
       if (!this.model?.fileDownloadUrl) return;
       
+      let timeoutId;
+      let finished = false;
+      
       this.downloading = true;
       this.error = null;
+      
+      // Start a 20-second timeout to mark as failed if not started
+      timeoutId = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        this.downloading = false;
+        this.model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
+        this.showNotification('Download did not start within 20 seconds: ' + (this.model.fileName || ''), 'error');
+        // Force UI update if needed
+        this.$forceUpdate && this.$forceUpdate();
+      }, 20000);
       
       try {
         const payload = {
@@ -212,19 +226,28 @@ export default {
         
         const response = await apiService.downloadModelFile(payload);
         
-        if (response?.success) {
+        if (finished) return; // Timeout already triggered
+        finished = true;
+        clearTimeout(timeoutId);
+        
+        if (response && response.success) {
           this.showNotification('Download started: ' + (this.model.fileName || ''), 'info');
           this.startPollingForStatus();
         } else {
-          this.showNotification('Failed to start download: ' + (this.model.fileName || ''), 'error');
           this.downloading = false;
+          this.model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
+          this.showNotification('Failed to start download: ' + (this.model.fileName || ''), 'error');
         }
         
         await this.fetchModelDetails();
       } catch (err) {
+        if (finished) return; // Timeout already triggered
+        finished = true;
+        clearTimeout(timeoutId);
+        this.downloading = false;
+        this.model.isDownloaded = this.DOWNLOAD_STATUS.FAILED;
         this.error = err.message || 'Download failed.';
         this.showNotification('Download failed: ' + (this.model.fileName || ''), 'error');
-        this.downloading = false;
       }
     },
     
