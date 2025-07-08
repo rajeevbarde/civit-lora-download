@@ -1,10 +1,7 @@
 <template>
   <div class="settings-page">
-    <!-- Settings Header -->
     <SettingsHeader />
-
     <div class="settings-sections">
-      <!-- Database Path Section -->
       <DatabasePathSection 
         :db-path="dbPath"
         :db-path-input="dbPathInput"
@@ -17,28 +14,20 @@
         @verify="verifyDbPath"
         @save="saveDbPath"
       />
-
-      <!-- Download Base Directory Section -->
       <DownloadBaseDirSection 
         :download-base-dir-input="downloadBaseDirInput"
         @update:download-base-dir-input="downloadBaseDirInput = $event"
       />
-
-      <!-- CivitAI Token Section -->
       <CivitaiTokenSection 
         :civitai-token-input="civitaiTokenInput"
         @update:civitai-token-input="civitaiTokenInput = $event"
       />
-
-      <!-- Save All Settings Section -->
       <SaveSettingsSection 
         :success="success"
         :error="error"
         :verify-loading="verifyLoading"
         @save="saveSettings"
       />
-
-      <!-- Logs Management Section -->
       <LogsManagementSection 
         :log-files="logFiles"
         :log-success="logSuccess"
@@ -76,10 +65,8 @@ export default {
     LogsManagementSection
   },
   setup() {
-    // Reactive state
+    // State
     const dbPath = ref('');
-    const downloadBaseDir = ref('');
-    const civitaiToken = ref('');
     const dbPathInput = ref('');
     const downloadBaseDirInput = ref('');
     const civitaiTokenInput = ref('');
@@ -97,37 +84,26 @@ export default {
     const resetDbError = ref('');
     const showResetDbDialog = ref(false);
 
-    // API Methods
+    // Load initial data
     const loadSettings = async () => {
       try {
         const settings = await apiService.fetchSettings();
         dbPath.value = settings.DB_PATH;
-        downloadBaseDir.value = settings.DOWNLOAD_BASE_DIR;
-        civitaiToken.value = settings.CIVITAI_TOKEN;
         dbPathInput.value = settings.DB_PATH;
         downloadBaseDirInput.value = settings.DOWNLOAD_BASE_DIR;
         civitaiTokenInput.value = settings.CIVITAI_TOKEN;
         
-        // Fetch log files
         const logData = await apiService.fetchLogFiles();
         logFiles.value = logData.files || [];
         
-        // Fetch latest publishedAt
-        await fetchLatestPublishedAt();
+        const { latest } = await apiService.getLatestPublishedAt();
+        latestPublishedAt.value = latest;
       } catch (err) {
         error.value = err.message || 'Failed to load settings';
       }
     };
 
-    const fetchLatestPublishedAt = async () => {
-      try {
-        const { latest } = await apiService.getLatestPublishedAt();
-        latestPublishedAt.value = latest;
-      } catch (err) {
-        latestPublishedAt.value = null;
-      }
-    };
-
+    // API methods
     const saveSettings = async () => {
       try {
         await apiService.updateSettings({
@@ -136,8 +112,6 @@ export default {
         });
         success.value = true;
         error.value = '';
-        downloadBaseDir.value = downloadBaseDirInput.value;
-        civitaiToken.value = civitaiTokenInput.value;
       } catch (err) {
         error.value = err.message || 'Failed to update settings';
         success.value = false;
@@ -164,10 +138,11 @@ export default {
       apiService.verifyDbFileSchema(dbPathInput.value)
         .then(result => {
           verifyResult.value = result;
-          // If verification is successful, refresh latest publishedAt
           if (result.fileExists && result.tableExists && 
               result.indexResults.every(idx => idx.exists && idx.match !== false)) {
-            fetchLatestPublishedAt();
+            apiService.getLatestPublishedAt().then(({ latest }) => {
+              latestPublishedAt.value = latest;
+            });
           }
         })
         .catch(err => {
@@ -183,7 +158,6 @@ export default {
       logError.value = '';
       try {
         await apiService.clearLogs();
-        // Refresh log files
         const logData = await apiService.fetchLogFiles();
         logFiles.value = logData.files || [];
         logSuccess.value = true;
@@ -192,14 +166,14 @@ export default {
       }
     };
 
-    const handleResetDatabase = async () => {
+    const confirmResetDb = async () => {
+      showResetDbDialog.value = false;
       resetDbSuccess.value = false;
       resetDbError.value = '';
       try {
         const result = await apiService.resetDatabase();
-        if (result.success) {
-          resetDbSuccess.value = true;
-        } else {
+        resetDbSuccess.value = result.success;
+        if (!result.success) {
           resetDbError.value = result.error || 'Failed to reset database';
         }
       } catch (err) {
@@ -207,42 +181,17 @@ export default {
       }
     };
 
-    const confirmResetDb = () => {
-      showResetDbDialog.value = false;
-      handleResetDatabase();
-    };
-
-    // Lifecycle
     onMounted(loadSettings);
 
     return {
       // State
-      dbPath,
-      downloadBaseDir,
-      civitaiToken,
-      dbPathInput,
-      downloadBaseDirInput,
-      civitaiTokenInput,
-      error,
-      success,
-      logFiles,
-      logSuccess,
-      logError,
-      verifyResult,
-      verifyLoading,
-      dbPathSaveSuccess,
-      dbPathSaveError,
-      latestPublishedAt,
-      resetDbSuccess,
-      resetDbError,
-      showResetDbDialog,
+      dbPath, dbPathInput, downloadBaseDirInput, civitaiTokenInput,
+      error, success, logFiles, logSuccess, logError,
+      verifyResult, verifyLoading, dbPathSaveSuccess, dbPathSaveError,
+      latestPublishedAt, resetDbSuccess, resetDbError, showResetDbDialog,
       
       // Methods
-      saveSettings,
-      saveDbPath,
-      verifyDbPath,
-      clearAllLogs,
-      confirmResetDb
+      saveSettings, saveDbPath, verifyDbPath, clearAllLogs, confirmResetDb
     };
   }
 };
