@@ -22,7 +22,6 @@
       :latestCheckpoints="latestCheckpoints"
       :loadingCheckpoints="loadingCheckpoints"
       :checkpointsError="checkpointsError"
-      :formatRelativeTime="formatRelativeTime"
       @retry="loadLatestCheckpoints"
     />
   </div>
@@ -36,18 +35,6 @@ import ModelOverviewMatrix from '../components/summary/ModelOverviewMatrix.vue';
 import LoraFileLocations from '../components/summary/LoraFileLocations.vue';
 import LatestUpdatedLora from '../components/summary/LatestUpdatedLora.vue';
 import { apiService } from '../utils/api.js';
-
-function getRelativeTime(dateString) {
-  const utcDate = new Date(dateString + 'Z');
-  const now = new Date();
-  const diff = Math.floor((now - utcDate) / 1000);
-  if (diff < 60) return `${diff} second${diff !== 1 ? 's' : ''} ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} min${Math.floor(diff / 60) !== 1 ? 's' : ''} ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hour${Math.floor(diff / 3600) !== 1 ? 's' : ''} ago`;
-  if (diff < 2592000) return `${Math.floor(diff / 86400)} day${Math.floor(diff / 86400) !== 1 ? 's' : ''} ago`;
-  if (diff < 31536000) return `${Math.floor(diff / 2592000)} month${Math.floor(diff / 2592000) !== 1 ? 's' : ''} ago`;
-  return `${Math.floor(diff / 31536000)} year${Math.floor(diff / 31536000) !== 1 ? 's' : ''} ago`;
-}
 
 export default {
   name: 'LoRASummary',
@@ -121,9 +108,6 @@ export default {
       } finally {
         this.loadingCheckpoints = false;
       }
-    },
-    formatRelativeTime(dateString) {
-      return getRelativeTime(dateString);
     },
     scrollToSection(section) {
       this.activeTab = section;
