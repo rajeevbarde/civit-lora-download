@@ -56,6 +56,7 @@ export default {
       required: true
     }
   },
+  emits: ['download', 'ignore', 'update:downloading'],
   computed: {
     showDownloadButton() {
       return this.model.fileDownloadUrl && 

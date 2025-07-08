@@ -33,9 +33,187 @@
 export default {
   name: 'ModelDetails',
   props: {
-    processedModelData: {
+    model: {
       type: Object,
       required: true
+    }
+  },
+  computed: {
+    processedModelData() {
+      if (!this.model) return {};
+      
+      const excludedFields = [
+        'modelId', 'modelType', 'modelVersionId', 'fileType', 
+        'fileDownloadUrl', 'isDownloaded', 'modelDownloadCount', 
+        'modelVersionNsfwLevel'
+      ];
+      
+      const nsfwGroups = {
+        'Safe': [0],
+        'Mild': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        'Moderate': [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+        'NSFW': [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],
+        'Extreme NSFW': [48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+      };
+      
+      const fieldOrder = [
+        'Model Name / Version', 'Description', 'Model Version Description',
+        'NSFW Status', 'NSFW Level', 'Creator', 'Creator ID', 'Published Date',
+        'Size', 'File Name', 'File Path', 'Base Model', 'Tags', 'Rating',
+        'Rating Count', 'Comment Count', 'Favorite Count'
+      ];
+      
+      return this.processModelFields(excludedFields, nsfwGroups, fieldOrder);
+    }
+  },
+  methods: {
+    processModelFields(excludedFields, nsfwGroups, fieldOrder) {
+      const processed = {};
+      
+      // First pass: collect special fields
+      const specialFields = this.collectSpecialFields();
+      
+      // Second pass: process all fields
+      for (const [key, value] of Object.entries(this.model)) {
+        if (excludedFields.includes(key)) continue;
+        
+        const { processedValue, processedKey } = this.processField(key, value, specialFields, nsfwGroups);
+        if (processedKey) {
+          processed[processedKey] = processedValue;
+        }
+      }
+      
+      // Reorder fields
+      return this.reorderFields(processed, fieldOrder);
+    },
+    
+    collectSpecialFields() {
+      const fields = {};
+      for (const [key, value] of Object.entries(this.model)) {
+        if (key === 'modelName') fields.modelName = value;
+        if (key === 'modelVersionName') fields.modelVersionName = value;
+        if (key === 'description') fields.description = value;
+        if (key === 'modelVersionDescription') fields.modelVersionDescription = value;
+      }
+      return fields;
+    },
+    
+    processField(key, value, specialFields, nsfwGroups) {
+      let processedValue = value;
+      let processedKey = key;
+      
+      // Handle special field combinations
+      if (key === 'modelName') {
+        processedValue = specialFields.modelVersionName 
+          ? `${value} / ${specialFields.modelVersionName}` 
+          : value;
+        processedKey = 'Model Name / Version';
+        return { processedValue, processedKey };
+      }
+      
+      if (key === 'modelVersionName') {
+        return { processedValue: null, processedKey: null }; // Skip, combined with modelName
+      }
+      
+      // Handle NSFW fields
+      if (key === 'modelNsfw') {
+        processedValue = value === 1 ? 'NSFW' : 'SFW';
+        processedKey = 'NSFW Status';
+      }
+      
+      if (key === 'modelNsfwLevel') {
+        for (const [groupName, levels] of Object.entries(nsfwGroups)) {
+          if (levels.includes(value)) {
+            processedValue = groupName;
+            break;
+          }
+        }
+        processedKey = 'NSFW Level';
+      }
+      
+      // Handle base model combination
+      if (key === 'basemodel') {
+        const baseModelType = this.model.basemodeltype;
+        processedValue = baseModelType ? `${value} (${baseModelType})` : value;
+        processedKey = 'Base Model';
+      }
+      
+      if (key === 'basemodeltype') {
+        return { processedValue: null, processedKey: null }; // Skip, combined with basemodel
+      }
+      
+      // Handle file size conversion
+      if (key === 'size_in_kb' && value !== null && value !== undefined) {
+        const sizeInMB = (value / 1024).toFixed(2);
+        processedValue = `${sizeInMB} MB`;
+        processedKey = 'Size';
+      }
+      
+      // Handle date formatting
+      if (key === 'publishedAt' && value) {
+        processedValue = new Date(value).toLocaleString();
+        processedKey = 'Published Date';
+      }
+      
+      // Handle file path based on download status
+      if (key === 'file_path') {
+        processedValue = this.getFilePathDisplay(value);
+        processedKey = 'File Path';
+      }
+      
+      // Format field names
+      processedKey = this.formatFieldName(processedKey);
+      
+      return { processedValue, processedKey };
+    },
+    
+    getFilePathDisplay(value) {
+      const downloadStatus = this.model.isDownloaded;
+      const statusMap = {
+        1: value && value.trim() !== '' ? value : 'Path not available',
+        0: 'Not downloaded',
+        3: 'Download failed',
+        4: 'Download ignored'
+      };
+      return statusMap[downloadStatus] || 'Unknown status';
+    },
+    
+    formatFieldName(key) {
+      const nameMap = {
+        'fileName': 'File Name',
+        'description': 'Description',
+        'modelVersionDescription': 'Model Version Description',
+        'tags': 'Tags',
+        'nsfw': 'NSFW',
+        'downloadCount': 'Download Count',
+        'rating': 'Rating',
+        'ratingCount': 'Rating Count',
+        'commentCount': 'Comment Count',
+        'favoriteCount': 'Favorite Count',
+        'creator': 'Creator',
+        'creatorId': 'Creator ID'
+      };
+      return nameMap[key] || key;
+    },
+    
+    reorderFields(processed, fieldOrder) {
+      const orderedFields = {};
+      
+      // Add fields in specified order
+      for (const fieldName of fieldOrder) {
+        if (processed[fieldName] !== undefined) {
+          orderedFields[fieldName] = processed[fieldName];
+        }
+      }
+      
+      // Add remaining fields
+      for (const [key, value] of Object.entries(processed)) {
+        if (!fieldOrder.includes(key)) {
+          orderedFields[key] = value;
+        }
+      }
+      
+      return orderedFields;
     }
   }
 };
