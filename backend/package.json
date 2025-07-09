@@ -5,8 +5,14 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon server.js",
+    "test": "jest",
+    "test:smoke": "jest tests/smoke.test.js",
+    "test:sanity": "jest tests/sanity.test.js",
+    "test:coverage": "jest --coverage --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch",
+    "test:smoke-sanity": "jest --testNamePattern=smoke|sanity",
+    "diagnostic": "node tests/diagnostic.js"
   },
   "keywords": [
     "civitai",
@@ -28,5 +34,28 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "nodemon": "^3.0.2"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "setupFilesAfterEnv": ["<rootDir>/tests/setup.js"],
+    "testTimeout": 10000,
+    "forceExit": true,
+    "detectOpenHandles": true,
+    "collectCoverageFrom": [
+      "services/**/*.js",
+      "routes/**/*.js",
+      "middleware/**/*.js",
+      "utils/**/*.js",
+      "config/**/*.js",
+      "!**/node_modules/**",
+      "!**/tests/**"
+    ],
+    "coverageReporters": ["text", "lcov", "html"],
+    "coverageDirectory": "coverage"
   }
 }
