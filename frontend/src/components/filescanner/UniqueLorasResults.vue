@@ -33,13 +33,19 @@
         <template v-else-if="tab.key === 'duplicate-issues'">
           <div class="tab-description with-link">
             <span>Wierd duplicate Issues</span>
-            <router-link to="/civit-data-fetcher" class="fix-link">Fix it.</router-link>
+            <router-link to="/civit-data-fetcher" class="fix-link">
+              <span class="fix-icon">🔧</span>
+              <span class="fix-text">Fix it</span>
+            </router-link>
           </div>
         </template>
         <template v-else-if="tab.key === 'orphan'">
           <div class="tab-description with-link">
             <span>LoRA files present in harddrive but does not exist in Civitai database.</span>
-            <router-link to="/civit-data-fetcher" class="fix-link">Fix it.</router-link>
+            <router-link to="/civit-data-fetcher" class="fix-link">
+              <span class="fix-icon">🔧</span>
+              <span class="fix-text">Fix it</span>
+            </router-link>
           </div>
         </template>
         
@@ -266,9 +272,63 @@ export default {
 }
 
 .fix-link {
-  color: #337ab7;
-  text-decoration: underline;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: linear-gradient(135deg, #4fc3f7 0%, #29b6f6 100%);
+  color: white;
+  text-decoration: none;
   font-weight: 500;
+  padding: 0.4rem 0.8rem;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  text-transform: none;
+  letter-spacing: 0.3px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(79, 195, 247, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.fix-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.fix-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 195, 247, 0.35);
+  background: linear-gradient(135deg, #29b6f6 0%, #0288d1 100%);
+}
+
+.fix-link:hover::before {
+  left: 100%;
+}
+
+.fix-link:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(79, 195, 247, 0.25);
+}
+
+.fix-icon {
+  font-size: 0.9rem;
+  animation: rotate 2s ease-in-out infinite;
+}
+
+.fix-text {
+  font-weight: 500;
+}
+
+@keyframes rotate {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-10deg); }
+  75% { transform: rotate(10deg); }
 }
 
 .register-section {

@@ -1,35 +1,74 @@
 <template>
   <div v-if="validationResults" class="validation-results-container">
-    <h2>Validation Results</h2>
+    <div class="validation-header">
+      <div class="header-content">
+        <h2>🔍 Validation Results</h2>
+        <div class="header-subtitle">File integrity and consistency check</div>
+      </div>
+      <div class="header-icon">📊</div>
+    </div>
     
     <div class="validation-summary">
-      <p><strong>Total files checked:</strong> {{ validationResults.total }}</p>
-      <p><strong>Files validated successfully:</strong> {{ validationResults.validated }}</p>
-      <p><strong>Files with mismatches:</strong> {{ validationResults.mismatches ? validationResults.mismatches.length : 0 }}</p>
-      <p><strong>Errors encountered:</strong> {{ validationResults.errors ? validationResults.errors.length : 0 }}</p>
+      <div class="summary-grid">
+        <div class="summary-card total">
+          <div class="card-icon">📁</div>
+          <div class="card-content">
+            <div class="card-value">{{ validationResults.total }}</div>
+            <div class="card-label">Total Files</div>
+          </div>
+        </div>
+        
+        <div class="summary-card success">
+          <div class="card-icon">✅</div>
+          <div class="card-content">
+            <div class="card-value">{{ validationResults.validated }}</div>
+            <div class="card-label">Validated</div>
+          </div>
+        </div>
+        
+        <div class="summary-card warning">
+          <div class="card-icon">⚠️</div>
+          <div class="card-content">
+            <div class="card-value">{{ validationResults.mismatches ? validationResults.mismatches.length : 0 }}</div>
+            <div class="card-label">Mismatches</div>
+          </div>
+        </div>
+        
+        <div class="summary-card error">
+          <div class="card-icon">❌</div>
+          <div class="card-content">
+            <div class="card-value">{{ validationResults.errors ? validationResults.errors.length : 0 }}</div>
+            <div class="card-label">Errors</div>
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- Mismatches Table -->
     <div v-if="validationResults.mismatches && validationResults.mismatches.length > 0" class="mismatches-section">
-      <h3>Mismatches Found</h3>
+      <div class="section-header">
+        <div class="section-icon">⚠️</div>
+        <div class="section-content">
+          <h3>Mismatches Found</h3>
+          <div class="section-subtitle">Files with inconsistencies between database and disk</div>
+        </div>
+      </div>
       <table class="validation-table">
         <thead>
           <tr>
-            <th>Database Filename</th>
-            <th>Model Version ID</th>
             <th>Database File Path</th>
+            <th>Database Filename</th>
             <th>Actual Filename</th>
-            <th>DB Size (GB)</th>
-            <th>Disk Size (GB)</th>
+            <th>DB Size (MB)</th>
+            <th>Disk Size (MB)</th>
             <th>Issue</th>
-            <th>Fix it! (Retry from Lora hub)</th>
+            <th>Delete file and Retry</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(mismatch, idx) in validationResults.mismatches" :key="idx">
-            <td>{{ mismatch.fileName }}</td>
-            <td>{{ mismatch.modelVersionId }}</td>
             <td>{{ mismatch.file_path }}</td>
+            <td>{{ mismatch.fileName }}</td>
             <td>{{ mismatch.actualFileName || 'N/A' }}</td>
             <td>{{ formatSize(mismatch.size_in_kb_db) }}</td>
             <td>{{ formatSize(mismatch.size_in_kb_disk) }}</td>
@@ -40,9 +79,22 @@
               </div>
             </td>
             <td>
-              <button class="delete-failed-btn" @click="handleDeleteFileAndFail(mismatch, idx)" :disabled="mismatch.deleting">
-                {{ mismatch.deleting ? 'Processing...' : 'Delete File and Failed' }}
-              </button>
+              <div class="action-buttons">
+                <button 
+                  class="delete-failed-btn" 
+                  @click="handleDeleteFileAndFail(mismatch, idx)" 
+                  :disabled="mismatch.deleting || mismatch.deleted"
+                >
+                  {{ mismatch.deleting ? 'Processing...' : mismatch.deleted ? 'Deleted' : 'Delete file' }}
+                </button>
+                <a 
+                  :href="`${$router.resolve({ name: 'ModelDetail', params: { modelId: mismatch.modelId, modelVersionId: mismatch.modelVersionId } }).href}`"
+                  target="_blank"
+                  class="retry-link"
+                >
+                  Retry
+                </a>
+              </div>
               <span v-if="mismatch.deleteError" class="delete-error">{{ mismatch.deleteError }}</span>
             </td>
           </tr>
@@ -52,19 +104,23 @@
     
     <!-- Errors Table -->
     <div v-if="validationResults.errors && validationResults.errors.length > 0" class="errors-section">
-      <h3>Errors Encountered</h3>
+      <div class="section-header">
+        <div class="section-icon">❌</div>
+        <div class="section-content">
+          <h3>Errors Encountered</h3>
+          <div class="section-subtitle">Issues that prevented validation</div>
+        </div>
+      </div>
       <table class="validation-table">
         <thead>
           <tr>
             <th>Database Filename</th>
-            <th>Model Version ID</th>
             <th>Error Message</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(error, idx) in validationResults.errors" :key="idx">
             <td>{{ error.fileName }}</td>
-            <td>{{ error.modelVersionId }}</td>
             <td class="error-message">{{ error.error }}</td>
           </tr>
         </tbody>
@@ -93,7 +149,7 @@ export default {
   methods: {
     formatSize(sizeInKb) {
       if (sizeInKb === undefined || sizeInKb === null) return '';
-      return (sizeInKb / 1024 / 1024).toFixed(2);
+      return (sizeInKb / 1024).toFixed(2) + ' MB';
     },
     
     async handleDeleteFileAndFail(mismatch, idx) {
@@ -106,17 +162,15 @@ export default {
           file_path: mismatch.file_path 
         });
         
-        // Remove the row from mismatches after successful deletion
-        this.validationResults.mismatches.splice(idx, 1);
+        // Mark as deleted instead of removing the row
+        this.validationResults.mismatches[idx].deleted = true;
+        this.validationResults.mismatches[idx].deleting = false;
         this.$emit('mismatch-deleted', idx);
         this.errorHandler.handleSuccess('File deleted and marked as failed.');
       } catch (error) {
         this.validationResults.mismatches[idx].deleteError = 
           error.response?.data?.error || error.message || 'Failed to delete and mark as failed.';
-      } finally {
-        if (this.validationResults.mismatches[idx]) {
-          this.validationResults.mismatches[idx].deleting = false;
-        }
+        this.validationResults.mismatches[idx].deleting = false;
       }
     }
   }
@@ -128,18 +182,146 @@ export default {
   margin-top: 2rem;
   background: #fff;
   padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   border: 1px solid #f0f0f0;
+  overflow: hidden;
+}
+
+.validation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.validation-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+.header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.validation-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.header-subtitle {
+  font-size: 0.95rem;
+  opacity: 0.9;
+  font-weight: 400;
+}
+
+.header-icon {
+  font-size: 3rem;
+  opacity: 0.8;
+  position: relative;
+  z-index: 1;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
 }
 
 .validation-summary {
-  margin-bottom: 1.5rem;
-  color: #424242;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
-  padding: 1rem;
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
+  margin-bottom: 2rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  display: flex;
+  align-items: center;
+  padding: 1.25rem;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #f0f0f0;
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-accent);
+}
+
+.summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.summary-card.total {
+  --card-accent: #2196f3;
+}
+
+.summary-card.success {
+  --card-accent: #4caf50;
+}
+
+.summary-card.warning {
+  --card-accent: #ff9800;
+}
+
+.summary-card.error {
+  --card-accent: #f44336;
+}
+
+.card-icon {
+  font-size: 2rem;
+  margin-right: 1rem;
+  opacity: 0.8;
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.card-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .mismatches-section {
@@ -245,9 +427,9 @@ export default {
   color: white;
   border: none;
   border-radius: 6px;
-  padding: 0.75rem 1.5rem;
+  padding: 0.4rem 0.8rem;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(255, 87, 34, 0.3);
@@ -267,6 +449,7 @@ export default {
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
+  opacity: 0.7;
 }
 
 .delete-error {
@@ -280,27 +463,68 @@ export default {
   border-left: 3px solid #d32f2f;
 }
 
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.retry-link {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+  border: 1px solid #e1f5fe;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.retry-link:hover {
+  color: #1565c0;
+  background: linear-gradient(135deg, #bbdefb 0%, #e1bee7 100%);
+  text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(25, 118, 210, 0.2);
+}
+
 /* Enhanced section headers */
-.mismatches-section h3,
-.errors-section h3 {
+.section-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8f4fd 100%);
+  border-radius: 12px;
+  border-left: 4px solid #667eea;
+  transition: all 0.3s ease;
+}
+
+.section-header:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.15);
+}
+
+.section-icon {
+  font-size: 2rem;
+  margin-right: 1rem;
+  opacity: 0.8;
+}
+
+.section-content h3 {
   color: #424242;
   font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e0e0e0;
-  position: relative;
+  margin: 0 0 0.25rem 0;
 }
 
-.mismatches-section h3::after,
-.errors-section h3::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 60px;
-  height: 2px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.section-subtitle {
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 400;
 }
 
 /* Responsive design */
