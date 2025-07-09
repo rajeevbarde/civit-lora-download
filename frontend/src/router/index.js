@@ -3,7 +3,7 @@ import ModelTable from '../pages/ModelTablePage.vue';
 import ModelDetail from '../pages/ModelDetailPage.vue';
 import LoRASummary from '../pages/SummaryPage.vue';
 import LoRAScanner from '../pages/FileScannerPage.vue';
-import CivitDataFetcher from '../pages/CivitDataFetcherPage.vue';
+import CivitDataFetcher from '../pages/CivitDataFetcherPageRefactored.vue';
 import Setting from '../pages/SettingPage.vue';
 
 const routes = [
