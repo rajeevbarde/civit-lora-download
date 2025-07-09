@@ -1,27 +1,36 @@
 <template>
   <div v-if="showDuplicateIssues" class="duplicate-issues-section">
-    <h2>Duplicate Issues</h2>
-    <div v-if="duplicateIssuesLoading">Loading duplicate issues...</div>
-    <div v-else-if="duplicateIssuesError" class="error">{{ duplicateIssuesError }}</div>
+    <h2 class="section-title">Duplicate Issues</h2>
+    <div v-if="duplicateIssuesLoading" class="loading-state">
+      <div class="loading-spinner"></div>
+      <span>Loading duplicate issues...</span>
+    </div>
+    <div v-else-if="duplicateIssuesError" class="error-card">{{ duplicateIssuesError }}</div>
     <div v-else>
       <div class="duplicate-tabs">
         <button 
           :class="['duplicate-tab', { active: localActiveTab === 'disk' }]" 
           @click="setActiveTab('disk')"
         >
-          Duplicate LoRA files on Harddrive ({{ duplicateOnDisk.length }})
+          <span class="tab-icon">💾</span>
+          <span class="tab-text">Duplicate LoRA files on Harddrive</span>
+          <span class="tab-count">({{ duplicateOnDisk.length }})</span>
         </button>
         <button 
           :class="['duplicate-tab', { active: localActiveTab === 'db' }]" 
           @click="setActiveTab('db')"
         >
-          Duplicate LoRA filename in Database ({{ duplicateInDb.length }})
+          <span class="tab-icon">🗄️</span>
+          <span class="tab-text">Duplicate LoRA filename in Database</span>
+          <span class="tab-count">({{ duplicateInDb.length }})</span>
         </button>
         <button 
           :class="['duplicate-tab', { active: localActiveTab === 'diskdb' }]" 
           @click="setActiveTab('diskdb')"
         >
-          Both ({{ duplicateOnDiskAndDb.length }})
+          <span class="tab-icon">🔄</span>
+          <span class="tab-text">Both</span>
+          <span class="tab-count">({{ duplicateOnDiskAndDb.length }})</span>
         </button>
       </div>
       
@@ -178,53 +187,117 @@ export default {
 <style scoped>
 .duplicate-issues-section {
   margin-top: 2rem;
-  background: #f9f9f9;
-  padding: 0.5rem;
-  border-radius: 5px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
   width: 100%;
+}
+
+.section-title {
+  margin: 0;
+  padding: 1.5rem 1.5rem 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e0e0e0;
+  border-top: 2px solid #2196f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-card {
+  color: #d32f2f;
+  font-weight: 500;
+  padding: 1rem 1.5rem;
+  background: #ffebee;
+  border-left: 4px solid #d32f2f;
+  margin: 1rem 1.5rem;
+  border-radius: 4px;
 }
 
 .duplicate-tabs {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  background: #f5f5f5;
+  padding: 0 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
 }
 
 .duplicate-tab {
-  background: #f8f8f8;
-  border: 1px solid #007bff;
-  color: #007bff;
-  padding: 0.5rem 1.5rem;
-  border-radius: 5px 5px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  color: #666;
+  padding: 1rem 1.5rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: all 0.2s ease;
+  position: relative;
+  border-bottom: 3px solid transparent;
+}
+
+.duplicate-tab:hover {
+  background: rgba(33, 150, 243, 0.08);
+  color: #1976d2;
 }
 
 .duplicate-tab.active {
-  background: #007bff;
-  color: #fff;
-  font-weight: bold;
+  background: #ffffff;
+  color: #1976d2;
+  border-bottom-color: #1976d2;
+  font-weight: 600;
 }
 
-.duplicate-tab:hover:not(.active) {
-  background: #e9e9e9;
+.tab-icon {
+  font-size: 1.1rem;
+}
+
+.tab-text {
+  font-size: 0.9rem;
+}
+
+.tab-count {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  min-width: 2rem;
+  text-align: center;
+}
+
+.duplicate-tab.active .tab-count {
+  background: #1976d2;
+  color: #ffffff;
 }
 
 .duplicate-tab-content {
-  background: #fff;
-  padding: 0.5rem;
-  border-radius: 0 0 5px 5px;
+  background: #ffffff;
+  padding: 1.5rem;
   width: 100%;
   overflow-x: auto;
-}
-
-.error {
-  color: #dc3545;
-  font-weight: bold;
-  padding: 1rem;
-  background: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
 }
 </style> 
