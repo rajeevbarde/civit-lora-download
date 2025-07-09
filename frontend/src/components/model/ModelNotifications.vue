@@ -27,13 +27,16 @@
 </template>
 
 <script>
-import { ref, reactive } from 'vue';
-
 export default {
   name: 'ModelNotifications',
-  setup() {
-    const notifications = ref([]);
-
+  props: {
+    notifications: {
+      type: Array,
+      default: () => []
+    }
+  },
+  emits: ['remove-notification', 'clear-all'],
+  setup(props, { emit }) {
     const getNotificationIcon = (type) => {
       switch (type) {
         case 'success': return '✅';
@@ -43,32 +46,16 @@ export default {
       }
     };
 
-    const showNotification = (message, type = 'info') => {
-      const notification = {
-        id: Date.now(),
-        message,
-        type,
-        timestamp: new Date()
-      };
-      
-      notifications.value.push(notification);
-    };
-
     const removeNotification = (id) => {
-      const index = notifications.value.findIndex(n => n.id === id);
-      if (index > -1) {
-        notifications.value.splice(index, 1);
-      }
+      emit('remove-notification', id);
     };
 
     const clearAllNotifications = () => {
-      notifications.value = [];
+      emit('clear-all');
     };
 
     return {
-      notifications,
       getNotificationIcon,
-      showNotification,
       removeNotification,
       clearAllNotifications
     };

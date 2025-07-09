@@ -49,12 +49,12 @@ export default {
 <style scoped>
 /* Enhanced Download Status Section */
 .download-status-section {
-  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
   border-radius: 12px;
   padding: 1.5rem;
   margin: 2rem 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border: 1px solid #ffc107;
+  border: 1px solid #dee2e6;
 }
 
 .status-header {
@@ -62,26 +62,26 @@ export default {
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 2px solid #ffc107;
+  border-bottom: 2px solid #dee2e6;
 }
 
 .status-icon {
   font-size: 1.5rem;
   margin-right: 0.75rem;
-  color: #f57c00;
+  color: #667eea;
 }
 
 .status-label {
   font-weight: 600;
-  color: #f57c00;
+  color: #2c3e50;
   font-size: 1.1rem;
 }
 
 .status-count {
   margin-left: 0.5rem;
   font-size: 0.9rem;
-  color: #f57c00;
-  background: rgba(255, 193, 7, 0.1);
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
   padding: 0.25rem 0.5rem;
   border-radius: 12px;
   font-weight: 500;
@@ -96,8 +96,8 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
-  color: #212529;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
@@ -109,7 +109,7 @@ export default {
 }
 
 .status-check-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #ffb300 0%, #ffa000 100%);
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
