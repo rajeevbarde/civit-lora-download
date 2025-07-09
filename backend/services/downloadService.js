@@ -11,6 +11,7 @@ class DownloadService {
     async downloadModelFile(url, fileName, baseModel, modelVersionId) {
         const targetDir = path.join(DOWNLOAD_CONFIG.baseDir, baseModel);
         let writer = null;
+        let filePath = null; // Initialize filePath at the top level
         
         try {
             // Validate inputs
@@ -37,7 +38,7 @@ class DownloadService {
                 }
             }
             
-            let filePath = path.join(targetDir, fileName);
+            filePath = path.join(targetDir, fileName);
             let usedSubfolder = false;
             // Check if file already exists
             if (fs.existsSync(filePath)) {
