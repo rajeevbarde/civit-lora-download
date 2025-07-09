@@ -136,14 +136,14 @@
           <td>
             <button 
               class="identify-metadata-btn" 
-              @click="$emit('identify-metadata', file)"
+              @click="$emit('identify-metadata-single', file)"
               :disabled="loadingStates.identifyMetadataLoading[file.fullPath] || loadingStates.metadataIdentifiedFiles.has(file.fullPath) || !loadingStates.dbCheckedFiles.has(file.fullPath)"
             >
               {{ loadingStates.identifyMetadataLoading[file.fullPath] ? 'Identifying...' : loadingStates.metadataIdentifiedFiles.has(file.fullPath) ? 'Completed' : 'Identify' }}
             </button>
-            <div v-if="results.identifyMetadataResults[file.fullPath]" class="identify-metadata-result">
-              <div v-html="results.identifyMetadataResults[file.fullPath]"></div>
-            </div>
+                          <div v-if="results.identifyMetadataResults[file.fullPath]" class="identify-metadata-result">
+                <div v-html="results.identifyMetadataResults[file.fullPath]"></div>
+              </div>
           </td>
           <td>
             <div class="action-section">
@@ -307,7 +307,7 @@
           <td>
             <button
               class="identify-metadata-btn"
-              @click="$emit('identify-metadata', { fullPath: group.paths[0] })"
+              @click="$emit('identify-metadata-single', { fullPath: group.paths[0] })"
               :disabled="loadingStates.identifyMetadataLoading[group.paths[0]] || loadingStates.metadataIdentifiedFiles.has(group.paths[0]) || !loadingStates.dbCheckedFiles.has(group.paths[0])"
               :title="!loadingStates.dbCheckedFiles.has(group.paths[0]) ? 'Please complete database check first' : loadingStates.metadataIdentifiedFiles.has(group.paths[0]) ? 'Already identified' : ''"
             >
@@ -449,6 +449,7 @@ export default {
   emits: [
     'hash-check', 
     'identify-metadata', 
+    'identify-metadata-single', 
     'register-actions', 
     'database-check', 
     'register-model'

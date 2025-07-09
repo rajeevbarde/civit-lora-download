@@ -48,7 +48,7 @@
           :results="results"
           :frontend-base-url="frontendBaseUrl"
           @database-check="$emit('database-check', $event)"
-          @identify-metadata="$emit('identify-metadata', $event)"
+          @identify-metadata-single="$emit('identify-metadata-single', $event)"
           @register-model="$emit('register-model', $event)"
         />
         
@@ -62,7 +62,7 @@
           :frontend-base-url="frontendBaseUrl"
           @hash-check="$emit('hash-check', $event)"
           @database-check="$emit('database-check', $event)"
-          @identify-metadata="$emit('identify-metadata', $event)"
+          @identify-metadata-single="$emit('identify-metadata-single', $event)"
           @register-model="$emit('register-model', $event)"
         />
       </div>
@@ -120,6 +120,7 @@ export default {
   emits: [
     'hash-check', 
     'identify-metadata', 
+    'identify-metadata-single', 
     'register-actions', 
     'database-check', 
     'register-model',

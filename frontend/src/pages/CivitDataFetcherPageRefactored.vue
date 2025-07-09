@@ -25,6 +25,7 @@
       :frontend-base-url="frontendBaseUrl"
       @hash-check="checkHashForGroup"
       @identify-metadata="identifyMetadataForGroup"
+      @identify-metadata-single="onIdentifyMetadata"
       @register-actions="registerActions"
       @database-check="onDatabaseCheck"
       @register-model="registerModel"
