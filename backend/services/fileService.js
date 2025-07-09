@@ -150,7 +150,7 @@ class FileService {
         // Process each file
         for (let index = 0; index < downloadedFiles.length; index++) {
             const row = downloadedFiles[index];
-            const { fileName, file_path, modelVersionId, size_in_kb } = row;
+            const { fileName, file_path, modelVersionId, modelId, size_in_kb } = row;
 
             try {
                 // Check if file_path exists
@@ -158,6 +158,7 @@ class FileService {
                     mismatches.push({
                         fileName,
                         modelVersionId,
+                        modelId,
                         file_path,
                         issue: 'No file path in database'
                     });
@@ -168,6 +169,7 @@ class FileService {
                     mismatches.push({
                         fileName,
                         modelVersionId,
+                        modelId,
                         file_path,
                         issue: 'File not found on disk'
                     });
@@ -182,6 +184,7 @@ class FileService {
                     mismatches.push({
                         fileName,
                         modelVersionId,
+                        modelId,
                         file_path,
                         actualFileName,
                         issue: 'Filename mismatch'
@@ -200,6 +203,7 @@ class FileService {
                         mismatches.push({
                             fileName,
                             modelVersionId,
+                            modelId,
                             file_path,
                             size_in_kb_db: size_in_kb,
                             size_in_kb_disk: parseFloat(sizeOnDiskKB.toFixed(2)),
@@ -224,11 +228,13 @@ class FileService {
                 errors.push({
                     fileName,
                     modelVersionId,
+                    modelId,
                     error: error.message
                 });
                 logger.error('Error validating file', { 
                     fileName, 
-                    modelVersionId, 
+                    modelVersionId,
+                    modelId,
                     error: error.message 
                 });
             }

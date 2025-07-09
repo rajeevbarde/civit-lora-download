@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import ModelTable from '../components/ModelTable.vue';
-import ModelDetail from '../components/ModelDetail.vue';
-import LoRASummary from '../components/Summary.vue';
-import LoRAScanner from '../components/FileScanner.vue';
-import CivitDataFetcher from '../components/CivitDataFetcher.vue';
-import Setting from '../components/Setting.vue';
+import ModelTable from '../pages/ModelTablePage.vue';
+import ModelDetail from '../pages/ModelDetailPage.vue';
+import LoRASummary from '../pages/SummaryPage.vue';
+import LoRAScanner from '../pages/FileScannerPage.vue';
+import CivitDataFetcher from '../pages/CivitDataFetcherPageRefactored.vue';
+import Setting from '../pages/SettingPage.vue';
 
 const routes = [
   {

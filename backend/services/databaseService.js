@@ -148,7 +148,7 @@ class DatabaseService {
     // Get downloaded files for validation
     async getDownloadedFiles() {
         const query = `
-            SELECT fileName, file_path, modelVersionId, size_in_kb
+            SELECT fileName, file_path, modelVersionId, modelId, size_in_kb
             FROM ALLCivitData
             WHERE isDownloaded = 1
         `;
