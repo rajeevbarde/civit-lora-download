@@ -26,6 +26,10 @@
             <span class="link-icon">🔗</span>
             <span class="link-text">Orphan LoRA</span>
           </router-link>
+          <router-link to="/metadata" class="nav-link">
+            <span class="link-icon">📋</span>
+            <span class="link-text">Metadata</span>
+          </router-link>
           <router-link to="/setting" class="nav-link">
             <span class="link-icon">⚙️</span>
             <span class="link-text">Setting</span>
