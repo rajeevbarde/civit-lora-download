@@ -525,6 +525,49 @@ class DatabaseService {
         }
     }
 
+    // Get metadata statistics
+    async getMetadataStatistics() {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            
+            // Get total downloaded LoRAs (isDownloaded=1 and file_path is not null)
+            const totalResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as total FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL'
+            );
+            
+            // Get count of downloaded LoRAs with trigger words
+            const triggerWordsResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND trigger_words IS NOT NULL'
+            );
+            
+            // Get count of downloaded LoRAs with JSON metadata
+            const jsonResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NOT NULL'
+            );
+            
+            // Get count of downloaded LoRAs with both trigger words and JSON
+            const bothResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND trigger_words IS NOT NULL AND modelversion_jsonpath IS NOT NULL'
+            );
+            
+            return {
+                totalRegistered: totalResult.total,
+                withTriggerWords: triggerWordsResult.count,
+                withJsonMetadata: jsonResult.count,
+                withBoth: bothResult.count
+            };
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
     // Mark model as failed and clear file_path (for delete-and-fail)
     async runUpdateMarkAsFailed(modelVersionId) {
         let connection;

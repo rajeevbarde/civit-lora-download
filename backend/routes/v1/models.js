@@ -77,6 +77,17 @@ router.get('/download-matrix', async (req, res) => {
     }
 });
 
+// Get metadata statistics
+router.get('/metadata-statistics', async (req, res) => {
+    try {
+        const result = await databaseService.getMetadataStatistics();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting metadata statistics:', error);
+        res.status(500).json({ error: 'Failed to get metadata statistics' });
+    }
+});
+
 // Get latest updated checkpoints
 router.get('/latest-updated-checkpoints', async (req, res) => {
     try {

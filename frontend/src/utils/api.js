@@ -60,6 +60,13 @@ export const apiService = {
     return response.data;
   },
 
+  async getMetadataStatistics(options = {}) {
+    const response = await api.get('/models/metadata-statistics', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async getSafetensorCounts(options = {}) {
     const response = await api.get('/files/safetensor-counts', {
       signal: options.signal
