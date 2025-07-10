@@ -30,7 +30,8 @@ class MetadataService {
                     success: true,
                     message: 'No registered LoRAs found',
                     fetchedCount: 0,
-                    totalLoras: 0
+                    totalLoras: 0,
+                    progress: []
                 };
             }
 
@@ -41,20 +42,35 @@ class MetadataService {
             let authErrors = [];
             let otherErrors = [];
             let updatedCount = 0;
+            let progress = [];
 
             // Process each LoRA
             for (const lora of registeredLoras) {
+                const progressItem = {
+                    modelId: lora.modelId,
+                    modelVersionId: lora.modelVersionId,
+                    modelName: lora.modelName,
+                    modelVersionName: lora.modelVersionName,
+                    status: 'fetching',
+                    message: 'Fetching metadata from CivitAI...',
+                    timestamp: new Date().toISOString()
+                };
+                progress.push(progressItem);
+                
                 try {
                     console.log(`📥 Fetching metadata for model ${lora.modelId}, version ${lora.modelVersionId}...`);
 
+                    // Always fetch fresh data from API (overwrite existing files)
+                    const modelDir = path.join(this.baseDir, lora.modelId.toString());
+                    const versionDir = path.join(modelDir, lora.modelVersionId.toString());
+                    const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
+                    const jsonFilePath = path.join(versionDir, jsonFileName);
+                    
                     // Fetch metadata from CivitAI API
                     const metadata = await this.fetchCivitaiMetadata(lora.modelVersionId);
                     
                     if (metadata) {
                         // Ensure directories exist
-                        const modelDir = path.join(this.baseDir, lora.modelId.toString());
-                        const versionDir = path.join(modelDir, lora.modelVersionId.toString());
-                        
                         if (!fs.existsSync(modelDir)) {
                             fs.mkdirSync(modelDir, { recursive: true });
                         }
@@ -62,9 +78,7 @@ class MetadataService {
                             fs.mkdirSync(versionDir, { recursive: true });
                         }
 
-                        // Save metadata JSON to file with modelid_modelversionid.json format
-                        const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
-                        const jsonFilePath = path.join(versionDir, jsonFileName);
+                        // Always write/overwrite the JSON file
                         fs.writeFileSync(jsonFilePath, JSON.stringify(metadata, null, 2));
                         
                         // Update database with full relative project path
@@ -79,6 +93,11 @@ class MetadataService {
                         fetchedCount++;
                         updatedCount++;
                         
+                        // Update progress item
+                        progressItem.status = 'success';
+                        progressItem.message = `✅ Metadata saved: ${jsonFileName}`;
+                        progressItem.triggerWords = trainedWords;
+                        
                         console.log(`✅ Success: ${lora.modelId}_${lora.modelVersionId}.json`);
                     }
                 } catch (error) {
@@ -86,6 +105,10 @@ class MetadataService {
                     console.log(`❌ Failed: ${lora.modelId}_${lora.modelVersionId} - ${error.message}`);
                     logger.error(errorMsg);
                     errors.push(errorMsg);
+                    
+                    // Update progress item
+                    progressItem.status = 'error';
+                    progressItem.message = `❌ Failed: ${error.message}`;
                     
                     // Categorize errors for better reporting
                     if (error.message.includes('not found') || error.message.includes('404')) {
@@ -128,6 +151,7 @@ class MetadataService {
                 fetchedCount,
                 updatedCount,
                 totalLoras: registeredLoras.length,
+                progress: progress,
                 errors: errors.length > 0 ? errors : undefined,
                 errorSummary: {
                     total: errors.length,
@@ -359,6 +383,81 @@ class MetadataService {
             if (connection) {
                 dbPool.releaseConnection(connection);
             }
+        }
+    }
+
+    // Fetch metadata for a single LoRA
+    async fetchSingleLoRAMetadata(modelId, modelVersionId) {
+        try {
+            // Get LoRA details
+            const query = `
+                SELECT modelId, modelVersionId, modelName, modelVersionName
+                FROM ALLCivitData
+                WHERE modelId = ? AND modelVersionId = ? AND isDownloaded = 1 AND file_path IS NOT NULL
+            `;
+
+            let connection;
+            try {
+                connection = await dbPool.getConnection();
+                const lora = await dbPool.runQuerySingle(connection, query, [modelId, modelVersionId]);
+                
+                if (!lora) {
+                    throw new Error(`LoRA not found or not eligible for metadata fetching`);
+                }
+
+                // Fetch metadata from CivitAI API
+                const metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                
+                if (metadata) {
+                    // Ensure directories exist
+                    const modelDir = path.join(this.baseDir, lora.modelId.toString());
+                    const versionDir = path.join(modelDir, lora.modelVersionId.toString());
+                    
+                    if (!fs.existsSync(modelDir)) {
+                        fs.mkdirSync(modelDir, { recursive: true });
+                    }
+                    if (!fs.existsSync(versionDir)) {
+                        fs.mkdirSync(versionDir, { recursive: true });
+                    }
+
+                    // Save metadata JSON file
+                    const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
+                    const jsonFilePath = path.join(versionDir, jsonFileName);
+                    fs.writeFileSync(jsonFilePath, JSON.stringify(metadata, null, 2));
+                    
+                    // Update database with full relative project path
+                    const projectRoot = path.join(__dirname, '..', '..');
+                    const fullRelativePath = path.relative(projectRoot, jsonFilePath).replace(/\\/g, '/');
+                    await this.updateModelVersionJsonPath(lora.modelVersionId, fullRelativePath);
+                    
+                    // Extract trainedWords and update trigger_words column
+                    const trainedWords = this.extractTrainedWords(metadata);
+                    await this.updateTriggerWords(lora.modelVersionId, trainedWords);
+                    
+                    return {
+                        success: true,
+                        modelId: lora.modelId,
+                        modelVersionId: lora.modelVersionId,
+                        modelName: lora.modelName,
+                        modelVersionName: lora.modelVersionName,
+                        message: 'Metadata fetched successfully',
+                        triggerWords: trainedWords,
+                        jsonPath: fullRelativePath
+                    };
+                }
+            } finally {
+                if (connection) {
+                    dbPool.releaseConnection(connection);
+                }
+            }
+        } catch (error) {
+            return {
+                success: false,
+                modelId: modelId,
+                modelVersionId: modelVersionId,
+                message: `❌ Failed: ${error.message}`,
+                error: error.message
+            };
         }
     }
 

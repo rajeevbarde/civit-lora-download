@@ -74,6 +74,20 @@ export const apiService = {
     return response.data;
   },
 
+  async fetchSingleLoRAMetadata(modelId, modelVersionId, options = {}) {
+    const response = await api.post('/models/fetch-metadata-single', { modelId, modelVersionId }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async getRegisteredLoras(options = {}) {
+    const response = await api.get('/models/registered-loras', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async createModelFolders(options = {}) {
     const response = await api.post('/models/create-model-folders', {}, {
       signal: options.signal

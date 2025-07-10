@@ -100,6 +100,35 @@ router.post('/fetch-metadata', async (req, res) => {
     }
 });
 
+// Get registered LoRAs that need metadata
+router.get('/registered-loras', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.getRegisteredLoras();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting registered LoRAs:', error);
+        res.status(500).json({ error: 'Failed to get registered LoRAs' });
+    }
+});
+
+// Fetch metadata for a single LoRA
+router.post('/fetch-metadata-single', async (req, res) => {
+    try {
+        const { modelId, modelVersionId } = req.body;
+        if (!modelId || !modelVersionId) {
+            return res.status(400).json({ error: 'modelId and modelVersionId are required' });
+        }
+        
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.fetchSingleLoRAMetadata(modelId, modelVersionId);
+        res.json(result);
+    } catch (error) {
+        logger.error('Error fetching single LoRA metadata:', error);
+        res.status(500).json({ error: 'Failed to fetch single LoRA metadata' });
+    }
+});
+
 // Create model folders for metadata (Step 2)
 router.post('/create-model-folders', async (req, res) => {
     try {
