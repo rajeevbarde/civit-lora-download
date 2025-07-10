@@ -64,13 +64,25 @@
       <div class="content-card" v-if="!loading && !error">
         <h2>Metadata Management</h2>
         <p>This page shows statistics about metadata completeness for your downloaded LoRAs.</p>
+        
+        <div class="action-section">
+          <button 
+            @click="fetchMetadata" 
+            :disabled="fetchingMetadata"
+            class="fetch-metadata-btn"
+          >
+            <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
+            <span v-else class="btn-icon">🔄</span>
+            {{ fetchingMetadata ? 'Fetching Metadata...' : 'Fetch Metadata' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, inject } from 'vue';
 import { apiService } from '../utils/api.js';
 
 export default {
@@ -79,6 +91,11 @@ export default {
     const statistics = ref({});
     const loading = ref(false);
     const error = ref(null);
+    const fetchingMetadata = ref(false);
+
+    // Get notification functions at setup level
+    const showSuccess = inject('showSuccess');
+    const showError = inject('showError');
 
     const loadStatistics = async () => {
       loading.value = true;
@@ -90,6 +107,36 @@ export default {
         console.error('Error loading metadata statistics:', err);
       } finally {
         loading.value = false;
+      }
+    };
+
+    const fetchMetadata = async () => {
+      fetchingMetadata.value = true;
+      try {
+        console.log('Fetching metadata from CivitAI API...');
+        
+        // Call the API to fetch metadata (Step 1)
+        const result = await apiService.fetchMetadata();
+        
+        console.log('Metadata fetched successfully:', result);
+        
+        // Show success message using the notification system
+        if (result.success && showSuccess) {
+          showSuccess(result.message);
+        }
+        
+        // After fetching metadata, reload statistics
+        await loadStatistics();
+        
+      } catch (err) {
+        console.error('Error fetching metadata:', err);
+        
+        // Show error message using the notification system
+        if (showError) {
+          showError(err.message || 'Failed to fetch metadata');
+        }
+      } finally {
+        fetchingMetadata.value = false;
       }
     };
 
@@ -106,7 +153,9 @@ export default {
       statistics,
       loading,
       error,
+      fetchingMetadata,
       loadStatistics,
+      fetchMetadata,
       getPercentage
     };
   }
@@ -305,6 +354,47 @@ export default {
   color: #7f8c8d;
   line-height: 1.6;
   margin: 0 0 1.5rem 0;
+}
+
+.action-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.fetch-metadata-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.fetch-metadata-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.fetch-metadata-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-icon, .btn-spinner {
+  font-size: 1.1rem;
+}
+
+.btn-spinner {
+  animation: spin 1s linear infinite;
 }
 
 .metadata-info h3 {

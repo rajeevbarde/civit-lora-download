@@ -88,6 +88,30 @@ router.get('/metadata-statistics', async (req, res) => {
     }
 });
 
+// Fetch and save metadata from CivitAI API (Step 1)
+router.post('/fetch-metadata', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.fetchAndSaveMetadata();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error fetching metadata:', error);
+        res.status(500).json({ error: 'Failed to fetch metadata' });
+    }
+});
+
+// Create model folders for metadata (Step 2)
+router.post('/create-model-folders', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.createModelFolders();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error creating model folders:', error);
+        res.status(500).json({ error: 'Failed to create model folders' });
+    }
+});
+
 // Get latest updated checkpoints
 router.get('/latest-updated-checkpoints', async (req, res) => {
     try {

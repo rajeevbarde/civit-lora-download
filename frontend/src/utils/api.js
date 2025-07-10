@@ -67,6 +67,20 @@ export const apiService = {
     return response.data;
   },
 
+  async fetchMetadata(options = {}) {
+    const response = await api.post('/models/fetch-metadata', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async createModelFolders(options = {}) {
+    const response = await api.post('/models/create-model-folders', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async getSafetensorCounts(options = {}) {
     const response = await api.get('/files/safetensor-counts', {
       signal: options.signal
