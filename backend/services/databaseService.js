@@ -72,7 +72,7 @@ class DatabaseService {
                 modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
                 modelVersionId, modelVersionName, modelVersionDescription,
                 basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
+                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path, trigger_words
             FROM ALLCivitData
             WHERE modelVersionId = ?
         `;

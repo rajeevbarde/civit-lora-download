@@ -142,14 +142,25 @@
             </div>
           </div>
 
-          <!-- Trigger Words Card (Placeholder for future) -->
+          <!-- Trigger Words Card -->
           <div class="info-card trigger-card">
             <div class="card-header">
               <h3 class="card-title">🏷️ Trigger Words</h3>
             </div>
             <div class="card-content">
-              <div class="trigger-placeholder">
-                <span class="placeholder-text">Coming soon...</span>
+              <div class="trigger-words-content">
+                <div v-if="getTriggerWordsArray().length > 0" class="trigger-words-list">
+                  <span 
+                    v-for="word in getTriggerWordsArray()" 
+                    :key="word"
+                    class="trigger-word"
+                  >
+                    {{ word }}
+                  </span>
+                </div>
+                <div v-else class="trigger-words-empty">
+                  <span class="empty-text">{{ getTriggerWordsStatus() }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -529,6 +540,47 @@ export default {
         }
       }
       return [];
+    },
+
+    getTriggerWordsArray() {
+      if (!this.model.trigger_words) {
+        return [];
+      }
+      
+      // Handle different cases
+      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
+        return [];
+      }
+      
+      if (typeof this.model.trigger_words === 'string') {
+        // Split by comma and clean up
+        return this.model.trigger_words
+          .split(',')
+          .map(word => word.trim())
+          .filter(word => word && word !== 'NO_TRIGGER_WORDS');
+      }
+      
+      if (Array.isArray(this.model.trigger_words)) {
+        return this.model.trigger_words.filter(word => word && word !== 'NO_TRIGGER_WORDS');
+      }
+      
+      return [];
+    },
+
+    getTriggerWordsStatus() {
+      if (!this.model.trigger_words) {
+        return 'No trigger words data available';
+      }
+      
+      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
+        return 'No trigger words found for this model';
+      }
+      
+      if (this.getTriggerWordsArray().length === 0) {
+        return 'No trigger words available';
+      }
+      
+      return 'No trigger words available';
     },
     
     // Related Lora helper methods
@@ -1007,13 +1059,40 @@ export default {
   opacity: 0.7;
 }
 
-/* Trigger Placeholder */
-.trigger-placeholder {
+/* Trigger Words */
+.trigger-words-content {
   padding: 0.5rem 0;
-  text-align: center;
 }
 
-.trigger-placeholder .placeholder-text {
+.trigger-words-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trigger-word {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.trigger-word:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  background: linear-gradient(135deg, #ff5252 0%, #d63031 100%);
+}
+
+.trigger-words-empty {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.trigger-words-empty .empty-text {
   color: #9e9e9e;
   font-size: 0.9rem;
   font-style: italic;

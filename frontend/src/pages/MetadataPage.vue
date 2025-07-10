@@ -131,7 +131,7 @@
 </template>
 
 <script>
-import { ref, onMounted, inject } from 'vue';
+import { ref, onMounted, inject, nextTick, watch } from 'vue';
 import { apiService } from '../utils/api.js';
 
 export default {
@@ -253,6 +253,21 @@ export default {
       completed.value = false;
     };
 
+    // Auto-scroll to bottom of progress list
+    const scrollToBottom = () => {
+      nextTick(() => {
+        const progressList = document.querySelector('.progress-list');
+        if (progressList) {
+          progressList.scrollTop = progressList.scrollHeight;
+        }
+      });
+    };
+
+    // Watch for changes in progress array and auto-scroll
+    watch(progress, () => {
+      scrollToBottom();
+    }, { deep: true });
+
     onMounted(() => {
       loadStatistics();
     });
@@ -267,7 +282,8 @@ export default {
         loadStatistics,
         fetchMetadata,
         getPercentage,
-        clearProgress
+        clearProgress,
+        scrollToBottom
       };
   }
 };
