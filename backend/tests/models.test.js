@@ -270,9 +270,7 @@ describe('Models Routes', () => {
   describe('GET /metadata-statistics', () => {
     it('should return metadata statistics', async () => {
       const mockResult = {
-        totalModels: 1000,
-        modelsWithMetadata: 950,
-        modelsWithoutMetadata: 50
+        totalRegistered: 1000
       };
 
       mockDatabaseService.getMetadataStatistics.mockResolvedValue(mockResult);

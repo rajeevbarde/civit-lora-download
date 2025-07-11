@@ -537,29 +537,22 @@ class DatabaseService {
                 'SELECT COUNT(*) as total FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL'
             );
             
-            // Get count of downloaded LoRAs with trigger words
-            const triggerWordsResult = await dbPool.runQuerySingle(
-                connection, 
-                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND trigger_words IS NOT NULL'
-            );
-            
-            // Get count of downloaded LoRAs with JSON metadata
-            const jsonResult = await dbPool.runQuerySingle(
+            // Get count of downloaded LoRAs with metadata fetched (modelversion_jsonpath is not null)
+            const metadataFetchedResult = await dbPool.runQuerySingle(
                 connection, 
                 'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NOT NULL'
             );
             
-            // Get count of downloaded LoRAs with both trigger words and JSON
-            const bothResult = await dbPool.runQuerySingle(
+            // Get count of downloaded LoRAs without metadata fetched (modelversion_jsonpath is null)
+            const metadataNotFetchedResult = await dbPool.runQuerySingle(
                 connection, 
-                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND trigger_words IS NOT NULL AND modelversion_jsonpath IS NOT NULL'
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NULL'
             );
             
             return {
                 totalRegistered: totalResult.total,
-                withTriggerWords: triggerWordsResult.count,
-                withJsonMetadata: jsonResult.count,
-                withBoth: bothResult.count
+                metadataFetched: metadataFetchedResult.count,
+                metadataNotFetched: metadataNotFetchedResult.count
             };
         } finally {
             if (connection) {
