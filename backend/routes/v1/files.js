@@ -270,11 +270,7 @@ router.get('/read-json', async (req, res) => {
         // Validate the path to prevent directory traversal attacks
         const normalizedPath = pathModule.normalize(fullPath);
         
-        // Debug logging
-        console.log(`[read-json] Requested path: ${path}`);
-        console.log(`[read-json] Project root: ${projectRoot}`);
-        console.log(`[read-json] Full path: ${fullPath}`);
-        console.log(`[read-json] Normalized path: ${normalizedPath}`);
+
         
         // Ensure the path is within the project directory
         if (!normalizedPath.startsWith(projectRoot) || normalizedPath.includes('..')) {

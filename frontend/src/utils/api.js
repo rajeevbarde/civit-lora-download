@@ -338,6 +338,18 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Download JSON metadata without updating database
+  async downloadJsonMetadata(modelId, modelVersionId, options = {}) {
+    const response = await api.post('/models/download-json-metadata', { 
+      modelId, 
+      modelVersionId,
+      updateDatabase: false 
+    }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

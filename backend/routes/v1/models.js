@@ -191,4 +191,22 @@ router.post('/ignore', async (req, res) => {
     }
 });
 
+// Download JSON metadata without updating database
+router.post('/download-json-metadata', async (req, res) => {
+    try {
+        const { modelId, modelVersionId, updateDatabase = false } = req.body;
+        
+        if (!modelId || !modelVersionId) {
+            return res.status(400).json({ error: 'modelId and modelVersionId are required' });
+        }
+        
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.downloadJsonMetadataOnly(modelId, modelVersionId, updateDatabase);
+        res.json(result);
+    } catch (error) {
+        logger.error('Error downloading JSON metadata:', error);
+        res.status(500).json({ error: 'Failed to download JSON metadata' });
+    }
+});
+
 module.exports = router; 

@@ -495,6 +495,69 @@ class MetadataService {
             throw new Error(`Failed to get folder statistics: ${error.message}`);
         }
     }
+
+    // Download JSON metadata only (without updating database)
+    async downloadJsonMetadataOnly(modelId, modelVersionId, updateDatabase = false) {
+        try {
+            if (!this.civitaiToken) {
+                throw new Error('CIVITAI_TOKEN not found in environment variables');
+            }
+
+            // Fetch metadata from CivitAI API
+            const metadata = await this.fetchCivitaiMetadata(modelVersionId);
+            
+            if (metadata) {
+                // Ensure directories exist
+                const modelDir = path.join(this.baseDir, modelId.toString());
+                const versionDir = path.join(modelDir, modelVersionId.toString());
+                
+                if (!fs.existsSync(modelDir)) {
+                    fs.mkdirSync(modelDir, { recursive: true });
+                }
+                if (!fs.existsSync(versionDir)) {
+                    fs.mkdirSync(versionDir, { recursive: true });
+                }
+
+                // Save metadata JSON file
+                const jsonFileName = `${modelId}_${modelVersionId}.json`;
+                const jsonFilePath = path.join(versionDir, jsonFileName);
+                fs.writeFileSync(jsonFilePath, JSON.stringify(metadata, null, 2));
+                
+                let result = {
+                    success: true,
+                    modelId: modelId,
+                    modelVersionId: modelVersionId,
+                    message: 'JSON metadata downloaded successfully',
+                    jsonPath: jsonFilePath
+                };
+
+                // Only update database if explicitly requested
+                if (updateDatabase) {
+                    // Update database with full relative project path
+                    const projectRoot = path.join(__dirname, '..', '..');
+                    const fullRelativePath = path.relative(projectRoot, jsonFilePath).replace(/\\/g, '/');
+                    await this.updateModelVersionJsonPath(modelVersionId, fullRelativePath);
+                    
+                    // Extract trainedWords and update trigger_words column
+                    const trainedWords = this.extractTrainedWords(metadata);
+                    await this.updateTriggerWords(modelVersionId, trainedWords);
+                    
+                    result.triggerWords = trainedWords;
+                    result.databaseUpdated = true;
+                }
+                
+                return result;
+            }
+        } catch (error) {
+            return {
+                success: false,
+                modelId: modelId,
+                modelVersionId: modelVersionId,
+                message: `❌ Failed: ${error.message}`,
+                error: error.message
+            };
+        }
+    }
 }
 
 module.exports = new MetadataService(); 

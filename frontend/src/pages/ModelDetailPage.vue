@@ -369,8 +369,8 @@ export default {
           throw new Error(`URL model ID (${urlModelId}) does not match backend model ID (${this.model.modelId})`);
         }
         
-        // Fetch images if modelversion_jsonpath is available
-        if (this.model && this.model.modelversion_jsonpath) {
+        // Fetch images using predictable path format
+        if (this.model && this.model.modelId && this.model.modelVersionId) {
           await this.fetchModelImages();
         }
       } catch (err) {
@@ -729,7 +729,7 @@ export default {
     
     // Image Slider Methods
     async fetchModelImages() {
-      if (!this.model?.modelversion_jsonpath) {
+      if (!this.model?.modelId || !this.model?.modelVersionId) {
         this.modelImages = [];
         return;
       }
@@ -737,8 +737,32 @@ export default {
       try {
         this.imageLoading = true;
         
-        // Fetch the JSON file from the backend using API service
-        const jsonData = await apiService.readJsonFile(this.model.modelversion_jsonpath);
+        // Construct the predictable path format
+        const jsonPath = `backend/data/modeljson/${this.model.modelId}/${this.model.modelVersionId}/${this.model.modelId}_${this.model.modelVersionId}.json`;
+        
+        let jsonData;
+        
+        try {
+          // First, try to read the existing JSON file
+          jsonData = await apiService.readJsonFile(jsonPath);
+        } catch (fileError) {
+          console.log('JSON file not found locally, attempting to download from API...');
+          
+          // If file doesn't exist, download it from the API
+          try {
+            const downloadResult = await apiService.downloadJsonMetadata(this.model.modelId, this.model.modelVersionId);
+            
+            if (downloadResult.success) {
+              // Now try to read the newly downloaded file
+              jsonData = await apiService.readJsonFile(jsonPath);
+            } else {
+              throw new Error(downloadResult.message || 'Failed to download metadata');
+            }
+          } catch (downloadError) {
+            console.error('Failed to download metadata:', downloadError);
+            throw new Error(`Failed to download metadata: ${downloadError.message}`);
+          }
+        }
         
         // Extract image URLs from the 'images' array
         if (jsonData.images && Array.isArray(jsonData.images)) {
