@@ -17,14 +17,14 @@
       </div>
     </div>
     
-    <div class="stat-card">
-      <div class="stat-icon">⏳</div>
-      <div class="stat-content">
-        <h3 class="stat-title">Metadata Not Fetched</h3>
-        <p class="stat-value">{{ statistics.metadataNotFetched?.toLocaleString() || 0 }}</p>
-        <p class="stat-percentage">{{ getPercentage(statistics.metadataNotFetched, statistics.totalRegistered) }}%</p>
-      </div>
-    </div>
+            <div class="stat-card">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-content">
+            <h3 class="stat-title">Metadata Not Fetched</h3>
+            <p class="stat-value">{{ statistics.metadataNotFetched?.toLocaleString() || 0 }}</p>
+            <p class="stat-percentage stat-percentage-warning">{{ getPercentage(statistics.metadataNotFetched, statistics.totalRegistered) }}%</p>
+          </div>
+        </div>
   </div>
 </template>
 
@@ -116,6 +116,10 @@ export default {
   color: #10b981;
   font-weight: 600;
   margin: 0;
+}
+
+.stat-percentage-warning {
+  color: #ef4444;
 }
 
 /* Responsive Design */
