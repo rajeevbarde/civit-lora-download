@@ -6,12 +6,14 @@ const modelsRoutes = require('./models');
 const pathsRoutes = require('./paths');
 const filesRoutes = require('./files');
 const downloadsRoutes = require('./downloads');
+const cacheRoutes = require('./cache');
 
 // Mount v1 routes
 router.use('/models', modelsRoutes);
 router.use('/paths', pathsRoutes);
 router.use('/files', filesRoutes);
 router.use('/downloads', downloadsRoutes);
+router.use('/cache', cacheRoutes);
 
 // V1 API info endpoint
 router.get('/', (req, res) => {
@@ -23,7 +25,8 @@ router.get('/', (req, res) => {
             models: '/api/v1/models',
             paths: '/api/v1/paths',
             files: '/api/v1/files',
-            downloads: '/api/v1/downloads'
+            downloads: '/api/v1/downloads',
+            cache: '/api/v1/cache'
         },
         documentation: 'API documentation available at /api/v1/docs'
     });
@@ -74,6 +77,12 @@ router.get('/docs', (req, res) => {
                     'POST /files/scan': 'Scan and register unregistered files',
                     'GET /paths': 'Get saved paths',
                     'POST /paths': 'Save path'
+                }
+            },
+            cache: {
+                description: 'Cache management endpoints',
+                routes: {
+                    'POST /cache/images': 'Scan and cache image metadata from modeljson directory'
                 }
             }
         }

@@ -14,12 +14,12 @@
       <button 
         v-if="showCacheButton"
         @click="$emit('cache-images')" 
-        :disabled="fetchingMetadata || cachingImages"
+        :disabled="fetchingMetadata"
         class="cache-images-btn"
       >
         <span v-if="cachingImages" class="btn-spinner">⏳</span>
         <span v-else class="btn-icon">🖼️</span>
-        {{ cachingImages ? 'Caching Images...' : 'Cache Images' }}
+        {{ cachingImages ? 'Stop Caching' : 'Cache Images' }}
       </button>
     </div>
   </div>

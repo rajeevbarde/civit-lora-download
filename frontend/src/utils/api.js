@@ -350,6 +350,28 @@ export const apiService = {
     });
     return response.data;
   },
+
+  // Cache operations
+  async cacheImages(options = {}) {
+    const response = await api.post('/cache/images', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async getJsonFiles(options = {}) {
+    const response = await api.get('/cache/json-files', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async processJsonFile(jsonFile, options = {}) {
+    const response = await api.post('/cache/process-json-file', { jsonFile }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

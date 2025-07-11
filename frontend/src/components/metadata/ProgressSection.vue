@@ -1,9 +1,9 @@
 <template>
   <div class="progress-section">
     <div class="progress-header-section">
-      <h3>Processing Progress</h3>
+      <h3>{{ getProgressTitle() }}</h3>
       <button 
-        v-if="completed && !fetchingMetadata" 
+        v-if="(completed && !fetchingMetadata) || (cacheCompleted && !cachingImages)" 
         @click="$emit('clear-progress')" 
         class="clear-progress-btn"
       >
@@ -13,7 +13,7 @@
     
     <div v-if="progress.length === 0" class="progress-loading">
       <div class="loading-spinner">⏳</div>
-      <p>Starting metadata fetch...</p>
+      <p>{{ getLoadingMessage() }}</p>
     </div>
     
     <div v-else class="progress-list">
@@ -28,8 +28,9 @@
             <span v-if="item.status === 'success'" class="status-icon">✅</span>
             <span v-else-if="item.status === 'fetching'" class="status-icon">⏳</span>
             <span v-else-if="item.status === 'error'" class="status-icon">❌</span>
+            <span v-else-if="item.status === 'skipped'" class="status-icon">⏭️</span>
             <a 
-              v-if="item.status === 'success'"
+              v-if="item.status === 'success' && !cachingImages"
               :href="`/model/${item.modelId}/${item.modelVersionId}`"
               target="_blank"
               class="model-link"
@@ -65,9 +66,31 @@ export default {
     fetchingMetadata: {
       type: Boolean,
       default: false
+    },
+    cachingImages: {
+      type: Boolean,
+      default: false
+    },
+    cacheCompleted: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['clear-progress']
+  emits: ['clear-progress'],
+  methods: {
+    getProgressTitle() {
+      if (this.cachingImages || this.cacheCompleted) {
+        return 'Cache Images Progress';
+      }
+      return 'Processing Progress';
+    },
+    getLoadingMessage() {
+      if (this.cachingImages) {
+        return 'Starting image cache...';
+      }
+      return 'Starting metadata fetch...';
+    }
+  }
 };
 </script>
 
@@ -161,6 +184,11 @@ export default {
   background: #fef2f2;
 }
 
+.progress-item.skipped {
+  border-left-color: #6b7280;
+  background: #f9fafb;
+}
+
 .progress-header {
   display: flex;
   justify-content: space-between;
@@ -227,4 +255,4 @@ export default {
     gap: 0.5rem;
   }
 }
-</style> 
+</style>
