@@ -372,7 +372,7 @@ class MetadataService {
             SELECT modelId, modelVersionId, modelName, modelVersionName
             FROM ALLCivitData
             WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NULL
-            ORDER BY modelId, modelVersionId limit 20
+            ORDER BY modelId, modelVersionId
         `;
 
         let connection;
