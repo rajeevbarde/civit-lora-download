@@ -77,12 +77,13 @@ export default {
   },
   methods: {
     async savePath() {
-      if (!this.directoryPath) {
+      const trimmedPath = this.directoryPath.trim();
+      if (!trimmedPath) {
         this.errorHandler.handleWarning('Please enter a directory path.');
         return;
       }
       try {
-        await apiService.savePathLegacy(this.directoryPath);
+        await apiService.savePathLegacy(trimmedPath);
         this.errorHandler.handleSuccess('Path saved successfully');
         await this.fetchSavedPaths();
         this.directoryPath = '';

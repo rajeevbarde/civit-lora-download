@@ -277,79 +277,104 @@ export default {
   border-collapse: collapse;
   font-size: 0.875rem;
   min-width: 600px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .matrix-table th,
 .matrix-table td {
   padding: 16px 12px;
   text-align: center;
   border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
 }
 .matrix-table th {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   font-weight: 700;
-  color: #1e293b;
+  color: #0c4a6e;
   position: sticky;
   top: 0;
   z-index: 10;
   font-size: 0.875rem;
   letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .base-model-header {
   text-align: left !important;
   min-width: 180px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%) !important;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+  color: #92400e !important;
+  font-size: 1rem !important;
 }
 .nsfw-header {
   min-width: 120px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%) !important;
+  color: #0c4a6e !important;
 }
 .total-header {
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%) !important;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%) !important;
   font-weight: 800 !important;
   min-width: 100px;
-  color: #1e293b !important;
+  color: #065f46 !important;
+  font-size: 1rem !important;
 }
 .base-model-cell {
   text-align: left !important;
   font-weight: 600;
-  background: #f8fafc;
-  color: #1e293b;
-  font-size: 0.875rem;
+  background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%);
+  color: #92400e;
+  font-size: 1rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .count-cell {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
   font-weight: 600;
   font-size: 0.875rem;
   color: #1e293b;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  position: relative;
+}
+.count-cell:hover {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1;
 }
 .zero-count {
   color: #94a3b8;
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   font-weight: 400;
+  opacity: 0.7;
 }
 .total-cell {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
   font-weight: 700;
-  color: #1e293b;
+  color: #065f46;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 1rem;
 }
 .total-row {
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
 .total-label {
   font-weight: 800;
   text-align: left !important;
-  color: #1e293b;
+  color: #92400e;
   font-size: 0.875rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .column-total {
   font-weight: 800;
-  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
-  color: #1e293b;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 1rem;
 }
 .grand-total {
   font-weight: 800;
-  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
   color: white;
   font-size: 1rem;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 </style> 

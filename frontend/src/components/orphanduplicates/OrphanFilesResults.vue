@@ -502,8 +502,8 @@ export default {
 }
 
 .fix-btn.duplicate-file {
-  background: linear-gradient(135deg, #a0aec0 0%, #718096 100%);
-  color: white;
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
+  color: white !important;
   cursor: not-allowed;
   opacity: 0.7;
 }

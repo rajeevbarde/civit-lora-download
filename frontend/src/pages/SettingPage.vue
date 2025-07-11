@@ -107,8 +107,8 @@ export default {
     const saveSettings = async () => {
       try {
         await apiService.updateSettings({
-          DOWNLOAD_BASE_DIR: downloadBaseDirInput.value,
-          CIVITAI_TOKEN: civitaiTokenInput.value
+          DOWNLOAD_BASE_DIR: downloadBaseDirInput.value.trim(),
+          CIVITAI_TOKEN: civitaiTokenInput.value.trim()
         });
         success.value = true;
         error.value = '';
@@ -122,8 +122,8 @@ export default {
       dbPathSaveSuccess.value = false;
       dbPathSaveError.value = '';
       try {
-        await apiService.updateSettings({ DB_PATH: dbPathInput.value });
-        dbPath.value = dbPathInput.value;
+        await apiService.updateSettings({ DB_PATH: dbPathInput.value.trim() });
+        dbPath.value = dbPathInput.value.trim();
         dbPathSaveSuccess.value = true;
       } catch (err) {
         dbPathSaveError.value = err.message || 'Failed to save DB path';

@@ -106,7 +106,7 @@ export default {
   overflow: hidden;
 }
 .section-header {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
   padding: 24px 32px;
   border-bottom: 1px solid #e2e8f0;
 }
@@ -133,8 +133,9 @@ export default {
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0 0 8px 0;
-  color: #1e293b;
+  color: #0c4a6e;
   letter-spacing: -0.025em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .section-description {
   font-size: 1rem;
@@ -232,18 +233,57 @@ export default {
   width: 100%;
   border-collapse: collapse;
   margin-top: 1rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 .checkpoints-table th, .checkpoints-table td {
   border: 1px solid #e2e8f0;
-  padding: 0.75rem 1rem;
+  padding: 16px 20px;
   text-align: left;
+  transition: all 0.2s ease;
 }
 .checkpoints-table th {
-  background: #f1f5f9;
-  font-weight: 600;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  font-weight: 700;
+  color: #0c4a6e;
+  font-size: 1rem;
+  letter-spacing: 0.025em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 .checkpoints-table tr:nth-child(even) {
-  background: #f8fafc;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+.checkpoints-table tr:nth-child(odd) {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+}
+.checkpoints-table tr:hover {
+  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+  transform: scale(1.01);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+.checkpoints-table td a {
+  color: #1e40af;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+.checkpoints-table td a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.checkpoints-table td:last-child {
+  font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-weight: 500;
+  color: #64748b;
+  font-size: 0.875rem;
 }
 .no-data-section {
   display: flex;
