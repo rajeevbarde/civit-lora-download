@@ -77,6 +77,70 @@ router.get('/download-matrix', async (req, res) => {
     }
 });
 
+// Get metadata statistics
+router.get('/metadata-statistics', async (req, res) => {
+    try {
+        const result = await databaseService.getMetadataStatistics();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting metadata statistics:', error);
+        res.status(500).json({ error: 'Failed to get metadata statistics' });
+    }
+});
+
+// Fetch and save metadata from CivitAI API (Step 1)
+router.post('/fetch-metadata', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.fetchAndSaveMetadata();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error fetching metadata:', error);
+        res.status(500).json({ error: 'Failed to fetch metadata' });
+    }
+});
+
+// Get registered LoRAs that need metadata
+router.get('/registered-loras', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.getRegisteredLoras();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error getting registered LoRAs:', error);
+        res.status(500).json({ error: 'Failed to get registered LoRAs' });
+    }
+});
+
+// Fetch metadata for a single LoRA
+router.post('/fetch-metadata-single', async (req, res) => {
+    try {
+        const { modelId, modelVersionId } = req.body;
+        if (!modelId || !modelVersionId) {
+            return res.status(400).json({ error: 'modelId and modelVersionId are required' });
+        }
+        
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.fetchSingleLoRAMetadata(modelId, modelVersionId);
+        res.json(result);
+    } catch (error) {
+        logger.error('Error fetching single LoRA metadata:', error);
+        res.status(500).json({ error: 'Failed to fetch single LoRA metadata' });
+    }
+});
+
+// Create model folders for metadata (Step 2)
+router.post('/create-model-folders', async (req, res) => {
+    try {
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.createModelFolders();
+        res.json(result);
+    } catch (error) {
+        logger.error('Error creating model folders:', error);
+        res.status(500).json({ error: 'Failed to create model folders' });
+    }
+});
+
 // Get latest updated checkpoints
 router.get('/latest-updated-checkpoints', async (req, res) => {
     try {
@@ -103,7 +167,7 @@ router.get('/row-count', async (req, res) => {
 router.get('/related-lora/:modelId', async (req, res) => {
     try {
         const { modelId } = req.params;
-        if (!modelId) {
+        if (!modelId || modelId.trim() === '') {
             return res.status(400).json({ error: 'modelId is required' });
         }
         const result = await databaseService.getRelatedLoraByModelId(modelId);
@@ -124,6 +188,24 @@ router.post('/ignore', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Download JSON metadata without updating database
+router.post('/download-json-metadata', async (req, res) => {
+    try {
+        const { modelId, modelVersionId, updateDatabase = false } = req.body;
+        
+        if (!modelId || !modelVersionId) {
+            return res.status(400).json({ error: 'modelId and modelVersionId are required' });
+        }
+        
+        const metadataService = require('../../services/metadataService');
+        const result = await metadataService.downloadJsonMetadataOnly(modelId, modelVersionId, updateDatabase);
+        res.json(result);
+    } catch (error) {
+        logger.error('Error downloading JSON metadata:', error);
+        res.status(500).json({ error: 'Failed to download JSON metadata' });
     }
 });
 

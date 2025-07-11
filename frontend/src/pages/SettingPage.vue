@@ -139,6 +139,7 @@ export default {
         .then(result => {
           verifyResult.value = result;
           if (result.fileExists && result.tableExists && 
+              result.columnResults.every(col => col.exists) &&
               result.indexResults.every(idx => idx.exists && idx.match !== false)) {
             apiService.getLatestPublishedAt().then(({ latest }) => {
               latestPublishedAt.value = latest;

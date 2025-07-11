@@ -60,6 +60,41 @@ export const apiService = {
     return response.data;
   },
 
+  async getMetadataStatistics(options = {}) {
+    const response = await api.get('/models/metadata-statistics', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async fetchMetadata(options = {}) {
+    const response = await api.post('/models/fetch-metadata', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async fetchSingleLoRAMetadata(modelId, modelVersionId, options = {}) {
+    const response = await api.post('/models/fetch-metadata-single', { modelId, modelVersionId }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async getRegisteredLoras(options = {}) {
+    const response = await api.get('/models/registered-loras', {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  async createModelFolders(options = {}) {
+    const response = await api.post('/models/create-model-folders', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async getSafetensorCounts(options = {}) {
     const response = await api.get('/files/safetensor-counts', {
       signal: options.signal
@@ -292,6 +327,27 @@ export const apiService = {
     if (!response.data || response.data.success !== true) {
       throw new Error('Failed to ignore model');
     }
+    return response.data;
+  },
+
+  // Read JSON file content
+  async readJsonFile(filePath, options = {}) {
+    const response = await api.get('/files/read-json', {
+      params: { path: filePath },
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  // Download JSON metadata without updating database
+  async downloadJsonMetadata(modelId, modelVersionId, options = {}) {
+    const response = await api.post('/models/download-json-metadata', { 
+      modelId, 
+      modelVersionId,
+      updateDatabase: false 
+    }, {
+      signal: options.signal
+    });
     return response.data;
   },
 };

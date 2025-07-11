@@ -4,7 +4,9 @@ SELECT DISTINCT
     t.tags,
     0 AS isDownloaded,        -- default value
     NULL AS file_path,        -- now NULL instead of empty string
-    NULL AS last_updated      -- stays NULL
+    NULL AS last_updated,     -- stays NULL
+    NULL AS trigger_words,    -- new column for trigger words
+    NULL AS modelversion_jsonpath  -- new column for model version JSON path
 FROM (
     SELECT
          mv.model_id AS modelId,

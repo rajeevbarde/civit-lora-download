@@ -5,6 +5,7 @@ import LoRASummary from '../pages/SummaryPage.vue';
 import LoRAScanner from '../pages/FileScannerPage.vue';
 import CivitDataFetcher from '../pages/CivitDataFetcherPageRefactored.vue';
 import Setting from '../pages/SettingPage.vue';
+import Metadata from '../pages/MetadataPage.vue';
 
 const routes = [
   {
@@ -30,6 +31,11 @@ const routes = [
     path: '/civit-data-fetcher',
     name: 'CivitDataFetcher',
     component: CivitDataFetcher,
+  },
+  {
+    path: '/metadata',
+    name: 'Metadata',
+    component: Metadata,
   },
   {
     path: '/setting',

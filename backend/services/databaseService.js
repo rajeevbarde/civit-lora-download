@@ -72,7 +72,7 @@ class DatabaseService {
                 modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount,
                 modelVersionId, modelVersionName, modelVersionDescription,
                 basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount,
-                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
+                fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path, trigger_words, modelversion_jsonpath
             FROM ALLCivitData
             WHERE modelVersionId = ?
         `;
@@ -397,9 +397,16 @@ class DatabaseService {
             { columns: ['modelNsfw'] },
             { columns: ['modelVersionNsfwLevel'] },
         ];
+        const expectedColumns = [
+            'modelId', 'modelName', 'modelDescription', 'modelType', 'modelNsfw', 'modelNsfwLevel', 'modelDownloadCount',
+            'modelVersionId', 'modelVersionName', 'modelVersionDescription', 'basemodel', 'basemodeltype', 'modelVersionNsfwLevel', 'modelVersionDownloadCount',
+            'fileName', 'fileType', 'fileDownloadUrl', 'size_in_kb', 'publishedAt', 'tags', 'isDownloaded', 'file_path',
+            'last_updated', 'trigger_words', 'modelversion_jsonpath'
+        ];
         const result = {
             fileExists: false,
             tableExists: false,
+            columnResults: [],
             indexResults: [],
             errors: [],
         };
@@ -423,6 +430,25 @@ class DatabaseService {
                 return result;
             }
             result.tableExists = true;
+            
+            // Check table schema/columns
+            const tableSchema = await new Promise((resolve, reject) => {
+                db.all("PRAGMA table_info('ALLCivitData')", (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows);
+                });
+            });
+            
+            const actualColumns = tableSchema.map(col => col.name);
+            for (const expectedColumn of expectedColumns) {
+                if (actualColumns.includes(expectedColumn)) {
+                    result.columnResults.push({ column: expectedColumn, exists: true });
+                } else {
+                    result.columnResults.push({ column: expectedColumn, exists: false });
+                    result.errors.push(`Missing column: ${expectedColumn}`);
+                }
+            }
+            
             // Check indexes (focus on columns, not index name)
             const indexRows = await new Promise((resolve, reject) => {
                 db.all("PRAGMA index_list('ALLCivitData')", (err, rows) => {
@@ -518,6 +544,42 @@ class DatabaseService {
             connection = await dbPool.getConnection();
             const result = await dbPool.runQuerySingle(connection, 'SELECT COUNT(*) as total FROM ALLCivitData');
             return result.total;
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
+    // Get metadata statistics
+    async getMetadataStatistics() {
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            
+            // Get total downloaded LoRAs (isDownloaded=1 and file_path is not null)
+            const totalResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as total FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL'
+            );
+            
+            // Get count of downloaded LoRAs with metadata fetched (modelversion_jsonpath is not null)
+            const metadataFetchedResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NOT NULL'
+            );
+            
+            // Get count of downloaded LoRAs without metadata fetched (modelversion_jsonpath is null)
+            const metadataNotFetchedResult = await dbPool.runQuerySingle(
+                connection, 
+                'SELECT COUNT(*) as count FROM ALLCivitData WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NULL'
+            );
+            
+            return {
+                totalRegistered: totalResult.total,
+                metadataFetched: metadataFetchedResult.count,
+                metadataNotFetched: metadataNotFetchedResult.count
+            };
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);

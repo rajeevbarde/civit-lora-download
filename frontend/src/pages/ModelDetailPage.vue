@@ -14,12 +14,14 @@
       <!-- Hero Section -->
       <div class="hero-section">
         <div class="hero-content">
-          <!-- Model Image Placeholder -->
+          <!-- Model Image Slider -->
           <div class="model-image-container">
-            <div class="model-image-placeholder">
-              <div class="image-icon">🎨</div>
-              <span class="image-text">Model Preview</span>
-            </div>
+            <ImageSlider 
+              :model-id="model.modelId"
+              :model-version-id="model.modelVersionId"
+              size="medium"
+              @error="handleImageError"
+            />
           </div>
 
           <!-- Model Header Info -->
@@ -142,14 +144,35 @@
             </div>
           </div>
 
-          <!-- Trigger Words Card (Placeholder for future) -->
+          <!-- Trigger Words Card -->
           <div class="info-card trigger-card">
             <div class="card-header">
               <h3 class="card-title">🏷️ Trigger Words</h3>
             </div>
             <div class="card-content">
-              <div class="trigger-placeholder">
-                <span class="placeholder-text">Coming soon...</span>
+              <div class="trigger-words-content">
+                <div v-if="getTriggerWordsArray().length > 0" class="trigger-words-list">
+                  <span 
+                    v-for="word in getTriggerWordsArray()" 
+                    :key="word"
+                    class="trigger-word"
+                  >
+                    {{ word }}
+                  </span>
+                </div>
+                <div v-else class="trigger-words-empty">
+                  <span v-if="!this.model.trigger_words && this.model.isDownloaded === 1 && this.model.file_path" class="empty-text">
+                    For registered lora, fetch metadata from 
+                    <a href="/metadata" target="_blank" rel="noopener noreferrer" class="metadata-link">here</a>
+                  </span>
+                  <span v-else-if="this.model.trigger_words === 'NO_TRIGGER_WORDS'" class="empty-text author-no-trigger">
+                    {{ getTriggerWordsStatus() }}
+                  </span>
+                  <span v-else-if="!this.model.trigger_words && this.model.isDownloaded === 0" class="empty-text not-registered">
+                    {{ getTriggerWordsStatus() }}
+                  </span>
+                  <span v-else class="empty-text">{{ getTriggerWordsStatus() }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -222,8 +245,7 @@ import { useRoute } from 'vue-router';
 import { apiService } from '@/utils/api.js';
 import { API_CONFIG, DOWNLOAD_STATUS } from '@/utils/constants.js';
 import { formatDate } from '@/utils/helpers.js';
-import NotificationSystem from '@/components/common/NotificationSystem.vue';
-import LoadingSpinner from '@/components/common/LoadingSpinner.vue';
+import { NotificationSystem, LoadingSpinner, ImageSlider } from '@/components/common';
 
 // Local Components
 import PageHeader from '@/components/modeldetails/PageHeader.vue';
@@ -237,6 +259,7 @@ export default {
   components: { 
     NotificationSystem, 
     LoadingSpinner,
+    ImageSlider,
     PageHeader,
     DownloadActions,
     LoadingState,
@@ -288,6 +311,8 @@ export default {
         if (this.model && this.model.modelId !== urlModelId) {
           throw new Error(`URL model ID (${urlModelId}) does not match backend model ID (${this.model.modelId})`);
         }
+        
+
       } catch (err) {
         console.error(err);
         this.error = err.message || "Failed to load model details.";
@@ -530,6 +555,51 @@ export default {
       }
       return [];
     },
+
+    getTriggerWordsArray() {
+      if (!this.model.trigger_words) {
+        return [];
+      }
+      
+      // Handle different cases
+      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
+        return [];
+      }
+      
+      if (typeof this.model.trigger_words === 'string') {
+        // Split by comma and clean up
+        return this.model.trigger_words
+          .split(',')
+          .map(word => word.trim())
+          .filter(word => word && word !== 'NO_TRIGGER_WORDS');
+      }
+      
+      if (Array.isArray(this.model.trigger_words)) {
+        return this.model.trigger_words.filter(word => word && word !== 'NO_TRIGGER_WORDS');
+      }
+      
+      return [];
+    },
+
+    getTriggerWordsStatus() {
+      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
+        return 'Author did not provide trigger word';
+      }
+      
+      if (!this.model.trigger_words && this.model.isDownloaded === 0) {
+        return 'Lora not registered or downloaded';
+      }
+      
+      if (!this.model.trigger_words) {
+        return 'No trigger words data available';
+      }
+      
+      if (this.getTriggerWordsArray().length === 0) {
+        return 'No trigger words available';
+      }
+      
+      return 'No trigger words available';
+    },
     
     // Related Lora helper methods
     isCurrentModel(item) {
@@ -595,6 +665,10 @@ export default {
       }
       
       return '';
+    },
+    
+    handleImageError(error) {
+      this.showNotification(error, 'warning');
     }
   }
 };
@@ -632,40 +706,10 @@ export default {
   margin: 0 auto;
 }
 
-/* Model Image */
+/* Model Image Container */
 .model-image-container {
   display: flex;
   align-items: center;
-}
-
-.model-image-placeholder {
-  width: 120px;
-  height: 120px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.3s ease;
-}
-
-.model-image-placeholder:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.image-icon {
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.image-text {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  text-align: center;
 }
 
 /* Model Header */
@@ -1007,16 +1051,67 @@ export default {
   opacity: 0.7;
 }
 
-/* Trigger Placeholder */
-.trigger-placeholder {
+/* Trigger Words */
+.trigger-words-content {
   padding: 0.5rem 0;
-  text-align: center;
 }
 
-.trigger-placeholder .placeholder-text {
+.trigger-words-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trigger-word {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.trigger-word:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+  background: linear-gradient(135deg, #ff5252 0%, #d63031 100%);
+}
+
+.trigger-words-empty {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.trigger-words-empty .empty-text {
   color: #9e9e9e;
   font-size: 0.9rem;
   font-style: italic;
+}
+
+.trigger-words-empty .empty-text.author-no-trigger {
+  color: #ff6b35;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.trigger-words-empty .empty-text.not-registered {
+  color: #f44336;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.metadata-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.metadata-link:hover {
+  color: #5a67d8;
+  text-decoration: underline;
 }
 
 /* Related Lora Card */
@@ -1199,8 +1294,19 @@ export default {
   }
   
   .model-image-placeholder {
-    width: 80px;
-    height: 80px;
+    width: 170px;
+    height: 256px;
+  }
+  
+  .image-slider {
+    width: 170px;
+    height: 256px;
+  }
+  
+  .slider-arrow {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
   }
   
   .image-icon {

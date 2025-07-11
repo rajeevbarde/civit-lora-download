@@ -6,11 +6,11 @@ function validatePagination(req, res, next) {
     const limit = parseInt(req.query.limit);
     const maxLimit = parseInt(process.env.MAX_PAGINATION_LIMIT) || 100;
     
-    if (page && (isNaN(page) || page < 1)) {
+    if (req.query.page !== undefined && (isNaN(page) || page < 1)) {
         return res.status(400).json({ error: 'Page must be a positive integer' });
     }
     
-    if (limit && (isNaN(limit) || limit < 1 || limit > maxLimit)) {
+    if (req.query.limit !== undefined && (isNaN(limit) || limit < 1 || limit > maxLimit)) {
         return res.status(400).json({ error: `Limit must be between 1 and ${maxLimit}` });
     }
     
@@ -32,7 +32,7 @@ function validateModelVersionId(req, res, next) {
 function validateFilePath(req, res, next) {
     const { filePath } = req.body;
     
-    if (!filePath || typeof filePath !== 'string') {
+    if (filePath === undefined || filePath === null || typeof filePath !== 'string') {
         return res.status(400).json({ error: 'Valid filePath is required' });
     }
     
@@ -104,7 +104,7 @@ function validateFilesArray(req, res, next) {
 function validatePath(req, res, next) {
     const { path: dirPath } = req.body;
     
-    if (!dirPath || typeof dirPath !== 'string') {
+    if (dirPath === undefined || dirPath === null || typeof dirPath !== 'string') {
         return res.status(400).json({ error: 'Valid path is required' });
     }
     
