@@ -24,7 +24,9 @@
       <ActionSection 
         v-if="!loading && !error"
         :fetching-metadata="fetchingMetadata"
+        :caching-images="cachingImages"
         @fetch-metadata="fetchMetadata"
+        @cache-images="cacheImages"
       />
 
       <!-- Progress Section -->
@@ -67,6 +69,7 @@ export default {
     const loading = ref(false);
     const error = ref(null);
     const fetchingMetadata = ref(false);
+    const cachingImages = ref(false);
     const progress = ref([]);
     const completed = ref(false);
 
@@ -158,6 +161,20 @@ export default {
       }
     };
 
+    const cacheImages = async () => {
+      cachingImages.value = true;
+      try {
+        console.log('Caching images...');
+        // TODO: Implement image caching logic here
+        showSuccess?.('Image caching completed');
+      } catch (err) {
+        console.error('Error caching images:', err);
+        showError?.(err.message || 'Failed to cache images');
+      } finally {
+        cachingImages.value = false;
+      }
+    };
+
     const clearProgress = () => {
       progress.value = [];
       completed.value = false;
@@ -188,10 +205,12 @@ export default {
       loading,
       error,
       fetchingMetadata,
+      cachingImages,
       progress,
       completed,
       loadStatistics,
       fetchMetadata,
+      cacheImages,
       clearProgress
     };
   }

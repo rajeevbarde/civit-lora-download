@@ -1,14 +1,27 @@
 <template>
   <div class="action-section">
-    <button 
-      @click="$emit('fetch-metadata')" 
-      :disabled="fetchingMetadata"
-      class="fetch-metadata-btn"
-    >
-      <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
-      <span v-else class="btn-icon">🔄</span>
-      {{ fetchingMetadata ? 'Fetching Metadata...' : 'Fetch Metadata' }}
-    </button>
+    <div class="button-group">
+      <button 
+        @click="$emit('fetch-metadata')" 
+        :disabled="fetchingMetadata || cachingImages"
+        class="fetch-metadata-btn"
+      >
+        <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
+        <span v-else class="btn-icon">🔄</span>
+        {{ fetchingMetadata ? 'Fetching Metadata...' : 'Fetch Metadata' }}
+      </button>
+      
+      <button 
+        v-if="showCacheButton"
+        @click="$emit('cache-images')" 
+        :disabled="fetchingMetadata || cachingImages"
+        class="cache-images-btn"
+      >
+        <span v-if="cachingImages" class="btn-spinner">⏳</span>
+        <span v-else class="btn-icon">🖼️</span>
+        {{ cachingImages ? 'Caching Images...' : 'Cache Images' }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -19,9 +32,19 @@ export default {
     fetchingMetadata: {
       type: Boolean,
       default: false
+    },
+    cachingImages: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['fetch-metadata']
+  emits: ['fetch-metadata', 'cache-images'],
+  computed: {
+    showCacheButton() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('dungeon') === 'true';
+    }
+  }
 };
 </script>
 
@@ -35,6 +58,12 @@ export default {
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border: 1px solid #e1e8ed;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 .fetch-metadata-btn {
@@ -59,6 +88,33 @@ export default {
 }
 
 .fetch-metadata-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.cache-images-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cache-images-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cache-images-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
