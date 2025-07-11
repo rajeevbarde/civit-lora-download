@@ -39,8 +39,8 @@
     <!-- Error State -->
     <ModelErrorState v-else-if="error" :error="error" />
 
-    <!-- Enhanced Table Section -->
-    <ModelTable 
+    <!-- Enhanced Grid Section -->
+    <ModelGrid 
       v-else
       :models="models"
       :selected-models="selectedModels"
@@ -72,7 +72,7 @@ import {
   ModelFilters,
   ModelBulkActions,
   ModelDownloadStatus,
-  ModelTable,
+  ModelGrid,
   ModelLoadingState,
   ModelErrorState
 } from '@/components/model/index.js';
@@ -85,7 +85,7 @@ export default {
     ModelFilters,
     ModelBulkActions,
     ModelDownloadStatus,
-    ModelTable,
+    ModelGrid,
     ModelLoadingState,
     ModelErrorState
   },
@@ -761,4 +761,6 @@ export default {
   margin: 0 auto;
   padding: 2rem;
 }
+
+
 </style>
