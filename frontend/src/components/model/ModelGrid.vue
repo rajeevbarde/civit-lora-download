@@ -45,7 +45,7 @@
           class="model-card"
           :class="{ 'selected': isModelSelected(model.modelId) }"
         >
-                     <!-- Image Thumbnail Placeholder -->
+                     <!-- Image Thumbnail -->
            <div class="model-thumbnail">
              <!-- Individual Checkbox - Top Left -->
              <div class="card-checkbox">
@@ -66,8 +66,15 @@
                  <span class="variants-text">*</span>
                </div>
              </div>
-             <div class="thumbnail-placeholder">
-               <span class="placeholder-text">120×180</span>
+             <!-- Image Slider -->
+             <div class="thumbnail-container">
+               <ImageSlider 
+                 :model-id="model.modelId"
+                 :model-version-id="model.modelVersionId"
+                 size="small"
+                 :disable-preview="true"
+                 @error="handleImageError"
+               />
              </div>
            </div>
 
@@ -82,30 +89,22 @@
                 class="model-link"
               >
                 <h3 class="model-name">{{ model.modelName }}</h3>
-                <div class="version-badge">{{ model.modelVersionName }}</div>
+                <div class="version-line">
+                  <div class="version-badge">{{ model.modelVersionName }}</div>
+                  <div class="file-size-badge">
+                    <span class="size-icon">💾</span>
+                    <span class="size-text">{{ convertToMB(model.size_in_kb) }}</span>
+                  </div>
+                  <div class="download-count-badge">
+                    <span class="download-icon">⬇️</span>
+                    <span class="download-text">{{ model.modelVersionDownloadCount?.toLocaleString() }}</span>
+                  </div>
+                </div>
               </a>
             </div>
 
-
-
-
-
-
-
-            
-
-            <!-- Download Actions with File Size and Download Count -->
+            <!-- Download Actions -->
             <div class="model-actions">
-              <div class="action-info">
-                <div class="file-size-badge">
-                  <span class="size-icon">💾</span>
-                  <span class="size-text">{{ convertToMB(model.size_in_kb) }}</span>
-                </div>
-                <div class="download-count-badge">
-                  <span class="download-icon">⬇️</span>
-                  <span class="download-text">{{ model.modelVersionDownloadCount?.toLocaleString() }}</span>
-                </div>
-              </div>
               
               <button 
                 v-if="model.fileDownloadUrl && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADED && model.isDownloaded !== DOWNLOAD_STATUS.DOWNLOADING && model.isDownloaded !== DOWNLOAD_STATUS.FAILED && model.isDownloaded !== DOWNLOAD_STATUS.IGNORED" 
@@ -192,11 +191,13 @@ import { formatDate } from '@/utils/helpers.js';
 import { DOWNLOAD_STATUS } from '@/utils/constants.js';
 import { apiService } from '@/utils/api.js';
 import ModelPagination from './ModelPagination.vue';
+import { ImageSlider } from '@/components/common';
 
 export default {
   name: 'ModelGrid',
   components: {
-    ModelPagination
+    ModelPagination,
+    ImageSlider
   },
   props: {
     models: {
@@ -340,6 +341,11 @@ export default {
       return { hasRelated: true, relative };
     };
 
+    const handleImageError = (error) => {
+      // Handle image loading errors silently or log them
+      console.warn('Image loading error:', error);
+    };
+
     return {
       DOWNLOAD_STATUS: DOWNLOAD_STATUS_REF,
       isAllSelected,
@@ -354,7 +360,8 @@ export default {
       handlePageChange,
       convertToMB,
       getRelatedLoraStatus,
-      formatDate
+      formatDate,
+      handleImageError
     };
   }
 };
@@ -537,30 +544,116 @@ export default {
 
 /* Thumbnail */
 .model-thumbnail {
+  position: relative;
   width: 100%;
-  height: 180px;
+  height: 200px;
   background: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
   display: flex;
   align-items: center;
-  justify-content: center;
-  position: relative;
+  justify-content: flex-start;
+  margin-bottom: 0.25rem;
+  padding-left: 0;
 }
 
-/* Card Checkbox - Top Left */
+.thumbnail-container {
+  width: 120px;
+  height: 200px;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Card Checkbox - Top Right */
 .card-checkbox {
   position: absolute;
-  top: 12px;
-  left: 12px;
+  top: 8px;
+  right: 4px;
   z-index: 10;
 }
 
 /* Base Model Value - Below Checkbox */
 .base-model-value {
   position: absolute;
-  top: 40px;
-  left: 12px;
+  top: 35px;
+  right: 4px;
   z-index: 10;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  text-align: right;
+}
+
+.base-model-text {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.base-model-type {
+  font-size: 0.6rem;
+  opacity: 0.9;
+  line-height: 1.1;
+}
+
+.variants-indicator {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.variants-yes {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.variants-no {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #f44336;
+}
+
+.variants-text {
+  font-size: 0.5rem;
+  color: #ffc107;
+}
+
+/* Ensure ImageSlider fits the thumbnail size */
+.thumbnail-container :deep(.image-slider) {
+  width: 120px !important;
+  height: 200px !important;
+}
+
+.thumbnail-container :deep(.model-image-placeholder) {
+  width: 120px !important;
+  height: 200px !important;
+}
+
+.thumbnail-container :deep(.slider-image) {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+.thumbnail-container :deep(.slider-arrow) {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 0.9rem !important;
+}
+
+.thumbnail-container :deep(.image-counter) {
+  font-size: 0.6rem !important;
+  padding: 1px 6px !important;
+}
+
+/* Base Model Value - Below Checkbox */
+.base-model-value {
+  position: absolute;
+  top: 40px;
+  right: 4px;
+  z-index: 10;
+  text-align: right;
 }
 
 .base-model-text {
@@ -625,7 +718,7 @@ export default {
 
 /* Model Info */
 .model-info {
-  padding: 1.5rem;
+  padding: 0.75rem;
 }
 
 .model-header {
@@ -647,6 +740,13 @@ export default {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.version-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .version-badge {
@@ -756,8 +856,8 @@ export default {
 
 /* Additional Details Below Buttons */
 .additional-details {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
   background: #f8f9fa;
   border-radius: 6px;
   border: 1px solid #e9ecef;
@@ -804,15 +904,7 @@ export default {
   color: #6c757d;
 }
 
-/* Action Info - File Size and Download Count */
-.action-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #e9ecef;
-  margin-bottom: 0.5rem;
-}
+/* Action Info - File Size and Download Count (moved to version line) */
 
 .file-size-badge {
   display: flex;

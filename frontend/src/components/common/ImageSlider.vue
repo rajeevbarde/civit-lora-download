@@ -8,7 +8,8 @@
           :alt="`Model image ${currentImageIndex + 1}`"
           class="slider-image"
           @error="handleImageError"
-          @click="showImagePreview"
+          @click="!disablePreview && showImagePreview()"
+          :class="{ 'clickable': !disablePreview }"
         />
         
         <!-- Navigation Arrows -->
@@ -79,6 +80,10 @@ export default {
       type: String,
       default: 'medium', // 'small', 'medium', 'large'
       validator: value => ['small', 'medium', 'large'].includes(value)
+    },
+    disablePreview: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -250,10 +255,13 @@ export default {
   object-fit: cover;
   border-radius: 14px;
   transition: all 0.3s ease;
+}
+
+.slider-image.clickable {
   cursor: pointer;
 }
 
-.slider-image:hover {
+.slider-image.clickable:hover {
   transform: scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
