@@ -72,6 +72,8 @@ export default {
     const cachingImages = ref(false);
     const progress = ref([]);
     const completed = ref(false);
+    const cancelFetch = ref(false);
+    const abortController = ref(null);
 
     // Inject notification functions
     const showSuccess = inject('showSuccess');
@@ -92,15 +94,33 @@ export default {
     };
 
     const fetchMetadata = async () => {
+      // If already fetching, cancel the operation
+      if (fetchingMetadata.value) {
+        cancelFetch.value = true;
+        if (abortController.value) {
+          abortController.value.abort();
+        }
+        fetchingMetadata.value = false;
+        showSuccess?.('Metadata fetching cancelled');
+        return;
+      }
+
+      // Start fetching
       fetchingMetadata.value = true;
+      cancelFetch.value = false;
       completed.value = false;
       progress.value = [];
+      
+      // Create new AbortController for this operation
+      abortController.value = new AbortController();
       
       try {
         console.log('Fetching metadata from CivitAI API...');
         
-        // Get LoRAs that need metadata
-        const lorasToProcess = await apiService.getRegisteredLoras();
+        // Get LoRAs that need metadata with abort signal
+        const lorasToProcess = await apiService.getRegisteredLoras({
+          signal: abortController.value.signal
+        });
         
         if (!lorasToProcess || lorasToProcess.length === 0) {
           showSuccess?.('No LoRAs found that need metadata fetching');
@@ -114,6 +134,12 @@ export default {
         
         // Process each LoRA individually
         for (const lora of lorasToProcess) {
+          // Check for cancellation
+          if (cancelFetch.value || abortController.value.signal.aborted) {
+            console.log('Metadata fetching cancelled by user');
+            break;
+          }
+
           const progressItem = {
             modelId: lora.modelId,
             modelVersionId: lora.modelVersionId,
@@ -126,7 +152,18 @@ export default {
           progress.value.push(progressItem);
           
           try {
-            const result = await apiService.fetchSingleLoRAMetadata(lora.modelId, lora.modelVersionId);
+            const result = await apiService.fetchSingleLoRAMetadata(
+              lora.modelId, 
+              lora.modelVersionId,
+              { signal: abortController.value.signal }
+            );
+            
+            // Check for cancellation after each API call
+            if (cancelFetch.value || abortController.value.signal.aborted) {
+              progressItem.status = 'cancelled';
+              progressItem.message = 'Cancelled by user';
+              break;
+            }
             
             if (result.success) {
               progressItem.status = 'success';
@@ -139,25 +176,44 @@ export default {
               errorCount++;
             }
           } catch (error) {
-            progressItem.status = 'error';
-            progressItem.message = `❌ Failed: ${error.message}`;
-            errorCount++;
+            // Check if the error is due to cancellation
+            if (error.name === 'AbortError' || abortController.value.signal.aborted) {
+              progressItem.status = 'cancelled';
+              progressItem.message = 'Cancelled by user';
+              break;
+            } else {
+              progressItem.status = 'error';
+              progressItem.message = `❌ Failed: ${error.message}`;
+              errorCount++;
+            }
           }
         }
         
         // Show final results
-        const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} successful, ${errorCount} failed`;
-        showSuccess?.(message);
-        
-        // Reload statistics and mark as completed
-        await loadStatistics();
-        completed.value = true;
+        if (cancelFetch.value || abortController.value.signal.aborted) {
+          const message = `Fetching cancelled. Processed ${successCount + errorCount} LoRAs: ${successCount} successful, ${errorCount} failed`;
+          showSuccess?.(message);
+        } else {
+          const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} successful, ${errorCount} failed`;
+          showSuccess?.(message);
+          // Reload statistics and mark as completed only if not cancelled
+          await loadStatistics();
+          completed.value = true;
+        }
         
       } catch (err) {
-        console.error('Error fetching metadata:', err);
-        showError?.(err.message || 'Failed to fetch metadata');
+        // Check if the error is due to cancellation
+        if (err.name === 'AbortError' || abortController.value.signal.aborted) {
+          console.log('Metadata fetching cancelled');
+          showSuccess?.('Metadata fetching cancelled');
+        } else {
+          console.error('Error fetching metadata:', err);
+          showError?.(err.message || 'Failed to fetch metadata');
+        }
       } finally {
         fetchingMetadata.value = false;
+        cancelFetch.value = false;
+        abortController.value = null;
       }
     };
 
@@ -208,6 +264,8 @@ export default {
       cachingImages,
       progress,
       completed,
+      cancelFetch,
+      abortController,
       loadStatistics,
       fetchMetadata,
       cacheImages,

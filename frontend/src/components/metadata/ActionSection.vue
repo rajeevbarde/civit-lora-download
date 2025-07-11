@@ -3,12 +3,12 @@
     <div class="button-group">
       <button 
         @click="$emit('fetch-metadata')" 
-        :disabled="fetchingMetadata || cachingImages"
+        :disabled="cachingImages"
         class="fetch-metadata-btn"
       >
         <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
         <span v-else class="btn-icon">🔄</span>
-        {{ fetchingMetadata ? 'Fetching Metadata...' : 'Fetch Metadata' }}
+        {{ fetchingMetadata ? 'Stop Fetching' : 'Fetch Metadata' }}
       </button>
       
       <button 
