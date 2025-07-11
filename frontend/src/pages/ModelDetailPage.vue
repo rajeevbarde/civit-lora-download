@@ -24,6 +24,7 @@
                   :alt="`Model image ${currentImageIndex + 1}`"
                   class="slider-image"
                   @error="handleImageError"
+                  @click="showImagePreview"
                 />
                 
                 <!-- Navigation Arrows -->
@@ -271,6 +272,23 @@
 
 
     </div>
+    
+    <!-- Image Preview Modal -->
+    <div v-if="showPreview" class="image-preview-modal" @click="hideImagePreview">
+      <div class="preview-content" @click.stop>
+        <img 
+          :src="modelImages[currentImageIndex]" 
+          :alt="`Model image ${currentImageIndex + 1}`"
+          class="preview-image"
+          @load="onPreviewImageLoad"
+        />
+        <div class="preview-info">
+          <span class="preview-dimensions">{{ imageDimensions }}</span>
+          <span class="preview-counter">{{ currentImageIndex + 1 }} / {{ modelImages.length }}</span>
+        </div>
+        <button class="preview-close" @click="hideImagePreview">×</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -318,7 +336,9 @@ export default {
       relatedLora: [],
       modelImages: [],
       currentImageIndex: 0,
-      imageLoading: false
+      imageLoading: false,
+      showPreview: false,
+      imageDimensions: ''
     };
   },
   mounted() {
@@ -766,6 +786,22 @@ export default {
           this.currentImageIndex = Math.max(0, this.modelImages.length - 1);
         }
       }
+    },
+    
+    // Image Preview Methods
+    showImagePreview() {
+      this.showPreview = true;
+      this.imageDimensions = 'Loading...';
+    },
+    
+    hideImagePreview() {
+      this.showPreview = false;
+      this.imageDimensions = '';
+    },
+    
+    onPreviewImageLoad(event) {
+      const img = event.target;
+      this.imageDimensions = `${img.naturalWidth} × ${img.naturalHeight}`;
     }
   }
 };
@@ -872,6 +908,12 @@ export default {
   object-fit: cover;
   border-radius: 14px;
   transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.slider-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .slider-arrow {
@@ -918,6 +960,104 @@ export default {
   font-size: 0.7rem;
   font-weight: 600;
   z-index: 10;
+}
+
+/* Image Preview Modal */
+.image-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.preview-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: previewFadeIn 0.3s ease-out;
+}
+
+.preview-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 90vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 16px 16px 0 0;
+}
+
+.preview-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: white;
+  padding: 20px 16px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-dimensions {
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.preview-counter {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.preview-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.preview-close:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
+@keyframes previewFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Model Header */
