@@ -26,20 +26,59 @@
 
           <!-- Model Header Info -->
           <div class="model-header">
+            <!-- Model Title -->
             <div class="model-title-section">
               <h1 class="model-name">{{ getModelDisplayName() }}</h1>
-              <div class="model-badges">
-                <span class="badge nsfw-badge" :class="getNsfwBadgeClass()">
-                  {{ getNsfwStatus() }}
-                </span>
-                <span class="badge type-badge">{{ model.basemodel || 'Unknown' }}</span>
-                <span class="badge status-badge" :class="getStatusBadgeClass()">
-                  {{ getDownloadStatusText() }}
-                </span>
-                <span class="badge download-count-badge">
-                  📥 {{ model.modelVersionDownloadCount || '0' }} Downloads
-                </span>
+            </div>
+
+            <!-- Model Categories -->
+            <div class="model-categories">
+              <!-- Status & Type Category -->
+              <div class="category-group">
+                <div class="category-label">Status & Type</div>
+                <div class="category-badges">
+                  <span class="badge status-badge" :class="getStatusBadgeClass()">
+                    {{ getDownloadStatusText() }}
+                  </span>
+                  <span class="badge type-badge">{{ model.basemodel || 'Unknown' }}</span>
+                </div>
               </div>
+
+              <!-- Content Rating Category -->
+              <div class="category-group">
+                <div class="category-label">Content Rating</div>
+                <div class="category-badges">
+                  <span class="badge nsfw-badge" :class="getNsfwBadgeClass()">
+                    {{ getNsfwStatus() }}
+                  </span>
+                  <span class="badge nsfw-level-badge">{{ getNsfwLevel() }}</span>
+                </div>
+              </div>
+
+              <!-- Statistics Category -->
+              <div class="category-group">
+                <div class="category-label">Statistics & Actions</div>
+                <div class="category-badges">
+                  <a
+                    :href="`${civitaiBaseUrl}/models/${model.modelId}?modelVersionId=${model.modelVersionId}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="badge civitai-badge"
+                  >
+                    <span class="link-icon">🔗</span>
+                    <span class="link-text">View on CivitAI</span>
+                    <span class="external-icon">↗️</span>
+                  </a>
+                  <span class="download-count-text">
+                    📥 {{ model.modelVersionDownloadCount || '0' }} Downloads
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="action-divider">
+              <div class="divider-line"></div>
             </div>
 
             <!-- Quick Actions -->
@@ -51,18 +90,6 @@
                 @download="downloadModelFile"
                 @ignore="ignoreModel"
               />
-              
-              <!-- CivitAI Link -->
-              <a
-                :href="`${civitaiBaseUrl}/models/${model.modelId}?modelVersionId=${model.modelVersionId}`"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="civitai-link-header"
-              >
-                <span class="link-icon">🔗</span>
-                <span class="link-text">View on CivitAI</span>
-                <span class="external-icon">↗️</span>
-              </a>
             </div>
           </div>
         </div>
@@ -78,13 +105,13 @@
               <h3 class="card-title">📝 Description</h3>
             </div>
             <div class="card-content">
-              <div v-if="model.modelDescription" class="description-section">
-                <h4>Model Description</h4>
-                <div class="description-text" v-html="model.modelDescription"></div>
-              </div>
               <div v-if="model.modelVersionDescription" class="description-section">
-                <h4>Version Description</h4>
+                <h4>Version</h4>
                 <div class="description-text" v-html="model.modelVersionDescription"></div>
+              </div>
+              <div v-if="model.modelDescription" class="description-section">
+                <h4>Model</h4>
+                <div class="description-text" v-html="model.modelDescription"></div>
               </div>
             </div>
           </div>
@@ -695,6 +722,8 @@ export default {
   padding: 3rem 2rem;
   margin-bottom: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  margin: 0 1rem 2rem 1rem;
 }
 
 .hero-content {
@@ -729,21 +758,51 @@ export default {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.model-badges {
+.model-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.category-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.category-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.25rem;
+}
+
+.category-badges {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .badge {
-  padding: 0.5rem 1rem;
-  border-radius: 25px;
-  font-size: 0.85rem;
+  padding: 0.28rem 0.56rem;
+  border-radius: 6px;
+  font-size: 0.595rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  min-width: 98px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
 }
 
 .nsfw-badge--sfw {
@@ -786,9 +845,56 @@ export default {
   color: #9e9e9e;
 }
 
-.download-count-badge {
-  background: rgba(255, 193, 7, 0.2);
+.download-count-text {
   color: #ffc107;
+  font-size: 0.595rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.civitai-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
+
+.civitai-badge:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: white;
+}
+
+.nsfw-level-badge {
+  background: rgba(255, 87, 34, 0.2);
+  color: #ff5722;
+}
+
+/* Action Divider */
+.action-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.divider-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 0.5rem;
+  white-space: nowrap;
 }
 
 /* Quick Actions */
@@ -798,44 +904,26 @@ export default {
   gap: 1rem;
 }
 
-/* CivitAI Link Header */
-.civitai-link-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  padding: 0.75rem 1.25rem;
-  border-radius: 25px;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 0.9rem;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* Uniform Button Sizing */
+.quick-actions :deep(.download-btn),
+.quick-actions :deep(.retry-btn),
+.quick-actions :deep(.ignore-btn) {
+  min-width: 120px !important;
+  max-width: 120px !important;
+  width: 120px !important;
+  padding: 0.5rem 1rem !important;
+  font-size: 0.85rem !important;
+  border-radius: 6px !important;
+  text-align: center !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  height: 40px !important;
+  box-sizing: border-box !important;
 }
 
-.civitai-link-header:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  color: white;
-}
 
-.civitai-link-header .link-icon {
-  font-size: 1rem;
-}
-
-.civitai-link-header .link-text {
-  font-size: 0.85rem;
-}
-
-.civitai-link-header .external-icon {
-  font-size: 0.9rem;
-  margin-left: 0.25rem;
-}
 
 /* Content Grid */
 .content-grid {
@@ -891,6 +979,8 @@ export default {
 /* Description Card */
 .description-card {
   grid-column: 1 / -1;
+  max-height: 800px;
+  overflow: auto;
 }
 
 .description-section {
@@ -914,6 +1004,8 @@ export default {
   color: #555;
   line-height: 1.6;
   font-size: 0.95rem;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .description-text :deep(a) {
@@ -1291,6 +1383,14 @@ export default {
   
   .model-name {
     font-size: 1.75rem;
+  }
+  
+  .model-categories {
+    gap: 0.75rem;
+  }
+  
+  .category-badges {
+    gap: 0.5rem;
   }
   
   .model-image-placeholder {
