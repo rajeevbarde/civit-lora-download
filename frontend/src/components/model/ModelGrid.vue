@@ -66,13 +66,12 @@
                  <span class="variants-text">*</span>
                </div>
              </div>
-             <!-- Image Slider -->
+             <!-- Image Carousel -->
              <div class="thumbnail-container">
-               <ImageSlider 
+               <ImageCarousel 
                  :model-id="model.modelId"
                  :model-version-id="model.modelVersionId"
                  size="small"
-                 :disable-preview="true"
                  @error="handleImageError"
                />
              </div>
@@ -191,13 +190,13 @@ import { formatDate } from '@/utils/helpers.js';
 import { DOWNLOAD_STATUS } from '@/utils/constants.js';
 import { apiService } from '@/utils/api.js';
 import ModelPagination from './ModelPagination.vue';
-import { ImageSlider } from '@/components/common';
+import { ImageCarousel } from '@/components/common';
 
 export default {
   name: 'ModelGrid',
   components: {
     ModelPagination,
-    ImageSlider
+    ImageCarousel
   },
   props: {
     models: {
@@ -557,7 +556,7 @@ export default {
 }
 
 .thumbnail-container {
-  width: 120px;
+  width: 240px;
   height: 200px;
   position: relative;
   border-radius: 8px;
@@ -619,32 +618,32 @@ export default {
   color: #ffc107;
 }
 
-/* Ensure ImageSlider fits the thumbnail size */
-.thumbnail-container :deep(.image-slider) {
-  width: 120px !important;
+/* Ensure ImageCarousel fits the thumbnail size */
+.thumbnail-container :deep(.image-carousel) {
+  width: 240px !important;
   height: 200px !important;
 }
 
 .thumbnail-container :deep(.model-image-placeholder) {
-  width: 120px !important;
+  width: 240px !important;
   height: 200px !important;
 }
 
-.thumbnail-container :deep(.slider-image) {
+.thumbnail-container :deep(.carousel-image) {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
 }
 
-.thumbnail-container :deep(.slider-arrow) {
-  width: 24px !important;
-  height: 24px !important;
-  font-size: 0.9rem !important;
+.thumbnail-container :deep(.carousel-arrow) {
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 0.8rem !important;
 }
 
 .thumbnail-container :deep(.image-counter) {
-  font-size: 0.6rem !important;
-  padding: 1px 6px !important;
+  font-size: 0.5rem !important;
+  padding: 1px 4px !important;
 }
 
 /* Base Model Value - Below Checkbox */
