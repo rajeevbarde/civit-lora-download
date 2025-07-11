@@ -807,12 +807,12 @@ export default {
 
 .nsfw-badge--sfw {
   background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
+  color: #1b5e20;
 }
 
 .nsfw-badge--nsfw {
   background: rgba(244, 67, 54, 0.2);
-  color: #f44336;
+  color: #4a0000;
 }
 
 .type-badge {
@@ -870,7 +870,7 @@ export default {
 
 .nsfw-level-badge {
   background: rgba(255, 87, 34, 0.2);
-  color: #ff5722;
+  color: #8b2a00;
 }
 
 /* Action Divider */
@@ -921,6 +921,27 @@ export default {
   gap: 0.5rem !important;
   height: 40px !important;
   box-sizing: border-box !important;
+}
+
+/* Status Text Colors for Hero Section */
+.quick-actions :deep(.status-downloaded) {
+  color: #4caf50 !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  background: rgba(76, 175, 80, 0.2) !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(76, 175, 80, 0.3) !important;
+}
+
+.quick-actions :deep(.status-ignored) {
+  color: #ff9800 !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+  background: rgba(255, 152, 0, 0.2) !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(255, 152, 0, 0.3) !important;
 }
 
 
