@@ -1,18 +1,40 @@
 <template>
   <div class="grid-section">
     <div class="grid-container">
-             <!-- Select All Checkbox and Legend -->
+             <!-- Select All Checkbox, Legend, and Pagination -->
        <div class="select-all-container">
-         <label class="select-all-label">
-           <input type="checkbox"
-                  :checked="isAllSelected"
-                  :indeterminate.prop="isIndeterminate"
-                  @change="toggleSelectAll"
-                  class="checkbox-select-all" />
-           <span class="select-all-text">Select All</span>
-         </label>
-         <div class="legend-separator">|</div>
-         <div class="legend-text">* Related LoRA</div>
+         <div class="left-section">
+           <label class="select-all-label">
+             <input type="checkbox"
+                    :checked="isAllSelected"
+                    :indeterminate.prop="isIndeterminate"
+                    @change="toggleSelectAll"
+                    class="checkbox-select-all" />
+             <span class="select-all-text">Select All</span>
+           </label>
+           <div class="legend-separator">|</div>
+           <div class="legend-text">* Related LoRA</div>
+         </div>
+         
+         <div class="right-section">
+           <div class="simple-pagination">
+             <button 
+               @click="handlePageChange(currentPage - 1)"
+               :disabled="currentPage <= 1 || isChangingPage"
+               class="simple-page-btn"
+               :class="{ 'disabled': currentPage <= 1 || isChangingPage }">
+               ←
+             </button>
+             <span class="simple-page-info">Page <span class="page-number">{{ currentPage }}</span></span>
+             <button 
+               @click="handlePageChange(currentPage + 1)"
+               :disabled="isChangingPage"
+               class="simple-page-btn"
+               :class="{ 'disabled': isChangingPage }">
+               →
+             </button>
+           </div>
+         </div>
        </div>
 
       <!-- Grid Layout -->
@@ -60,7 +82,7 @@
                 class="model-link"
               >
                 <h3 class="model-name">{{ model.modelName }}</h3>
-                <p class="version-name">{{ model.modelVersionName }}</p>
+                <div class="version-badge">{{ model.modelVersionName }}</div>
               </a>
             </div>
 
@@ -75,8 +97,14 @@
             <!-- Download Actions with File Size and Download Count -->
             <div class="model-actions">
               <div class="action-info">
-                <span class="file-size">{{ convertToMB(model.size_in_kb) }}</span>
-                <span class="download-count">Downloads: {{ model.modelVersionDownloadCount?.toLocaleString() }}</span>
+                <div class="file-size-badge">
+                  <span class="size-icon">💾</span>
+                  <span class="size-text">{{ convertToMB(model.size_in_kb) }}</span>
+                </div>
+                <div class="download-count-badge">
+                  <span class="download-icon">⬇️</span>
+                  <span class="download-text">{{ model.modelVersionDownloadCount?.toLocaleString() }}</span>
+                </div>
               </div>
               
               <button 
@@ -360,7 +388,67 @@ export default {
   border: 1px solid #e9ecef;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+}
+
+.left-section {
+  display: flex;
+  align-items: center;
   gap: 1rem;
+}
+
+.right-section {
+  display: flex;
+  align-items: center;
+}
+
+/* Simple Pagination */
+.simple-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.simple-page-btn {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  font-size: 1rem;
+  color: #1976d2;
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.simple-page-btn:hover:not(.disabled) {
+  background-color: #bbdefb;
+  border-color: #64b5f6;
+  color: #1565c0;
+}
+
+.simple-page-btn.disabled {
+  color: #bdbdbd;
+  background-color: #f5f5f5;
+  border-color: #e0e0e0;
+  cursor: not-allowed;
+}
+
+.simple-page-info {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #495057;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.page-number {
+  color: #1976d2;
+  font-weight: 700;
+  background: #e3f2fd;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  border: 1px solid #90caf9;
 }
 
 .select-all-label {
@@ -551,17 +639,26 @@ export default {
 
 .model-name {
   font-size: 1.1rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin: 0 0 0.25rem 0;
-  line-height: 1.3;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+  background: linear-gradient(135deg, #495057 0%, #6c757d 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.version-name {
-  font-size: 0.9rem;
-  color: #6c757d;
-  margin: 0;
-  font-weight: 500;
+.version-badge {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #495057;
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #dee2e6;
+  display: inline-block;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 /* Model Details */
@@ -712,21 +809,51 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   border-bottom: 1px solid #e9ecef;
   margin-bottom: 0.5rem;
 }
 
-.file-size {
+.file-size-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.size-icon {
   font-size: 0.9rem;
+}
+
+.size-text {
+  font-size: 0.85rem;
   font-weight: 600;
   color: #495057;
 }
 
-.download-count {
+.download-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.download-icon {
+  font-size: 0.9rem;
+}
+
+.download-text {
   font-size: 0.85rem;
-  color: #6c757d;
-  font-weight: 500;
+  font-weight: 600;
+  color: #495057;
 }
 
 .action-btn {
