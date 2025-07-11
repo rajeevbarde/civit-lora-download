@@ -329,6 +329,15 @@ export const apiService = {
     }
     return response.data;
   },
+
+  // Read JSON file content
+  async readJsonFile(filePath, options = {}) {
+    const response = await api.get('/files/read-json', {
+      params: { path: filePath },
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 

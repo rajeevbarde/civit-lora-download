@@ -14,11 +14,47 @@
       <!-- Hero Section -->
       <div class="hero-section">
         <div class="hero-content">
-          <!-- Model Image Placeholder -->
+          <!-- Model Image Slider -->
           <div class="model-image-container">
-            <div class="model-image-placeholder">
-              <div class="image-icon">🎨</div>
-              <span class="image-text">Model Preview</span>
+            <!-- Image Slider -->
+            <div v-if="modelImages.length > 0" class="image-slider">
+              <div class="slider-container">
+                <img 
+                  :src="modelImages[currentImageIndex]" 
+                  :alt="`Model image ${currentImageIndex + 1}`"
+                  class="slider-image"
+                  @error="handleImageError"
+                />
+                
+                <!-- Navigation Arrows -->
+                <button 
+                  v-if="modelImages.length > 1"
+                  @click="previousImage" 
+                  class="slider-arrow slider-arrow-left"
+                  aria-label="Previous image"
+                >
+                  ‹
+                </button>
+                <button 
+                  v-if="modelImages.length > 1"
+                  @click="nextImage" 
+                  class="slider-arrow slider-arrow-right"
+                  aria-label="Next image"
+                >
+                  ›
+                </button>
+                
+                <!-- Image Counter -->
+                <div v-if="modelImages.length > 1" class="image-counter">
+                  {{ currentImageIndex + 1 }} / {{ modelImages.length }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Placeholder when no images -->
+            <div v-else class="model-image-placeholder">
+              <div class="image-icon">🖼️</div>
+              <span class="image-text">Image Not Found</span>
             </div>
           </div>
 
@@ -159,7 +195,17 @@
                   </span>
                 </div>
                 <div v-else class="trigger-words-empty">
-                  <span class="empty-text">{{ getTriggerWordsStatus() }}</span>
+                  <span v-if="!this.model.trigger_words && this.model.isDownloaded === 1 && this.model.file_path" class="empty-text">
+                    For registered lora, fetch metadata from 
+                    <a href="/metadata" target="_blank" rel="noopener noreferrer" class="metadata-link">here</a>
+                  </span>
+                  <span v-else-if="this.model.trigger_words === 'NO_TRIGGER_WORDS'" class="empty-text author-no-trigger">
+                    {{ getTriggerWordsStatus() }}
+                  </span>
+                  <span v-else-if="!this.model.trigger_words && this.model.isDownloaded === 0" class="empty-text not-registered">
+                    {{ getTriggerWordsStatus() }}
+                  </span>
+                  <span v-else class="empty-text">{{ getTriggerWordsStatus() }}</span>
                 </div>
               </div>
             </div>
@@ -269,7 +315,10 @@ export default {
       pollingInterval: null,
       pollCount: 0,
       maxPolls: 300, // 10 minutes at 2s interval
-      relatedLora: []
+      relatedLora: [],
+      modelImages: [],
+      currentImageIndex: 0,
+      imageLoading: false
     };
   },
   mounted() {
@@ -298,6 +347,11 @@ export default {
         
         if (this.model && this.model.modelId !== urlModelId) {
           throw new Error(`URL model ID (${urlModelId}) does not match backend model ID (${this.model.modelId})`);
+        }
+        
+        // Fetch images if modelversion_jsonpath is available
+        if (this.model && this.model.modelversion_jsonpath) {
+          await this.fetchModelImages();
         }
       } catch (err) {
         console.error(err);
@@ -568,12 +622,16 @@ export default {
     },
 
     getTriggerWordsStatus() {
-      if (!this.model.trigger_words) {
-        return 'No trigger words data available';
+      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
+        return 'Author did not provide trigger word';
       }
       
-      if (this.model.trigger_words === 'NO_TRIGGER_WORDS') {
-        return 'No trigger words found for this model';
+      if (!this.model.trigger_words && this.model.isDownloaded === 0) {
+        return 'Lora not registered or downloaded';
+      }
+      
+      if (!this.model.trigger_words) {
+        return 'No trigger words data available';
       }
       
       if (this.getTriggerWordsArray().length === 0) {
@@ -647,6 +705,67 @@ export default {
       }
       
       return '';
+    },
+    
+    // Image Slider Methods
+    async fetchModelImages() {
+      if (!this.model?.modelversion_jsonpath) {
+        this.modelImages = [];
+        return;
+      }
+      
+      try {
+        this.imageLoading = true;
+        
+        // Fetch the JSON file from the backend using API service
+        const jsonData = await apiService.readJsonFile(this.model.modelversion_jsonpath);
+        
+        // Extract image URLs from the 'images' array
+        if (jsonData.images && Array.isArray(jsonData.images)) {
+          this.modelImages = jsonData.images
+            .map(image => image.url)
+            .filter(url => url && typeof url === 'string');
+        } else {
+          this.modelImages = [];
+        }
+        
+        // Reset current image index
+        this.currentImageIndex = 0;
+        
+      } catch (err) {
+        console.error('Error fetching model images:', err);
+        this.modelImages = [];
+        this.showNotification('Failed to load model images', 'warning');
+      } finally {
+        this.imageLoading = false;
+      }
+    },
+    
+    nextImage() {
+      if (this.modelImages.length > 1) {
+        this.currentImageIndex = (this.currentImageIndex + 1) % this.modelImages.length;
+      }
+    },
+    
+    previousImage() {
+      if (this.modelImages.length > 1) {
+        this.currentImageIndex = this.currentImageIndex === 0 
+          ? this.modelImages.length - 1 
+          : this.currentImageIndex - 1;
+      }
+    },
+    
+    handleImageError(event) {
+      // Remove the failed image from the array
+      const failedImageUrl = event.target.src;
+      const index = this.modelImages.indexOf(failedImageUrl);
+      if (index > -1) {
+        this.modelImages.splice(index, 1);
+        // Adjust current index if needed
+        if (this.currentImageIndex >= this.modelImages.length) {
+          this.currentImageIndex = Math.max(0, this.modelImages.length - 1);
+        }
+      }
     }
   }
 };
@@ -691,8 +810,8 @@ export default {
 }
 
 .model-image-placeholder {
-  width: 120px;
-  height: 120px;
+  width: 256px;
+  height: 384px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   display: flex;
@@ -718,6 +837,87 @@ export default {
   font-size: 0.9rem;
   opacity: 0.9;
   text-align: center;
+}
+
+/* Image Slider */
+.image-slider {
+  width: 256px;
+  height: 384px;
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.image-slider:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.slider-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slider-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px;
+  transition: all 0.3s ease;
+}
+
+.slider-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.slider-arrow:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.slider-arrow-left {
+  left: 8px;
+}
+
+.slider-arrow-right {
+  right: 8px;
+}
+
+.image-counter {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  z-index: 10;
 }
 
 /* Model Header */
@@ -1098,6 +1298,30 @@ export default {
   font-style: italic;
 }
 
+.trigger-words-empty .empty-text.author-no-trigger {
+  color: #ff6b35;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.trigger-words-empty .empty-text.not-registered {
+  color: #f44336;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.metadata-link {
+  color: #667eea;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.metadata-link:hover {
+  color: #5a67d8;
+  text-decoration: underline;
+}
+
 /* Related Lora Card */
 .related-lora-list {
   display: flex;
@@ -1278,8 +1502,19 @@ export default {
   }
   
   .model-image-placeholder {
-    width: 80px;
-    height: 80px;
+    width: 170px;
+    height: 256px;
+  }
+  
+  .image-slider {
+    width: 170px;
+    height: 256px;
+  }
+  
+  .slider-arrow {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
   }
   
   .image-icon {

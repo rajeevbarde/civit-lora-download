@@ -251,4 +251,59 @@ router.post('/delete-and-fail', async (req, res) => {
     }
 });
 
+// Read JSON file content
+router.get('/read-json', async (req, res) => {
+    try {
+        const { path } = req.query;
+        
+        if (!path) {
+            return res.status(400).json({ error: 'path parameter is required' });
+        }
+        
+        const fs = require('fs');
+        const pathModule = require('path');
+        
+        // Resolve path relative to project root (three levels up from routes/v1 directory)
+        const projectRoot = pathModule.resolve(__dirname, '../../../');
+        const fullPath = pathModule.join(projectRoot, path);
+        
+        // Validate the path to prevent directory traversal attacks
+        const normalizedPath = pathModule.normalize(fullPath);
+        
+        // Debug logging
+        console.log(`[read-json] Requested path: ${path}`);
+        console.log(`[read-json] Project root: ${projectRoot}`);
+        console.log(`[read-json] Full path: ${fullPath}`);
+        console.log(`[read-json] Normalized path: ${normalizedPath}`);
+        
+        // Ensure the path is within the project directory
+        if (!normalizedPath.startsWith(projectRoot) || normalizedPath.includes('..')) {
+            return res.status(400).json({ error: 'Invalid path' });
+        }
+        
+        // Check if file exists
+        if (!fs.existsSync(normalizedPath)) {
+            console.log(`[read-json] File not found: ${normalizedPath}`);
+            return res.status(404).json({ error: 'File not found' });
+        }
+        
+        // Check if it's a JSON file
+        if (!normalizedPath.toLowerCase().endsWith('.json')) {
+            return res.status(400).json({ error: 'File must be a JSON file' });
+        }
+        
+        // Read and parse the JSON file
+        const fileContent = fs.readFileSync(normalizedPath, 'utf8');
+        const jsonData = JSON.parse(fileContent);
+        
+        res.json(jsonData);
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            res.status(400).json({ error: 'Invalid JSON file' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
 module.exports = router; 
