@@ -458,6 +458,16 @@ describe('DatabaseService', () => {
       // Test implementation needed - requires complex sqlite3 mocking
       // TODO: Implement proper mocking for sqlite3 native bindings
     });
+
+    it('should verify columns exist in table schema', async () => {
+      // Test implementation needed - requires complex sqlite3 mocking
+      // TODO: Implement proper mocking for sqlite3 native bindings
+      // This test should verify that the method checks for all expected columns:
+      // - modelId, modelName, modelDescription, modelType, modelNsfw, modelNsfwLevel, modelDownloadCount
+      // - modelVersionId, modelVersionName, modelVersionDescription, basemodel, basemodeltype, modelVersionNsfwLevel, modelVersionDownloadCount
+      // - fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
+      // - last_updated, trigger_words, modelversion_jsonpath
+    });
   });
 
   describe('getLatestPublishedAt', () => {

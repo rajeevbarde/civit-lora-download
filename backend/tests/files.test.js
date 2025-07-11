@@ -586,14 +586,75 @@ describe('Files Routes', () => {
 
   describe('POST /verify-db', () => {
     it('should verify database successfully', async () => {
+      mockDatabaseService.verifyAllCivitDataSchemaAndIndexes.mockResolvedValue({
+        fileExists: true,
+        tableExists: true,
+        columnResults: [
+          { column: 'modelId', exists: true },
+          { column: 'modelName', exists: true },
+          { column: 'modelDescription', exists: true },
+          { column: 'modelType', exists: true },
+          { column: 'modelNsfw', exists: true },
+          { column: 'modelNsfwLevel', exists: true },
+          { column: 'modelDownloadCount', exists: true },
+          { column: 'modelVersionId', exists: true },
+          { column: 'modelVersionName', exists: true },
+          { column: 'modelVersionDescription', exists: true },
+          { column: 'basemodel', exists: true },
+          { column: 'basemodeltype', exists: true },
+          { column: 'modelVersionNsfwLevel', exists: true },
+          { column: 'modelVersionDownloadCount', exists: true },
+          { column: 'fileName', exists: true },
+          { column: 'fileType', exists: true },
+          { column: 'fileDownloadUrl', exists: true },
+          { column: 'size_in_kb', exists: true },
+          { column: 'publishedAt', exists: true },
+          { column: 'tags', exists: true },
+          { column: 'isDownloaded', exists: true },
+          { column: 'file_path', exists: true },
+          { column: 'last_updated', exists: true },
+          { column: 'trigger_words', exists: true },
+          { column: 'modelversion_jsonpath', exists: true }
+        ],
+        indexResults: [
+          { columns: ['modelVersionId'], exists: true, indexName: 'idx_modelVersionId' },
+          { columns: ['basemodel'], exists: true, indexName: 'idx_basemodel' },
+          { columns: ['isDownloaded'], exists: true, indexName: 'idx_isDownloaded' },
+          { columns: ['fileName'], exists: true, indexName: 'idx_fileName' },
+          { columns: ['modelNsfw'], exists: true, indexName: 'idx_modelNsfw' },
+          { columns: ['modelVersionNsfwLevel'], exists: true, indexName: 'idx_modelversionnsfwlevel' }
+        ],
+        errors: []
+      });
+
       const response = await request(app)
         .post('/api/v1/files/verify-db')
         .send({ dbPath: '/path/to/database.db' })
         .expect(200);
 
       expect(response.body).toEqual({
-        success: true,
-        tables: ['table1', 'table2']
+        fileExists: true,
+        tableExists: true,
+        columnResults: expect.arrayContaining([
+          expect.objectContaining({ column: 'modelId', exists: true }),
+          expect.objectContaining({ column: 'modelName', exists: true }),
+          expect.objectContaining({ column: 'modelVersionId', exists: true }),
+          expect.objectContaining({ column: 'fileName', exists: true }),
+          expect.objectContaining({ column: 'isDownloaded', exists: true }),
+          expect.objectContaining({ column: 'file_path', exists: true }),
+          expect.objectContaining({ column: 'last_updated', exists: true }),
+          expect.objectContaining({ column: 'trigger_words', exists: true }),
+          expect.objectContaining({ column: 'modelversion_jsonpath', exists: true })
+        ]),
+        indexResults: expect.arrayContaining([
+          expect.objectContaining({ columns: ['modelVersionId'], exists: true }),
+          expect.objectContaining({ columns: ['basemodel'], exists: true }),
+          expect.objectContaining({ columns: ['isDownloaded'], exists: true }),
+          expect.objectContaining({ columns: ['fileName'], exists: true }),
+          expect.objectContaining({ columns: ['modelNsfw'], exists: true }),
+          expect.objectContaining({ columns: ['modelVersionNsfwLevel'], exists: true })
+        ]),
+        errors: []
       });
       expect(mockDatabaseService.verifyAllCivitDataSchemaAndIndexes).toHaveBeenCalledWith('/path/to/database.db');
     });
@@ -605,6 +666,81 @@ describe('Files Routes', () => {
         .expect(400);
 
       expect(response.body).toEqual({ error: 'dbPath is required' });
+    });
+
+    it('should handle missing columns in verify-db endpoint', async () => {
+      mockDatabaseService.verifyAllCivitDataSchemaAndIndexes.mockResolvedValue({
+        fileExists: true,
+        tableExists: true,
+        columnResults: [
+          { column: 'modelId', exists: true },
+          { column: 'modelName', exists: true },
+          { column: 'modelDescription', exists: false },
+          { column: 'modelType', exists: true },
+          { column: 'modelNsfw', exists: true },
+          { column: 'modelNsfwLevel', exists: true },
+          { column: 'modelDownloadCount', exists: true },
+          { column: 'modelVersionId', exists: true },
+          { column: 'modelVersionName', exists: true },
+          { column: 'modelVersionDescription', exists: true },
+          { column: 'basemodel', exists: true },
+          { column: 'basemodeltype', exists: true },
+          { column: 'modelVersionNsfwLevel', exists: true },
+          { column: 'modelVersionDownloadCount', exists: true },
+          { column: 'fileName', exists: true },
+          { column: 'fileType', exists: true },
+          { column: 'fileDownloadUrl', exists: true },
+          { column: 'size_in_kb', exists: true },
+          { column: 'publishedAt', exists: true },
+          { column: 'tags', exists: true },
+          { column: 'isDownloaded', exists: true },
+          { column: 'file_path', exists: true },
+          { column: 'last_updated', exists: false },
+          { column: 'trigger_words', exists: false },
+          { column: 'modelversion_jsonpath', exists: true }
+        ],
+        indexResults: [
+          { columns: ['modelVersionId'], exists: true, indexName: 'idx_modelVersionId' },
+          { columns: ['basemodel'], exists: true, indexName: 'idx_basemodel' },
+          { columns: ['isDownloaded'], exists: true, indexName: 'idx_isDownloaded' },
+          { columns: ['fileName'], exists: true, indexName: 'idx_fileName' },
+          { columns: ['modelNsfw'], exists: true, indexName: 'idx_modelNsfw' },
+          { columns: ['modelVersionNsfwLevel'], exists: true, indexName: 'idx_modelversionnsfwlevel' }
+        ],
+        errors: [
+          'Missing column: modelDescription',
+          'Missing column: last_updated',
+          'Missing column: trigger_words'
+        ]
+      });
+
+      const response = await request(app)
+        .post('/api/v1/files/verify-db')
+        .send({ dbPath: '/path/to/database.db' })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        fileExists: true,
+        tableExists: true,
+        columnResults: expect.arrayContaining([
+          expect.objectContaining({ column: 'modelDescription', exists: false }),
+          expect.objectContaining({ column: 'last_updated', exists: false }),
+          expect.objectContaining({ column: 'trigger_words', exists: false })
+        ]),
+        indexResults: expect.arrayContaining([
+          expect.objectContaining({ columns: ['modelVersionId'], exists: true }),
+          expect.objectContaining({ columns: ['basemodel'], exists: true }),
+          expect.objectContaining({ columns: ['isDownloaded'], exists: true }),
+          expect.objectContaining({ columns: ['fileName'], exists: true }),
+          expect.objectContaining({ columns: ['modelNsfw'], exists: true }),
+          expect.objectContaining({ columns: ['modelVersionNsfwLevel'], exists: true })
+        ]),
+        errors: [
+          'Missing column: modelDescription',
+          'Missing column: last_updated',
+          'Missing column: trigger_words'
+        ]
+      });
     });
 
     it('should handle errors in verify-db endpoint', async () => {

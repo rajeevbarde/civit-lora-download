@@ -397,9 +397,16 @@ class DatabaseService {
             { columns: ['modelNsfw'] },
             { columns: ['modelVersionNsfwLevel'] },
         ];
+        const expectedColumns = [
+            'modelId', 'modelName', 'modelDescription', 'modelType', 'modelNsfw', 'modelNsfwLevel', 'modelDownloadCount',
+            'modelVersionId', 'modelVersionName', 'modelVersionDescription', 'basemodel', 'basemodeltype', 'modelVersionNsfwLevel', 'modelVersionDownloadCount',
+            'fileName', 'fileType', 'fileDownloadUrl', 'size_in_kb', 'publishedAt', 'tags', 'isDownloaded', 'file_path',
+            'last_updated', 'trigger_words', 'modelversion_jsonpath'
+        ];
         const result = {
             fileExists: false,
             tableExists: false,
+            columnResults: [],
             indexResults: [],
             errors: [],
         };
@@ -423,6 +430,25 @@ class DatabaseService {
                 return result;
             }
             result.tableExists = true;
+            
+            // Check table schema/columns
+            const tableSchema = await new Promise((resolve, reject) => {
+                db.all("PRAGMA table_info('ALLCivitData')", (err, rows) => {
+                    if (err) return reject(err);
+                    resolve(rows);
+                });
+            });
+            
+            const actualColumns = tableSchema.map(col => col.name);
+            for (const expectedColumn of expectedColumns) {
+                if (actualColumns.includes(expectedColumn)) {
+                    result.columnResults.push({ column: expectedColumn, exists: true });
+                } else {
+                    result.columnResults.push({ column: expectedColumn, exists: false });
+                    result.errors.push(`Missing column: ${expectedColumn}`);
+                }
+            }
+            
             // Check indexes (focus on columns, not index name)
             const indexRows = await new Promise((resolve, reject) => {
                 db.all("PRAGMA index_list('ALLCivitData')", (err, rows) => {

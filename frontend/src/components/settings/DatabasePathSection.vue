@@ -33,16 +33,27 @@
         <span>Verifying database...</span>
       </div>
       
-      <div v-if="verifyResult" class="verify-result">
-        <ul class="verify-list">
-          <li><b>File Exists:</b> <span :class="verifyResult.fileExists ? 'ok' : 'fail'">{{ verifyResult.fileExists ? 'Yes' : 'No' }}</span></li>
-          <li><b>Table Exists:</b> <span :class="verifyResult.tableExists ? 'ok' : 'fail'">{{ verifyResult.tableExists ? 'Yes' : 'No' }}</span></li>
-          <li><b>Indexes:</b>
-            <span :class="verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'ok' : 'fail'">
-              {{ verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'Yes' : 'No' }}
-            </span>
-          </li>
-        </ul>
+              <div v-if="verifyResult" class="verify-result">
+          <ul class="verify-list">
+            <li><b>File Exists:</b> <span :class="verifyResult.fileExists ? 'ok' : 'fail'">{{ verifyResult.fileExists ? 'Yes' : 'No' }}</span></li>
+            <li><b>Table Exists:</b> <span :class="verifyResult.tableExists ? 'ok' : 'fail'">{{ verifyResult.tableExists ? 'Yes' : 'No' }}</span></li>
+            <li><b>Columns:</b>
+              <span :class="verifyResult.columnResults && verifyResult.columnResults.length > 0 && verifyResult.columnResults.every(col => col.exists) ? 'ok' : 'fail'">
+                {{ verifyResult.columnResults && verifyResult.columnResults.length > 0 && verifyResult.columnResults.every(col => col.exists) ? 'Yes' : 'No' }}
+              </span>
+              <div v-if="verifyResult.columnResults && verifyResult.columnResults.length > 0" class="column-details">
+                <div v-for="col in verifyResult.columnResults" :key="col.column" class="column-item">
+                  <span :class="col.exists ? 'ok' : 'fail'">{{ col.exists ? '✓' : '✗' }}</span>
+                  <span class="column-name">{{ col.column }}</span>
+                </div>
+              </div>
+            </li>
+            <li><b>Indexes:</b>
+              <span :class="verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'ok' : 'fail'">
+                {{ verifyResult.indexResults && verifyResult.indexResults.length > 0 && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false) ? 'Yes' : 'No' }}
+              </span>
+            </li>
+          </ul>
         
         <div v-if="verifyResult.errors && verifyResult.errors.length" class="state-row error-row">
           <span class="state-icon">⚠️</span>
@@ -54,7 +65,7 @@
         
         <div class="verify-actions">
           <button
-            v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
+            v-if="verifyResult.fileExists && verifyResult.tableExists && verifyResult.columnResults.every(col => col.exists) && verifyResult.indexResults.every(idx => idx.exists && idx.match !== false)"
             type="button"
             class="settings-btn save-btn"
             @click="$emit('save')"
@@ -289,6 +300,32 @@ export default {
   margin: 0 0 0.5rem 0;
   padding: 0 0 0 1.2rem;
   font-size: 1.05rem;
+}
+
+.column-details {
+  margin-top: 0.5rem;
+  margin-left: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.25rem;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 0.5rem;
+  background: #f8f9fa;
+}
+
+.column-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.column-name {
+  font-family: monospace;
+  color: #495057;
 }
 
 .restart-msg {
