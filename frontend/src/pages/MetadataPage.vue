@@ -218,7 +218,7 @@ export default {
       }
     };
 
-    const cacheImages = async () => {
+        const cacheImages = async () => {
       // If already caching, cancel the operation
       if (cachingImages.value) {
         cancelCache.value = true;
@@ -251,94 +251,40 @@ export default {
         }
         
         const jsonFiles = jsonFilesResult.files;
-        let successCount = 0;
-        let errorCount = 0;
-        let skippedCount = 0;
         
-        // Process each JSON file individually
-        for (const jsonFile of jsonFiles) {
-          // Check for cancellation
-          if (cancelCache.value || cacheAbortController.value.signal.aborted) {
-            break;
-          }
-
-          const progressItem = {
-            modelId: jsonFile.modelId || 'Unknown',
-            modelVersionId: jsonFile.modelVersionId || 'Unknown',
-            modelName: jsonFile.filename || 'Unknown Model',
-            modelVersionName: 'Processing...',
-            status: 'fetching',
-            message: 'Processing JSON file...',
-            timestamp: new Date().toISOString()
-          };
-          progress.value.push(progressItem);
-          
-          try {
-            const result = await apiService.processJsonFile(jsonFile, {
-              signal: cacheAbortController.value.signal
-            });
-            
-            // Check for cancellation after each API call
-            if (cancelCache.value || cacheAbortController.value.signal.aborted) {
-              progressItem.status = 'cancelled';
-              progressItem.message = 'Cancelled by user';
-              break;
-            }
-            
-                         if (result.success && result.results) {
-               // Update progress with results from this JSON file
-               const fileResults = result.results;
-               let fileSuccessCount = 0;
-               let fileErrorCount = 0;
-               let fileSkippedCount = 0;
-               let fileSkippedNotImageCount = 0;
-               
-               for (const item of fileResults) {
-                 if (item.status === 'success') fileSuccessCount++;
-                 else if (item.status === 'error') fileErrorCount++;
-                 else if (item.status === 'skipped') {
-                   if (item.reason === 'not an image') {
-                     fileSkippedNotImageCount++;
-                   } else {
-                     fileSkippedCount++;
-                   }
-                 }
-               }
-               
-               progressItem.status = 'success';
-               progressItem.message = `Processed: ${fileSuccessCount} downloaded, ${fileSkippedCount} already exist, ${fileSkippedNotImageCount} not images, ${fileErrorCount} failed`;
-               progressItem.modelVersionName = `${fileSuccessCount + fileSkippedCount + fileSkippedNotImageCount + fileErrorCount} files`;
-              
-              successCount += fileSuccessCount;
-              skippedCount += fileSkippedCount;
-              errorCount += fileErrorCount;
-            } else {
-              progressItem.status = 'error';
-              progressItem.message = result.message || 'Failed to process file';
-              errorCount++;
-            }
-          } catch (error) {
-            // Check if the error is due to cancellation
-            if (error.name === 'AbortError' || cacheAbortController.value.signal.aborted) {
-              progressItem.status = 'cancelled';
-              progressItem.message = 'Cancelled by user';
-              break;
-            } else {
-              progressItem.status = 'error';
-              progressItem.message = `❌ Failed: ${error.message}`;
-              errorCount++;
-            }
-          }
+        // Create a simple progress item
+        const progressItem = {
+          modelId: 'Cache',
+          modelVersionId: 'Images',
+          modelName: 'Image Caching',
+          modelVersionName: 'In Progress...',
+          status: 'fetching',
+          message: `Processing ${jsonFiles.length} JSON files with concurrent downloads...`,
+          timestamp: new Date().toISOString()
+        };
+        progress.value.push(progressItem);
+        
+        // Process all files at once (backend handles concurrency)
+        const result = await apiService.cacheImages({
+          signal: cacheAbortController.value.signal
+        });
+        
+        // Check for cancellation
+        if (cancelCache.value || cacheAbortController.value.signal.aborted) {
+          progressItem.status = 'cancelled';
+          progressItem.message = 'Cancelled by user';
+          showSuccess?.('Image caching cancelled');
+          return;
         }
         
-        // Show final results
-        if (cancelCache.value || cacheAbortController.value.signal.aborted) {
-          const message = `Caching cancelled. Processed ${successCount + skippedCount + errorCount} files: ${successCount} downloaded, ${skippedCount} already exist, ${errorCount} failed`;
-          showSuccess?.(message);
-        } else {
-          const message = `Processed ${jsonFiles.length} JSON files. ${successCount + skippedCount + errorCount} files: ${successCount} downloaded, ${skippedCount} already exist, ${errorCount} failed`;
-          showSuccess?.(message);
+        if (result.success) {
+          progressItem.status = 'success';
+          progressItem.message = result.message;
+          progressItem.modelVersionName = 'Completed';
           cacheCompleted.value = true;
+        } else {
+          progressItem.status = 'error';
+          progressItem.message = result.message || 'Failed to cache images';
         }
         
       } catch (err) {

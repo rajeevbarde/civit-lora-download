@@ -103,7 +103,7 @@ async function scanForJsonFiles(basePath, maxModelIds = null) {
     }
 }
 
-// Function to download images from JSON files
+// Function to download images from JSON files with concurrent downloads
 async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
     const results = {
         successCount: 0,
@@ -111,13 +111,16 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
         details: []
     };
     
+    const CONCURRENT_DOWNLOADS = 8; // Process 8 downloads simultaneously
+    
     for (const jsonFile of jsonFiles) {
         // Check for cancellation
         if (abortSignal && abortSignal.aborted) {
             throw new Error('Operation cancelled');
         }
+        
         try {
-            console.log(`Processing JSON file: ${jsonFile.filename}`);
+            console.log(`📁 Processing JSON file: ${jsonFile.filename}`);
             
             // Read the JSON file
             const jsonContent = await fs.readFile(jsonFile.fullPath, 'utf8');
@@ -125,91 +128,129 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
             
             // Check if images array exists
             if (!jsonData.images || !Array.isArray(jsonData.images)) {
-                console.log(`No images array found in ${jsonFile.filename}`);
+                console.log(`⚠️  No images array found in ${jsonFile.filename}`);
                 continue;
             }
             
             // Get the directory where JSON file is located
             const jsonDir = path.dirname(jsonFile.fullPath);
             
-            // Download each image
+            // Filter and prepare download tasks
+            const downloadTasks = [];
+            
             for (let i = 0; i < jsonData.images.length; i++) {
-                // Check for cancellation
-                if (abortSignal && abortSignal.aborted) {
-                    throw new Error('Operation cancelled');
-                }
-                
                 const image = jsonData.images[i];
                 
                 if (!image.url) {
-                    console.log(`No URL found for image ${i} in ${jsonFile.filename}`);
+                    console.log(`⚠️  No URL found for image ${i} in ${jsonFile.filename}`);
                     continue;
                 }
                 
-                try {
-                    // Extract filename from URL
-                    const urlParts = image.url.split('/');
-                    const originalFilename = urlParts[urlParts.length - 1];
-                    
-                    // Check if file is an image (skip videos and other file types)
-                    const fileExtension = path.extname(originalFilename).toLowerCase();
-                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
-                    
-                    if (!imageExtensions.includes(fileExtension)) {
-                        console.log(`⏭️  Skipped (not an image): ${originalFilename}`);
-                        results.successCount++;
-                        results.details.push({
-                            jsonFile: jsonFile.filename,
-                            imageFile: originalFilename,
-                            status: 'skipped',
-                            reason: 'not an image'
-                        });
-                        continue;
-                    }
-                    
-                    // Create local file path
-                    const localFilePath = path.join(jsonDir, originalFilename);
-                    
-                    // Check if file already exists
-                    try {
-                        await fs.access(localFilePath);
-                        console.log(`⏭️  Skipped (already exists): ${originalFilename}`);
-                        results.successCount++;
-                        results.details.push({
-                            jsonFile: jsonFile.filename,
-                            imageFile: originalFilename,
-                            status: 'skipped',
-                            reason: 'already exists'
-                        });
-                        continue;
-                    } catch (accessError) {
-                        // File doesn't exist, proceed with download
-                    }
-                    
-                    // Download the image
-                    await downloadImage(image.url, localFilePath, abortSignal);
-                    
-                    console.log(`✅ Successfully downloaded: ${originalFilename}`);
+                // Extract filename from URL
+                const urlParts = image.url.split('/');
+                const originalFilename = urlParts[urlParts.length - 1];
+                
+                // Check if file is an image (skip videos and other file types)
+                const fileExtension = path.extname(originalFilename).toLowerCase();
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+                
+                if (!imageExtensions.includes(fileExtension)) {
+                    console.log(`⏭️  Skipped (not an image): ${originalFilename}`);
                     results.successCount++;
                     results.details.push({
                         jsonFile: jsonFile.filename,
                         imageFile: originalFilename,
-                        status: 'success'
+                        status: 'skipped',
+                        reason: 'not an image'
                     });
-                    
-                } catch (downloadError) {
-                    console.log(`❌ Failed to download image ${i} from ${jsonFile.filename}: ${downloadError.message}`);
-                    results.errorCount++;
+                    continue;
+                }
+                
+                // Create local file path
+                const localFilePath = path.join(jsonDir, originalFilename);
+                
+                // Check if file already exists
+                try {
+                    await fs.access(localFilePath);
+                    console.log(`⏭️  Skipped (already exists): ${originalFilename}`);
+                    results.successCount++;
                     results.details.push({
                         jsonFile: jsonFile.filename,
-                        imageFile: `image_${i}`,
-                        status: 'error',
-                        error: downloadError.message
+                        imageFile: originalFilename,
+                        status: 'skipped',
+                        reason: 'already exists'
                     });
+                    continue;
+                } catch (accessError) {
+                    // File doesn't exist, add to download tasks
                 }
+                
+                // Add to download tasks
+                downloadTasks.push({
+                    url: image.url,
+                    filePath: localFilePath,
+                    filename: originalFilename,
+                    jsonFile: jsonFile.filename
+                });
+            }
+            
+            // Process downloads in concurrent batches
+            if (downloadTasks.length > 0) {
+                console.log(`🚀 Starting concurrent downloads for ${jsonFile.filename}: ${downloadTasks.length} images`);
+                
+                for (let i = 0; i < downloadTasks.length; i += CONCURRENT_DOWNLOADS) {
+                    // Check for cancellation before each batch
+                    if (abortSignal && abortSignal.aborted) {
+                        throw new Error('Operation cancelled');
+                    }
+                    
+                    const batch = downloadTasks.slice(i, i + CONCURRENT_DOWNLOADS);
+                    console.log(`📦 Processing batch ${Math.floor(i / CONCURRENT_DOWNLOADS) + 1}: ${batch.length} files`);
+                    
+                    // Download batch concurrently
+                    const batchPromises = batch.map(async (task) => {
+                        try {
+                            await downloadImage(task.url, task.filePath, abortSignal);
+                            console.log(`✅ Downloaded: ${task.filename}`);
+                            return {
+                                jsonFile: task.jsonFile,
+                                imageFile: task.filename,
+                                status: 'success'
+                            };
+                        } catch (error) {
+                            console.log(`❌ Failed to download ${task.filename}: ${error.message}`);
+                            return {
+                                jsonFile: task.jsonFile,
+                                imageFile: task.filename,
+                                status: 'error',
+                                error: error.message
+                            };
+                        }
+                    });
+                    
+                    // Wait for batch to complete
+                    const batchResults = await Promise.all(batchPromises);
+                    
+                    // Process batch results
+                    for (const result of batchResults) {
+                        results.details.push(result);
+                        if (result.status === 'success') {
+                            results.successCount++;
+                        } else {
+                            results.errorCount++;
+                        }
+                    }
+                }
+                
+                console.log(`✅ Completed processing ${jsonFile.filename}: ${results.successCount} successful, ${results.errorCount} failed`);
+            } else {
+                console.log(`ℹ️  No new images to download for ${jsonFile.filename}`);
             }
             
         } catch (error) {
+            if (error.message === 'Operation cancelled') {
+                throw error;
+            }
             console.log(`❌ Error processing ${jsonFile.filename}: ${error.message}`);
             results.errorCount++;
             results.details.push({
