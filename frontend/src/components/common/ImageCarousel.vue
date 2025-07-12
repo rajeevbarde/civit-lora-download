@@ -108,6 +108,22 @@ export default {
       try {
         this.imageLoading = true;
         
+        // First, check if we have locally cached images
+        try {
+          const localImagesResult = await apiService.getLocalImages(this.modelId, this.modelVersionId);
+          
+          if (localImagesResult.success && localImagesResult.hasCachedTxt && localImagesResult.localImages.length > 0) {
+            // Use local images - much faster!
+            this.modelImages = localImagesResult.localImages;
+            this.currentImageIndex = 0;
+            return;
+          }
+        } catch (localError) {
+          // Local images check failed, falling back to URL-based approach
+        }
+        
+        // Fallback: Use the original URL-based approach
+        
         // Construct the predictable path format
         const jsonPath = `backend/data/modeljson/${this.modelId}/${this.modelVersionId}/${this.modelId}_${this.modelVersionId}.json`;
         
@@ -117,7 +133,7 @@ export default {
           // First, try to read the existing JSON file
           jsonData = await apiService.readJsonFile(jsonPath);
         } catch (fileError) {
-          console.log('JSON file not found locally, attempting to download from API...');
+          // JSON file not found locally, attempting to download from API
           
           // If file doesn't exist, download it from the API
           try {
@@ -130,7 +146,6 @@ export default {
               throw new Error(downloadResult.message || 'Failed to download metadata');
             }
           } catch (downloadError) {
-            console.error('Failed to download metadata:', downloadError);
             throw new Error(`Failed to download metadata: ${downloadError.message}`);
           }
         }
@@ -148,7 +163,6 @@ export default {
         this.currentImageIndex = 0;
         
       } catch (err) {
-        console.error('Error fetching model images:', err);
         this.modelImages = [];
         this.$emit('error', err.message || 'Failed to load model images');
       } finally {

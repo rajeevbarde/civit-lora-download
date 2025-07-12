@@ -146,6 +146,7 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
     const results = {
         successCount: 0,
         errorCount: 0,
+        skippedCount: 0,
         details: []
     };
     
@@ -160,6 +161,25 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
         try {
             console.log(`📁 Processing JSON file: ${jsonFile.filename}`);
             
+            // Check if cached.txt exists in the same folder
+            const jsonDir = path.dirname(jsonFile.fullPath);
+            const cachedFilePath = path.join(jsonDir, 'cached.txt');
+            
+            try {
+                await fs.access(cachedFilePath);
+                console.log(`⏭️  Skipped (already cached): ${jsonFile.filename} - cached.txt exists`);
+                results.skippedCount++;
+                results.details.push({
+                    jsonFile: jsonFile.filename,
+                    status: 'skipped',
+                    reason: 'already cached (cached.txt exists)'
+                });
+                continue;
+            } catch (accessError) {
+                // cached.txt doesn't exist, proceed with processing
+                console.log(`🔄 Processing: ${jsonFile.filename} - no cached.txt found`);
+            }
+            
             // Read the JSON file
             const jsonContent = await fs.readFile(jsonFile.fullPath, 'utf8');
             const jsonData = JSON.parse(jsonContent);
@@ -169,9 +189,6 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
                 console.log(`⚠️  No images array found in ${jsonFile.filename}`);
                 continue;
             }
-            
-            // Get the directory where JSON file is located
-            const jsonDir = path.dirname(jsonFile.fullPath);
             
             // Filter and prepare download tasks
             const downloadTasks = [];
@@ -298,6 +315,14 @@ async function downloadImagesFromJsonFiles(jsonFiles, basePath, abortSignal) {
             });
         }
     }
+    
+    // Log summary of results
+    console.log(`\n📊 CACHE IMAGES SUMMARY:`);
+    console.log(`⏭️  Folders skipped (already cached): ${results.skippedCount}`);
+    console.log(`✅ Images downloaded successfully: ${results.successCount}`);
+    console.log(`❌ Images failed to download: ${results.errorCount}`);
+    console.log(`📁 Total JSON files processed: ${jsonFiles.length}`);
+    console.log(`📊 CACHE IMAGES SUMMARY END\n`);
     
     return results;
 }
@@ -536,6 +561,101 @@ router.get('/json-files', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to get JSON files',
+            error: error.message
+        });
+    }
+});
+
+// Get local image paths for a specific model
+router.get('/local-images', async (req, res) => {
+    try {
+        const { modelId, modelVersionId } = req.query;
+        
+        if (!modelId || !modelVersionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'modelId and modelVersionId are required'
+            });
+        }
+        
+        const modelJsonPath = path.join(__dirname, '../../data/modeljson');
+        const modelDir = path.join(modelJsonPath, modelId.toString(), modelVersionId.toString());
+        const cachedFilePath = path.join(modelDir, 'cached.txt');
+        const jsonFilePath = path.join(modelDir, `${modelId}_${modelVersionId}.json`);
+        
+        // Check if cached.txt exists
+        try {
+            await fs.access(cachedFilePath);
+        } catch (accessError) {
+            return res.json({
+                success: false,
+                message: 'No cached.txt found - images not fully cached',
+                hasCachedTxt: false
+            });
+        }
+        
+        // Check if JSON file exists
+        let jsonData;
+        try {
+            const jsonContent = await fs.readFile(jsonFilePath, 'utf8');
+            jsonData = JSON.parse(jsonContent);
+        } catch (jsonError) {
+            return res.json({
+                success: false,
+                message: 'JSON file not found',
+                hasCachedTxt: true,
+                hasJsonFile: false
+            });
+        }
+        
+        // Extract image filenames from JSON and check if they exist locally
+        const localImages = [];
+        
+        if (jsonData.images && Array.isArray(jsonData.images)) {
+            for (const image of jsonData.images) {
+                if (!image.url) continue;
+                
+                // Extract filename from URL
+                const urlParts = image.url.split('/');
+                const originalFilename = urlParts[urlParts.length - 1];
+                
+                // Check if file is an image (skip videos and other file types)
+                const fileExtension = path.extname(originalFilename).toLowerCase();
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+                
+                if (!imageExtensions.includes(fileExtension)) {
+                    continue;
+                }
+                
+                // Create local file path
+                const localFilePath = path.join(modelDir, originalFilename);
+                
+                // Check if file exists
+                try {
+                    await fs.access(localFilePath);
+                    // Convert to relative path for frontend
+                    const relativePath = `backend/data/modeljson/${modelId}/${modelVersionId}/${originalFilename}`;
+                    localImages.push(relativePath);
+                } catch (accessError) {
+                    // File doesn't exist locally, skip it
+                    continue;
+                }
+            }
+        }
+        
+        res.json({
+            success: true,
+            hasCachedTxt: true,
+            hasJsonFile: true,
+            localImages: localImages,
+            message: `Found ${localImages.length} local images`
+        });
+        
+    } catch (error) {
+        logger.error('Error getting local images:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get local images',
             error: error.message
         });
     }

@@ -9,6 +9,7 @@ const logger = require('./utils/logger');
 const { timeoutMiddleware } = require('./middleware/timeout');
 const fs = require('fs');
 const dotenvPath = require('path').join(__dirname, '.env');
+const path = require('path');
 
 // Import services
 const databaseService = require('./services/databaseService');
@@ -21,6 +22,9 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: SERVER_CONFIG.jsonLimit }));
+
+// Serve static files from modeljson directory
+app.use('/backend/data/modeljson', express.static(path.join(__dirname, 'data/modeljson')));
 
 // Request logging middleware
 app.use((req, res, next) => {

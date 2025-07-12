@@ -364,6 +364,14 @@ export const apiService = {
     return response.data;
   },
 
+  async getLocalImages(modelId, modelVersionId, options = {}) {
+    const response = await api.get('/cache/local-images', {
+      params: { modelId, modelVersionId },
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async getJsonFiles(options = {}) {
     const response = await api.get('/cache/json-files', {
       signal: options.signal
