@@ -45,6 +45,44 @@ router.post('/images', async (req, res) => {
     }
 });
 
+// Check cached status endpoint
+router.post('/check-cached', async (req, res) => {
+    try {
+        const modelJsonPath = path.join(__dirname, '../../data/modeljson');
+        
+        // Process all modelId folders
+        const jsonFiles = await scanForJsonFiles(modelJsonPath);
+        
+        // Check cached status for each JSON file
+        const checkResults = await checkCachedStatus(jsonFiles, req.signal);
+        
+        res.json({
+            success: true,
+            message: `Checked ${jsonFiles.length} JSON files. ${checkResults.cachedCount} folders marked as cached, ${checkResults.notCachedCount} folders not fully cached.`,
+            files: jsonFiles,
+            checkResults,
+            progress: checkResults.details
+        });
+        
+    } catch (error) {
+        // Check if the error is due to cancellation
+        if (error.name === 'AbortError') {
+            res.status(499).json({
+                success: false,
+                message: 'Check cached operation cancelled',
+                cancelled: true
+            });
+        } else {
+            logger.error('Error in check cached:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to check cached status',
+                error: error.message
+            });
+        }
+    }
+});
+
 // Recursive function to scan for JSON files
 async function scanForJsonFiles(basePath, maxModelIds = null) {
     const jsonFiles = [];
@@ -306,6 +344,180 @@ function downloadImage(url, filePath, abortSignal) {
             });
         }
     });
+}
+
+// Function to check cached status and create 'cached' txt files
+async function checkCachedStatus(jsonFiles, abortSignal) {
+    const results = {
+        cachedCount: 0,
+        notCachedCount: 0,
+        partialCount: 0,
+        details: []
+    };
+    
+    for (const jsonFile of jsonFiles) {
+        // Check for cancellation
+        if (abortSignal && abortSignal.aborted) {
+            throw new Error('Operation cancelled');
+        }
+        
+        try {
+            console.log(`🔍 Checking cached status: ${jsonFile.filename}`);
+            
+            // Read the JSON file
+            const jsonContent = await fs.readFile(jsonFile.fullPath, 'utf8');
+            const jsonData = JSON.parse(jsonContent);
+            
+            // Check if images array exists
+            if (!jsonData.images || !Array.isArray(jsonData.images)) {
+                console.log(`⚠️  No images array found in ${jsonFile.filename}`);
+                results.notCachedCount++;
+                results.details.push({
+                    jsonFile: jsonFile.filename,
+                    status: 'no_images',
+                    reason: 'No images array found'
+                });
+                continue;
+            }
+            
+            // Get the directory where JSON file is located
+            const jsonDir = path.dirname(jsonFile.fullPath);
+            
+            // Check each image URL
+            let allImagesExist = true;
+            let imageCount = 0;
+            let existingImages = 0;
+            let missingImages = [];
+            
+            for (let i = 0; i < jsonData.images.length; i++) {
+                const image = jsonData.images[i];
+                
+                if (!image.url) {
+                    console.log(`⚠️  No URL found for image ${i} in ${jsonFile.filename}`);
+                    continue;
+                }
+                
+                // Extract filename from URL
+                const urlParts = image.url.split('/');
+                const originalFilename = urlParts[urlParts.length - 1];
+                
+                // Check if file is an image (skip videos and other file types)
+                const fileExtension = path.extname(originalFilename).toLowerCase();
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+                
+                if (!imageExtensions.includes(fileExtension)) {
+                    console.log(`⏭️  Skipped (not an image): ${originalFilename}`);
+                    continue;
+                }
+                
+                imageCount++;
+                
+                // Create local file path
+                const localFilePath = path.join(jsonDir, originalFilename);
+                
+                // Check if file exists
+                try {
+                    await fs.access(localFilePath);
+                    console.log(`✅ Image exists: ${originalFilename}`);
+                    existingImages++;
+                } catch (accessError) {
+                    console.log(`❌ Image missing: ${originalFilename}`);
+                    allImagesExist = false;
+                    missingImages.push(originalFilename);
+                }
+            }
+            
+            // Create or remove 'cached' txt file based on status
+            const cachedFilePath = path.join(jsonDir, 'cached.txt');
+            
+            if (imageCount === 0) {
+                console.log(`ℹ️  No image files found in ${jsonFile.filename}`);
+                results.notCachedCount++;
+                results.details.push({
+                    jsonFile: jsonFile.filename,
+                    status: 'no_images',
+                    reason: 'No image files found'
+                });
+            } else if (allImagesExist) {
+                // All images exist, create 'cached' txt file
+                try {
+                    await fs.writeFile(cachedFilePath, '', 'utf8');
+                    console.log(`✅ Created cached.txt for ${jsonFile.filename} (${imageCount} images)`);
+                    results.cachedCount++;
+                    results.details.push({
+                        jsonFile: jsonFile.filename,
+                        status: 'cached',
+                        imageCount: imageCount,
+                        message: 'All images downloaded, cached.txt created'
+                    });
+                } catch (writeError) {
+                    console.log(`❌ Failed to create cached.txt for ${jsonFile.filename}: ${writeError.message}`);
+                    results.notCachedCount++;
+                    results.details.push({
+                        jsonFile: jsonFile.filename,
+                        status: 'error',
+                        error: `Failed to create cached.txt: ${writeError.message}`
+                    });
+                }
+            } else {
+                // Some images missing, remove 'cached' txt file if it exists
+                try {
+                    await fs.unlink(cachedFilePath);
+                    console.log(`🗑️  Removed cached.txt for ${jsonFile.filename} (missing: ${missingImages.join(', ')})`);
+                } catch (unlinkError) {
+                    // File doesn't exist, which is fine
+                }
+                
+                // Check if this is a partial download (some images exist)
+                if (existingImages > 0) {
+                    console.log(`⚠️  Partial download detected: ${existingImages}/${imageCount} images exist`);
+                    results.partialCount++;
+                    results.details.push({
+                        jsonFile: jsonFile.filename,
+                        status: 'partial',
+                        imageCount: imageCount,
+                        existingCount: existingImages,
+                        missingCount: missingImages.length,
+                        missingImages: missingImages,
+                        message: `Partial download: ${existingImages}/${imageCount} images exist`
+                    });
+                } else {
+                    // No images exist at all
+                    results.notCachedCount++;
+                    results.details.push({
+                        jsonFile: jsonFile.filename,
+                        status: 'not_cached',
+                        imageCount: imageCount,
+                        missingCount: missingImages.length,
+                        missingImages: missingImages,
+                        message: 'No images downloaded'
+                    });
+                }
+            }
+            
+        } catch (error) {
+            if (error.message === 'Operation cancelled') {
+                throw error;
+            }
+            console.log(`❌ Error checking ${jsonFile.filename}: ${error.message}`);
+            results.notCachedCount++;
+            results.details.push({
+                jsonFile: jsonFile.filename,
+                status: 'error',
+                error: error.message
+            });
+        }
+    }
+    
+    // Log summary of results
+    console.log(`\n📊 CACHE STATUS SUMMARY:`);
+    console.log(`✅ Folders with cached.txt: ${results.cachedCount}`);
+    console.log(`⚠️  Folders with partial downloads: ${results.partialCount}`);
+    console.log(`❌ Folders without cached.txt: ${results.notCachedCount}`);
+    console.log(`📁 Total folders processed: ${jsonFiles.length}`);
+    console.log(`📊 CACHE STATUS SUMMARY END\n`);
+    
+    return results;
 }
 
 // Get JSON files for processing (without downloading)

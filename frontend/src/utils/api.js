@@ -359,6 +359,11 @@ export const apiService = {
     return response.data;
   },
 
+  async checkCached() {
+    const response = await api.post('/cache/check-cached', {});
+    return response.data;
+  },
+
   async getJsonFiles(options = {}) {
     const response = await api.get('/cache/json-files', {
       signal: options.signal

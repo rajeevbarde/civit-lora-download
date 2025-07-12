@@ -25,18 +25,22 @@
         v-if="!loading && !error"
         :fetching-metadata="fetchingMetadata"
         :caching-images="cachingImages"
+        :checking-cached="checkingCached"
         @fetch-metadata="fetchMetadata"
         @cache-images="cacheImages"
+        @check-cached="checkCached"
       />
 
       <!-- Progress Section -->
       <ProgressSection 
-        v-if="fetchingMetadata || completed || cachingImages || cacheCompleted"
+        v-if="fetchingMetadata || completed || cachingImages || cacheCompleted || checkingCached || checkCompleted"
         :progress="progress"
         :completed="completed"
         :fetching-metadata="fetchingMetadata"
         :caching-images="cachingImages"
         :cache-completed="cacheCompleted"
+        :checking-cached="checkingCached"
+        :check-completed="checkCompleted"
         @clear-progress="clearProgress"
       />
     </div>
@@ -72,13 +76,16 @@ export default {
     const error = ref(null);
     const fetchingMetadata = ref(false);
     const cachingImages = ref(false);
+    const checkingCached = ref(false);
     const progress = ref([]);
     const completed = ref(false);
     const cacheCompleted = ref(false);
+    const checkCompleted = ref(false);
     const cancelFetch = ref(false);
     const cancelCache = ref(false);
     const abortController = ref(null);
     const cacheAbortController = ref(null);
+    const checkAbortController = ref(null);
 
     // Inject notification functions
     const showSuccess = inject('showSuccess');
@@ -306,6 +313,47 @@ export default {
       progress.value = [];
       completed.value = false;
       cacheCompleted.value = false;
+      checkCompleted.value = false;
+    };
+
+    const checkCached = async () => {
+      // Start checking
+      checkingCached.value = true;
+      checkCompleted.value = false;
+      progress.value = [];
+      
+      try {
+        // Create a simple progress item
+        const progressItem = {
+          modelId: 'Check',
+          modelVersionId: 'Cached',
+          modelName: 'Check Cached Status',
+          modelVersionName: 'In Progress...',
+          status: 'fetching',
+          message: 'Scanning JSON files and checking image cache status...',
+          timestamp: new Date().toISOString()
+        };
+        progress.value.push(progressItem);
+        
+        // Call the backend API
+        const result = await apiService.checkCached();
+        
+        if (result.success) {
+          progressItem.status = 'success';
+          progressItem.message = result.message;
+          progressItem.modelVersionName = 'Completed';
+          checkCompleted.value = true;
+        } else {
+          progressItem.status = 'error';
+          progressItem.message = result.message || 'Failed to check cached status';
+        }
+        
+      } catch (err) {
+        console.error('Error checking cached status:', err);
+        showError?.(err.message || 'Failed to check cached status');
+      } finally {
+        checkingCached.value = false;
+      }
     };
 
     // Auto-scroll to bottom of progress list
@@ -334,9 +382,11 @@ export default {
       error,
       fetchingMetadata,
       cachingImages,
+      checkingCached,
       progress,
       completed,
       cacheCompleted,
+      checkCompleted,
       cancelFetch,
       cancelCache,
       abortController,
@@ -344,7 +394,8 @@ export default {
       loadStatistics,
       fetchMetadata,
       cacheImages,
-      clearProgress
+      clearProgress,
+      checkCached
     };
   }
 };

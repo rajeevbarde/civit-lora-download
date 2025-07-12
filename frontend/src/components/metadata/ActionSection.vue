@@ -3,7 +3,7 @@
     <div class="button-group">
       <button 
         @click="$emit('fetch-metadata')" 
-        :disabled="cachingImages"
+        :disabled="cachingImages || checkingCached"
         class="fetch-metadata-btn"
       >
         <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
@@ -14,12 +14,23 @@
       <button 
         v-if="showCacheButton"
         @click="$emit('cache-images')" 
-        :disabled="fetchingMetadata"
+        :disabled="fetchingMetadata || checkingCached"
         class="cache-images-btn"
       >
         <span v-if="cachingImages" class="btn-spinner">⏳</span>
         <span v-else class="btn-icon">🖼️</span>
         {{ cachingImages ? 'Stop Caching' : 'Cache Images' }}
+      </button>
+
+      <button 
+        v-if="showDungeonButton"
+        @click="$emit('check-cached')" 
+        :disabled="fetchingMetadata || cachingImages"
+        class="check-cached-btn"
+      >
+        <span v-if="checkingCached" class="btn-spinner">⏳</span>
+        <span v-else class="btn-icon">🔍</span>
+        Check Cached
       </button>
     </div>
   </div>
@@ -36,11 +47,19 @@ export default {
     cachingImages: {
       type: Boolean,
       default: false
+    },
+    checkingCached: {
+      type: Boolean,
+      default: false
     }
   },
-  emits: ['fetch-metadata', 'cache-images'],
+  emits: ['fetch-metadata', 'cache-images', 'check-cached'],
   computed: {
     showCacheButton() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('dungeon') === 'true';
+    },
+    showDungeonButton() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get('dungeon') === 'true';
     }
@@ -115,6 +134,33 @@ export default {
 }
 
 .cache-images-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.check-cached-btn {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+  border: none;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.check-cached-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.check-cached-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;

@@ -3,7 +3,7 @@
     <div class="progress-header-section">
       <h3>{{ getProgressTitle() }}</h3>
       <button 
-        v-if="(completed && !fetchingMetadata) || (cacheCompleted && !cachingImages)" 
+        v-if="(completed && !fetchingMetadata) || (cacheCompleted && !cachingImages) || (checkCompleted && !checkingCached)" 
         @click="$emit('clear-progress')" 
         class="clear-progress-btn"
       >
@@ -74,17 +74,31 @@ export default {
     cacheCompleted: {
       type: Boolean,
       default: false
+    },
+    checkingCached: {
+      type: Boolean,
+      default: false
+    },
+    checkCompleted: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['clear-progress'],
   methods: {
     getProgressTitle() {
+      if (this.checkingCached || this.checkCompleted) {
+        return 'Check Cached Status Progress';
+      }
       if (this.cachingImages || this.cacheCompleted) {
         return 'Cache Images Progress';
       }
       return 'Processing Progress';
     },
     getLoadingMessage() {
+      if (this.checkingCached) {
+        return 'Starting cache status check...';
+      }
       if (this.cachingImages) {
         return 'Starting image cache...';
       }
