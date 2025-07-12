@@ -633,9 +633,9 @@ router.get('/local-images', async (req, res) => {
                 // Check if file exists
                 try {
                     await fs.access(localFilePath);
-                    // Convert to relative path for frontend
-                    const relativePath = `backend/data/modeljson/${modelId}/${modelVersionId}/${originalFilename}`;
-                    localImages.push(relativePath);
+                    // Convert to absolute path for frontend
+                    const absolutePath = `/backend/data/modeljson/${modelId}/${modelVersionId}/${originalFilename}`;
+                    localImages.push(absolutePath);
                 } catch (accessError) {
                     // File doesn't exist locally, skip it
                     continue;
