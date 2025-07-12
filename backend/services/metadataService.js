@@ -180,7 +180,7 @@ class MetadataService {
     }
 
     // Fetch metadata from CivitAI API
-    async fetchCivitaiMetadata(modelVersionId) {
+    async fetchCivitaiMetadata(modelVersionId, create404Marker = false, versionDir = null) {
         const url = `${this.civitaiBaseUrl}/model-versions/${modelVersionId}?token=${this.civitaiToken}`;
         
         try {
@@ -204,6 +204,18 @@ class MetadataService {
                 
                 switch (status) {
                     case 404:
+                        // Create 404 marker file if requested
+                        if (create404Marker && versionDir) {
+                            try {
+                                const notFoundMarkerPath = path.join(versionDir, '404notfound.txt');
+                                const timestamp = new Date().toISOString();
+                                const markerContent = `Model version ${modelVersionId} not found on CivitAI\nTimestamp: ${timestamp}\nURL: ${url}`;
+                                fs.writeFileSync(notFoundMarkerPath, markerContent);
+                                console.log(`📝 Created 404 marker: ${notFoundMarkerPath}`);
+                            } catch (markerError) {
+                                console.log(`⚠️ Failed to create 404 marker: ${markerError.message}`);
+                            }
+                        }
                         throw new Error(`Model version ${modelVersionId} not found on CivitAI (404)`);
                     case 401:
                         throw new Error(`Unauthorized: Invalid or missing CivitAI token (401)`);
@@ -435,23 +447,53 @@ class MetadataService {
                 const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
                 const jsonFilePath = path.join(versionDir, jsonFileName);
                 
-                // Check if JSON file exists to determine if we need to fetch from API
+                // Check if JSON file or 404 marker exists
                 const jsonFileExists = fs.existsSync(jsonFilePath);
+                const notFoundMarkerPath = path.join(versionDir, '404notfound.txt');
+                const notFoundMarkerExists = fs.existsSync(notFoundMarkerPath);
                 
                 let metadata;
                 if (!forceUpdate && jsonFileExists) {
-                    // File exists and force update is not enabled - read from existing file
+                    // JSON file exists and force update is not enabled - read from existing file
                     try {
                         const jsonContent = fs.readFileSync(jsonFilePath, 'utf8');
                         metadata = JSON.parse(jsonContent);
                         console.log(`📖 Reading existing metadata from ${jsonFileName}`);
                     } catch (error) {
                         console.log(`⚠️ Failed to read existing file ${jsonFileName}, fetching from API...`);
-                        metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                        // Ensure directories exist before API call
+                        if (!fs.existsSync(modelDir)) {
+                            fs.mkdirSync(modelDir, { recursive: true });
+                        }
+                        if (!fs.existsSync(versionDir)) {
+                            fs.mkdirSync(versionDir, { recursive: true });
+                        }
+                        metadata = await this.fetchCivitaiMetadata(lora.modelVersionId, true, versionDir);
                     }
+                } else if (!forceUpdate && notFoundMarkerExists) {
+                    // 404 marker exists and force update is not enabled - skip API call
+                    console.log(`⏭️ Skipping ${jsonFileName} - 404 marker exists`);
+                    return {
+                        success: true,
+                        modelId: lora.modelId,
+                        modelVersionId: lora.modelVersionId,
+                        modelName: lora.modelName,
+                        modelVersionName: lora.modelVersionName,
+                        message: `⏭️ Skipped: Model not found on Civitai (404)`,
+                        status: 'notfound',
+                        triggerWords: null
+                    };
                 } else {
-                    // File doesn't exist or force update is enabled - fetch from API
-                    metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                    // File doesn't exist or force update is enabled - ensure directories exist first
+                    if (!fs.existsSync(modelDir)) {
+                        fs.mkdirSync(modelDir, { recursive: true });
+                    }
+                    if (!fs.existsSync(versionDir)) {
+                        fs.mkdirSync(versionDir, { recursive: true });
+                    }
+                    
+                    // Now fetch from API (folders exist for 404 marker creation)
+                    metadata = await this.fetchCivitaiMetadata(lora.modelVersionId, true, versionDir);
                 }
                 
                 if (metadata) {

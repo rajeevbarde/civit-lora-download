@@ -182,6 +182,11 @@ export default {
                 progressItem.message = result.message;
                 progressItem.triggerWords = result.triggerWords;
                 skippedCount++;
+              } else if (result.status === 'notfound') {
+                progressItem.status = 'notfound';
+                progressItem.message = result.message;
+                progressItem.triggerWords = result.triggerWords;
+                skippedCount++;
               } else {
                 progressItem.status = 'success';
                 progressItem.message = result.message;
@@ -209,10 +214,10 @@ export default {
         
         // Show final results
         if (cancelFetch.value || abortController.value.signal.aborted) {
-          const message = `Fetching cancelled. Processed ${successCount + errorCount + skippedCount} LoRAs: ${successCount} fetched, ${skippedCount} from cache, ${errorCount} failed`;
+          const message = `Fetching cancelled. Processed ${successCount + errorCount + skippedCount} LoRAs: ${successCount} fetched, ${skippedCount} skipped (cache/not found), ${errorCount} failed`;
           showSuccess?.(message);
         } else {
-          const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} fetched from API, ${skippedCount} updated from cache, ${errorCount} failed`;
+          const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} fetched from API, ${skippedCount} skipped (cache/not found), ${errorCount} failed`;
           showSuccess?.(message);
           // Reload statistics and mark as completed only if not cancelled
           await loadStatistics();

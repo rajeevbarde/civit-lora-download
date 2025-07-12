@@ -27,6 +27,7 @@
           <div class="model-link-section">
             <span v-if="item.status === 'success'" class="status-icon">✅</span>
             <span v-else-if="item.status === 'cached'" class="status-icon">📖</span>
+            <span v-else-if="item.status === 'notfound'" class="status-icon">🚫</span>
             <span v-else-if="item.status === 'fetching'" class="status-icon">⏳</span>
             <span v-else-if="item.status === 'error'" class="status-icon">❌</span>
             <span v-else-if="item.status === 'skipped'" class="status-icon">⏭️</span>
@@ -207,6 +208,11 @@ export default {
 .progress-item.cached {
   border-left-color: #8b5cf6;
   background: #f3f4f6;
+}
+
+.progress-item.notfound {
+  border-left-color: #dc2626;
+  background: #fef2f2;
 }
 
 .progress-header {
