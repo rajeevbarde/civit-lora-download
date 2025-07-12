@@ -26,7 +26,7 @@
         :fetching-metadata="fetchingMetadata"
         :caching-images="cachingImages"
         :checking-cached="checkingCached"
-        @fetch-metadata="fetchMetadata"
+        @fetch-metadata="(forceUpdate) => fetchMetadata(forceUpdate)"
         @cache-images="cacheImages"
         @check-cached="checkCached"
       />
@@ -75,6 +75,7 @@ export default {
     const loading = ref(false);
     const error = ref(null);
     const fetchingMetadata = ref(false);
+    const forceUpdate = ref(false);
     const cachingImages = ref(false);
     const checkingCached = ref(false);
     const progress = ref([]);
@@ -105,7 +106,7 @@ export default {
       }
     };
 
-    const fetchMetadata = async () => {
+    const fetchMetadata = async (forceUpdateParam = false) => {
       // If already fetching, cancel the operation
       if (fetchingMetadata.value) {
         cancelFetch.value = true;
@@ -127,8 +128,8 @@ export default {
       abortController.value = new AbortController();
       
       try {
-        // Get LoRAs that need metadata with abort signal
-        const lorasToProcess = await apiService.getRegisteredLoras({
+        // Get LoRAs that need metadata with abort signal and force update option
+        const lorasToProcess = await apiService.getRegisteredLoras(forceUpdateParam, {
           signal: abortController.value.signal
         });
         
@@ -139,8 +140,9 @@ export default {
         
         let successCount = 0;
         let errorCount = 0;
+        let skippedCount = 0;
         
-        // Process each LoRA individually
+        // Process each LoRA individually for real-time progress
         for (const lora of lorasToProcess) {
           // Check for cancellation
           if (cancelFetch.value || abortController.value.signal.aborted) {
@@ -163,6 +165,7 @@ export default {
             const result = await apiService.fetchSingleLoRAMetadata(
               lora.modelId, 
               lora.modelVersionId,
+              forceUpdateParam,
               { signal: abortController.value.signal }
             );
             
@@ -174,10 +177,17 @@ export default {
             }
             
             if (result.success) {
-              progressItem.status = 'success';
-              progressItem.message = result.message;
-              progressItem.triggerWords = result.triggerWords;
-              successCount++;
+              if (result.status === 'cached') {
+                progressItem.status = 'cached';
+                progressItem.message = result.message;
+                progressItem.triggerWords = result.triggerWords;
+                skippedCount++;
+              } else {
+                progressItem.status = 'success';
+                progressItem.message = result.message;
+                progressItem.triggerWords = result.triggerWords;
+                successCount++;
+              }
             } else {
               progressItem.status = 'error';
               progressItem.message = result.message;
@@ -199,10 +209,10 @@ export default {
         
         // Show final results
         if (cancelFetch.value || abortController.value.signal.aborted) {
-          const message = `Fetching cancelled. Processed ${successCount + errorCount} LoRAs: ${successCount} successful, ${errorCount} failed`;
+          const message = `Fetching cancelled. Processed ${successCount + errorCount + skippedCount} LoRAs: ${successCount} fetched, ${skippedCount} from cache, ${errorCount} failed`;
           showSuccess?.(message);
         } else {
-          const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} successful, ${errorCount} failed`;
+          const message = `Processed ${lorasToProcess.length} LoRAs: ${successCount} fetched from API, ${skippedCount} updated from cache, ${errorCount} failed`;
           showSuccess?.(message);
           // Reload statistics and mark as completed only if not cancelled
           await loadStatistics();

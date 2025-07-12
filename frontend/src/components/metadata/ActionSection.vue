@@ -1,8 +1,20 @@
 <template>
   <div class="action-section">
+    <div v-if="showDungeonButton" class="options-group">
+      <label class="checkbox-label">
+        <input 
+          type="checkbox" 
+          v-model="forceUpdate"
+          :disabled="fetchingMetadata || cachingImages || checkingCached"
+          class="checkbox-input"
+        />
+        <span class="checkbox-text">Force Update (ignore existing files)</span>
+      </label>
+    </div>
+    
     <div class="button-group">
       <button 
-        @click="$emit('fetch-metadata')" 
+        @click="$emit('fetch-metadata', forceUpdate)" 
         :disabled="cachingImages || checkingCached"
         class="fetch-metadata-btn"
       >
@@ -37,6 +49,8 @@
 </template>
 
 <script>
+import { ref } from 'vue';
+
 export default {
   name: 'ActionSection',
   props: {
@@ -54,6 +68,13 @@ export default {
     }
   },
   emits: ['fetch-metadata', 'cache-images', 'check-cached'],
+  setup() {
+    const forceUpdate = ref(false);
+    
+    return {
+      forceUpdate
+    };
+  },
   computed: {
     showCacheButton() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -70,13 +91,46 @@ export default {
 <style scoped>
 .action-section {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   margin: 2rem 0;
   padding: 2rem;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border: 1px solid #e1e8ed;
+  gap: 1rem;
+}
+
+.options-group {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #666;
+  user-select: none;
+}
+
+.checkbox-input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.checkbox-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.checkbox-text {
+  font-weight: 500;
 }
 
 .button-group {

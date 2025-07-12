@@ -91,8 +91,9 @@ router.get('/metadata-statistics', async (req, res) => {
 // Fetch and save metadata from CivitAI API (Step 1)
 router.post('/fetch-metadata', async (req, res) => {
     try {
+        const { forceUpdate = false } = req.body;
         const metadataService = require('../../services/metadataService');
-        const result = await metadataService.fetchAndSaveMetadata();
+        const result = await metadataService.fetchAndSaveMetadata(forceUpdate);
         res.json(result);
     } catch (error) {
         logger.error('Error fetching metadata:', error);
@@ -103,8 +104,9 @@ router.post('/fetch-metadata', async (req, res) => {
 // Get registered LoRAs that need metadata
 router.get('/registered-loras', async (req, res) => {
     try {
+        const { forceUpdate = false } = req.query;
         const metadataService = require('../../services/metadataService');
-        const result = await metadataService.getRegisteredLoras();
+        const result = await metadataService.getRegisteredLoras(forceUpdate === 'true');
         res.json(result);
     } catch (error) {
         logger.error('Error getting registered LoRAs:', error);
@@ -115,13 +117,13 @@ router.get('/registered-loras', async (req, res) => {
 // Fetch metadata for a single LoRA
 router.post('/fetch-metadata-single', async (req, res) => {
     try {
-        const { modelId, modelVersionId } = req.body;
+        const { modelId, modelVersionId, forceUpdate = false } = req.body;
         if (!modelId || !modelVersionId) {
             return res.status(400).json({ error: 'modelId and modelVersionId are required' });
         }
         
         const metadataService = require('../../services/metadataService');
-        const result = await metadataService.fetchSingleLoRAMetadata(modelId, modelVersionId);
+        const result = await metadataService.fetchSingleLoRAMetadata(modelId, modelVersionId, forceUpdate);
         res.json(result);
     } catch (error) {
         logger.error('Error fetching single LoRA metadata:', error);

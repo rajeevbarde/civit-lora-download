@@ -67,22 +67,23 @@ export const apiService = {
     return response.data;
   },
 
-  async fetchMetadata(options = {}) {
-    const response = await api.post('/models/fetch-metadata', {}, {
+  async fetchMetadata(forceUpdate = false, options = {}) {
+    const response = await api.post('/models/fetch-metadata', { forceUpdate }, {
       signal: options.signal
     });
     return response.data;
   },
 
-  async fetchSingleLoRAMetadata(modelId, modelVersionId, options = {}) {
-    const response = await api.post('/models/fetch-metadata-single', { modelId, modelVersionId }, {
+  async fetchSingleLoRAMetadata(modelId, modelVersionId, forceUpdate = false, options = {}) {
+    const response = await api.post('/models/fetch-metadata-single', { modelId, modelVersionId, forceUpdate }, {
       signal: options.signal
     });
     return response.data;
   },
 
-  async getRegisteredLoras(options = {}) {
+  async getRegisteredLoras(forceUpdate = false, options = {}) {
     const response = await api.get('/models/registered-loras', {
+      params: { forceUpdate },
       signal: options.signal
     });
     return response.data;

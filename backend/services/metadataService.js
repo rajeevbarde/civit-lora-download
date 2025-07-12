@@ -12,9 +12,9 @@ class MetadataService {
     }
 
     // Step 1: Fetch metadata from CivitAI API and save to folders
-    async fetchAndSaveMetadata() {
+    async fetchAndSaveMetadata(forceUpdate = false) {
         const startTime = Date.now();
-        logger.userAction('Metadata fetching started');
+        logger.userAction('Metadata fetching started', { forceUpdate });
 
         try {
             if (!this.civitaiToken) {
@@ -36,6 +36,7 @@ class MetadataService {
             }
 
             let fetchedCount = 0;
+            let skippedCount = 0;
             let errors = [];
             let notFoundErrors = [];
             let networkErrors = [];
@@ -60,11 +61,20 @@ class MetadataService {
                 try {
                     console.log(`📥 Fetching metadata for model ${lora.modelId}, version ${lora.modelVersionId}...`);
 
-                    // Always fetch fresh data from API (overwrite existing files)
+                    // Check if JSON file already exists (unless force update is enabled)
                     const modelDir = path.join(this.baseDir, lora.modelId.toString());
                     const versionDir = path.join(modelDir, lora.modelVersionId.toString());
                     const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
                     const jsonFilePath = path.join(versionDir, jsonFileName);
+                    
+                    // Skip if file exists and force update is not enabled
+                    if (!forceUpdate && fs.existsSync(jsonFilePath)) {
+                        console.log(`⏭️ Skipping ${jsonFileName} - file already exists`);
+                        progressItem.status = 'skipped';
+                        progressItem.message = `⏭️ Skipped: ${jsonFileName} already exists`;
+                        skippedCount++;
+                        continue;
+                    }
                     
                     // Fetch metadata from CivitAI API
                     const metadata = await this.fetchCivitaiMetadata(lora.modelVersionId);
@@ -147,8 +157,9 @@ class MetadataService {
 
             return {
                 success: true,
-                message: `Fetched metadata for ${fetchedCount} LoRAs and updated ${updatedCount} database records${errorSummary}`,
+                message: `Fetched metadata for ${fetchedCount} LoRAs, skipped ${skippedCount} existing files, and updated ${updatedCount} database records${errorSummary}`,
                 fetchedCount,
+                skippedCount,
                 updatedCount,
                 totalLoras: registeredLoras.length,
                 progress: progress,
@@ -367,13 +378,26 @@ class MetadataService {
     }
 
     // Get all registered LoRAs that don't have metadata yet
-    async getRegisteredLoras() {
-        const query = `
-            SELECT modelId, modelVersionId, modelName, modelVersionName
-            FROM ALLCivitData
-            WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NULL
-            ORDER BY modelId, modelVersionId
-        `;
+    async getRegisteredLoras(forceUpdate = false) {
+        let query;
+        
+        if (forceUpdate) {
+            // If force update, get all registered LoRAs regardless of existing metadata
+            query = `
+                SELECT modelId, modelVersionId, modelName, modelVersionName
+                FROM ALLCivitData
+                WHERE isDownloaded = 1 AND file_path IS NOT NULL
+                ORDER BY modelId, modelVersionId
+            `;
+        } else {
+            // Only get LoRAs that don't have metadata yet
+            query = `
+                SELECT modelId, modelVersionId, modelName, modelVersionName
+                FROM ALLCivitData
+                WHERE isDownloaded = 1 AND file_path IS NOT NULL AND modelversion_jsonpath IS NULL
+                ORDER BY modelId, modelVersionId
+            `;
+        }
 
         let connection;
         try {
@@ -387,7 +411,7 @@ class MetadataService {
     }
 
     // Fetch metadata for a single LoRA
-    async fetchSingleLoRAMetadata(modelId, modelVersionId) {
+    async fetchSingleLoRAMetadata(modelId, modelVersionId, forceUpdate = false) {
         try {
             // Get LoRA details
             const query = `
@@ -405,8 +429,30 @@ class MetadataService {
                     throw new Error(`LoRA not found or not eligible for metadata fetching`);
                 }
 
-                // Fetch metadata from CivitAI API
-                const metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                // Check if JSON file already exists (unless force update is enabled)
+                const modelDir = path.join(this.baseDir, lora.modelId.toString());
+                const versionDir = path.join(modelDir, lora.modelVersionId.toString());
+                const jsonFileName = `${lora.modelId}_${lora.modelVersionId}.json`;
+                const jsonFilePath = path.join(versionDir, jsonFileName);
+                
+                // Check if JSON file exists to determine if we need to fetch from API
+                const jsonFileExists = fs.existsSync(jsonFilePath);
+                
+                let metadata;
+                if (!forceUpdate && jsonFileExists) {
+                    // File exists and force update is not enabled - read from existing file
+                    try {
+                        const jsonContent = fs.readFileSync(jsonFilePath, 'utf8');
+                        metadata = JSON.parse(jsonContent);
+                        console.log(`📖 Reading existing metadata from ${jsonFileName}`);
+                    } catch (error) {
+                        console.log(`⚠️ Failed to read existing file ${jsonFileName}, fetching from API...`);
+                        metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                    }
+                } else {
+                    // File doesn't exist or force update is enabled - fetch from API
+                    metadata = await this.fetchCivitaiMetadata(modelVersionId);
+                }
                 
                 if (metadata) {
                     // Ensure directories exist
@@ -434,15 +480,21 @@ class MetadataService {
                     const trainedWords = this.extractTrainedWords(metadata);
                     await this.updateTriggerWords(lora.modelVersionId, trainedWords);
                     
+                    // Determine message based on whether we read from file or fetched from API
+                    const message = (!forceUpdate && jsonFileExists) 
+                        ? `✅ Database updated from existing file: ${jsonFileName}`
+                        : `✅ Metadata fetched and database updated: ${jsonFileName}`;
+                    
                     return {
                         success: true,
                         modelId: lora.modelId,
                         modelVersionId: lora.modelVersionId,
                         modelName: lora.modelName,
                         modelVersionName: lora.modelVersionName,
-                        message: 'Metadata fetched successfully',
+                        message: message,
                         triggerWords: trainedWords,
-                        jsonPath: fullRelativePath
+                        jsonPath: fullRelativePath,
+                        status: (!forceUpdate && jsonFileExists) ? 'cached' : 'fetched'
                     };
                 }
             } finally {
