@@ -206,6 +206,11 @@ export default {
       );
       
       try {
+        // Start periodic cleanup if this is the first download
+        if (downloadingModels.value.length === 0) {
+          startPeriodicCleanup();
+        }
+        
         // Process downloads sequentially to prevent race conditions
         for (const model of selectedModelObjects) {
           if (isModelDownloading(model.modelId)) {
@@ -322,6 +327,11 @@ export default {
         modelVersionId: model.modelVersionId,
         fileName: model.fileName
       });
+
+      // Start periodic cleanup if this is the first download
+      if (downloadingModels.value.length === 1) {
+        startPeriodicCleanup();
+      }
 
       // Start a 20-second timeout to mark as failed if not started
       timeoutId = setTimeout(() => {
@@ -522,45 +532,86 @@ export default {
         return;
       }
       
+      // Only start interval if there are downloads in progress
+      if (downloadingModels.value.length === 0) {
+        return;
+      }
+      
       // Check for stuck downloads every 30 seconds
       cleanupInterval.value = setInterval(async () => {
-        if (downloadingModels.value.length > 0) {
-          try {
-            // Refresh the table to get latest status
-            await fetchModels();
-            
-            // Check if any downloads have completed
-            const completedModels = [];
-            for (const modelId of downloadingModels.value.map(item => item.modelId)) {
-              const model = models.value.find(m => m.modelId === modelId);
-              if (model && (model.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || model.isDownloaded === DOWNLOAD_STATUS.FAILED)) {
-                completedModels.push({ modelId, status: model.isDownloaded, fileName: model.fileName });
+        // Stop interval if no downloads are active
+        if (downloadingModels.value.length === 0) {
+          stopPeriodicCleanup();
+          return;
+        }
+        
+        try {
+          // Check status of each downloading model individually
+          const completedModels = [];
+          
+          for (const downloadingItem of downloadingModels.value) {
+            try {
+              const response = await apiService.getModelDetail(downloadingItem.modelVersionId);
+              if (response) {
+                // Update the specific model in the current data without refreshing entire table
+                const modelIndex = models.value.findIndex(m => m.modelVersionId === downloadingItem.modelVersionId);
+                if (modelIndex !== -1) {
+                  // Create a new object to ensure reactivity
+                  models.value.splice(modelIndex, 1, { ...response });
+                }
+                
+                // Check if download is complete
+                if (response.isDownloaded === DOWNLOAD_STATUS.DOWNLOADED || response.isDownloaded === DOWNLOAD_STATUS.FAILED) {
+                  completedModels.push({ 
+                    modelId: downloadingItem.modelId, 
+                    status: response.isDownloaded, 
+                    fileName: downloadingItem.fileName 
+                  });
+                }
               }
-            }
-            
-            // Remove completed models from downloading list
-            for (const completed of completedModels) {
-              removeFromDownloadingList(completed.modelId);
-              
-              if (completed.status === DOWNLOAD_STATUS.DOWNLOADED) {
-                errorHandler.handleSuccess(`Download completed: ${completed.fileName}`);
-              } else {
-                errorHandler.handleError(new Error('Download failed'), `downloading ${completed.fileName}`);
+            } catch (error) {
+              // If we get a 404, the model might not exist in DB yet - this is normal for new downloads
+              if (error.response && error.response.status === 404) {
+                // Don't immediately fail, wait for the model to be registered
+                continue;
               }
+              // For other errors, log but don't stop the process
+              console.warn(`Error checking status for ${downloadingItem.fileName}:`, error.message);
             }
-          } catch (error) {
-            // Don't stop the interval on error, just log it
           }
+          
+          // Remove completed models from downloading list
+          for (const completed of completedModels) {
+            removeFromDownloadingList(completed.modelId);
+            
+            if (completed.status === DOWNLOAD_STATUS.DOWNLOADED) {
+              errorHandler.handleSuccess(`Download completed: ${completed.fileName}`);
+            } else {
+              errorHandler.handleError(new Error('Download failed'), `downloading ${completed.fileName}`);
+            }
+          }
+          
+          // Stop interval if all downloads are complete
+          if (downloadingModels.value.length === 0) {
+            stopPeriodicCleanup();
+          }
+        } catch (error) {
+          // Don't stop the interval on error, just log it
+          console.warn('Error in periodic cleanup:', error.message);
         }
       }, 30000); // 30 seconds
     };
 
-    const cleanupAllIntervals = () => {
-      // Clean up periodic cleanup interval
+    const stopPeriodicCleanup = () => {
       if (cleanupInterval.value) {
         clearInterval(cleanupInterval.value);
         cleanupInterval.value = null;
       }
+    };
+
+    const cleanupAllIntervals = () => {
+      // Clean up periodic cleanup interval
+      stopPeriodicCleanup();
       
       // Clean up all status polling intervals
       statusPollingIntervals.value.forEach((interval, modelVersionId) => {
@@ -675,8 +726,7 @@ export default {
         fetchModels();
       }
       
-      // Start periodic cleanup to check for stuck downloads
-      startPeriodicCleanup();
+      // Don't start periodic cleanup automatically - it will start when downloads begin
     });
 
     onBeforeUnmount(() => {
@@ -696,8 +746,8 @@ export default {
     });
 
     onActivated(() => {
-      // Restart periodic cleanup if component is reactivated
-      if (!cleanupInterval.value) {
+      // Only restart periodic cleanup if there are active downloads
+      if (downloadingModels.value.length > 0 && !cleanupInterval.value) {
         startPeriodicCleanup();
       }
     });
@@ -741,6 +791,7 @@ export default {
       removeFromDownloadingListByVersionId,
       checkDownloadStatus,
       startPeriodicCleanup,
+      stopPeriodicCleanup,
       cleanupAllIntervals,
       cancelPendingRequest,
       cancelAllPendingRequests,
