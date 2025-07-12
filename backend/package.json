@@ -4,7 +4,9 @@
   "description": "Backend API for managing CivitAI Lora model downloads and file organization",
   "main": "server.js",
   "scripts": {
+    "prestart": "node create_config_files.js",
     "start": "node server.js",
+    "predev": "node create_config_files.js",
     "dev": "nodemon server.js",
     "test": "jest",
     "test:smoke": "jest tests/smoke.test.js",

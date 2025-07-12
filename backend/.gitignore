@@ -31,3 +31,9 @@ coverage
 
 # Data directories
 data/modeljson/
+
+# Environment files
+.env
+
+# Configuration files
+saved_path.json

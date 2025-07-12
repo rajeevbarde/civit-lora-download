@@ -17,7 +17,9 @@
   ],
   "type": "module",
   "scripts": {
+    "predev": "node create_config_files.js",
     "dev": "vite",
+    "prebuild": "node create_config_files.js",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
