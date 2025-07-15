@@ -17,7 +17,7 @@ DB_RETRY_DELAY=1000
 DB_BUSY_TIMEOUT=30000
 
 # Download Configuration
-DOWNLOAD_BASE_DIR=./data/
+DOWNLOAD_BASE_DIR=C:/new_lora_downloaded
 DOWNLOAD_MAX_CONCURRENT=3
 DOWNLOAD_TIMEOUT=300000
 
@@ -57,7 +57,7 @@ CIVITAI_TOKEN=`;
 // Content for saved_path.json file
 const savedPathContent = `{
   "paths": [
-    "Z:\\\\LoraFolders"
+    "C:\\\\existing_lora_downloaded"
   ]
 }`;
 

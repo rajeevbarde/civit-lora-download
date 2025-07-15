@@ -42,10 +42,24 @@
 ## ⚙️ Installation
 
 ### 📋 Prerequisites
-<!-- Add prerequisites here -->
+- Install Node.js 20
+- Windows 11 (Linux might not work)
 
 ### 🔧 App Setup
-<!-- Add setup instructions here -->
+1. Clone this app or download zip
+2. Run `start_servers.bat` (first time takes a while)
+3. Open http://localhost:5173/ in your browser
+4. You should see the app interface like below
+
+<div align="center">
+  <img src="[SCREENSHOT_PLACEHOLDER]" alt="App Screenshot" width="700" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid #e1e5e9;">
+</div>
+
+5. Configure these settings:
+   - **Register**: Add your existing LoRA folder paths
+   - **Settings**: Set download folder and Civitai token
+   - **Save**: Click 'Save All Settings'
+6. Restart the app
 
 ### 🗄️ Database Setup
 <!-- Add database setup instructions here -->
