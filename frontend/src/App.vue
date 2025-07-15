@@ -20,11 +20,11 @@
           </router-link>
           <router-link to="/file-scanner" class="nav-link">
             <span class="link-icon">🔍</span>
-            <span class="link-text">Scanner</span>
+            <span class="link-text">Register</span>
           </router-link>
           <router-link to="/civit-data-fetcher" class="nav-link">
             <span class="link-icon">🔗</span>
-            <span class="link-text">Orphan LoRA</span>
+            <span class="link-text">Orphan & Duplicate</span>
           </router-link>
           <router-link to="/metadata" class="nav-link">
             <span class="link-icon">📋</span>

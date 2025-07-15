@@ -5,8 +5,8 @@
         <div class="header-content">
           <span class="header-icon">⏰</span>
           <div class="header-text">
-            <h2 class="section-title">Latest Updated LoRA</h2>
-            <p class="section-description">Recently updated LoRA models with their model and version names</p>
+            <h2 class="section-title">Recent Activty</h2>
+            <p class="section-description">Recently updated LoRA</p>
           </div>
         </div>
       </div>

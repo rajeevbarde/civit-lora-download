@@ -1,15 +1,11 @@
 <template>
   <div class="folders-section">
-    <div class="folders-header">
-      <h2 class="folders-title">LoRA Folders</h2>
-      <p class="folders-subtitle">Manage your LoRA directory paths for scanning and validation</p>
-    </div>
     
     <!-- Saved Paths Display -->
     <div v-if="savedPaths.length" class="saved-paths-container">
       <div class="paths-header">
         <span class="paths-icon">📁</span>
-        <span class="paths-label">Existing LoRA Folders</span>
+        <span class="paths-label">Existing LoRA path</span>
         <span class="paths-count">({{ savedPaths.length }})</span>
       </div>
       <div class="paths-list">
@@ -38,7 +34,7 @@
     <div class="add-path-section">
       <div class="add-path-header">
         <span class="add-path-icon">➕</span>
-        <span class="add-path-label">Add existing LoRA folders containing files</span>
+        <span class="add-path-label">Add</span>
       </div>
       <div class="add-path-form">
         <div class="input-group">
@@ -180,7 +176,8 @@ export default {
 
 .paths-count {
   margin-left: 0.25rem;
-  font-size: 0.8rem;
+  font-size: 1rem;
+  font-weight: 700;
   color: #6c757d;
   background: #e9ecef;
   padding: 0.1rem 0.4rem;
@@ -216,10 +213,10 @@ export default {
 }
 
 .path-text {
-  font-weight: 500;
+  font-weight: 700;
   color: #495057;
   font-family: 'Courier New', monospace;
-  font-size: 0.85rem;
+  font-size: 1.1rem;
   word-break: break-all;
 }
 

@@ -472,7 +472,7 @@ class FileService {
     async scanUniqueLoras(paths, dbFileNames) {
         const startTime = Date.now();
         logger.userAction('Unique lora scan started', { pathCount: paths.length });
-        logger.info('Scanning for unique loras', { pathCount: paths.length });
+        logger.info('Scanning for unique loRA', { pathCount: paths.length });
 
         // First, get all files from disk in parallel
         const allDiskFiles = [];

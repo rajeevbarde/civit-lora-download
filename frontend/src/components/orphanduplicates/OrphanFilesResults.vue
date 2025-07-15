@@ -47,6 +47,195 @@
       </div>
     </div>
 
+    <!-- Missing Files Section Header and Warning -->
+    <div v-if="scanResults.missingFiles && scanResults.missingFiles.length > 0" class="missing-files-card">
+      <div class="card-header">
+        <div class="card-icon warning">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Orphan Files Not Found in Database</h3>
+      </div>
+      <div class="warning-banner">
+        <div class="warning-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="warning-content">
+          <strong>Warning:</strong> 'Find and Fix' will search Civitai for metadata. If found, the file will be renamed to match the database entry.
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="orphan-tabs">
+      <button :class="{active: currentTab==='Orphan'}" @click="currentTab='Orphan'">Orphan</button>
+      <button :class="{active: currentTab==='Duplicate'}" @click="currentTab='Duplicate'">Duplicate</button>
+      <button :class="{active: currentTab==='NewlyAdded'}" @click="currentTab='NewlyAdded'" style="position:relative;">
+        Newly Added
+        <span class="info-tooltip" @mouseenter="showTooltip = true" @mouseleave="showTooltip = false">?
+          <span v-if="showTooltip" class="custom-tooltip">Files found after 7th May 2025 are not present in our database</span>
+        </span>
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div v-if="currentTab==='Orphan' && orphanFiles.length" class="file-list">
+      <div v-for="file in orphanFiles" :key="file.fullPath" class="file-card">
+        <div class="file-content">
+          <div class="file-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L19.7071 9.70711C19.8946 9.89464 20 10.149 20 10.4142V19C20 20.1046 19.1046 21 18 21H17ZM17 21V10H12V5H7V19H17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="file-info">
+            <div class="file-name">{{ file.fileName }}</div>
+            <div class="file-path">{{ file.directory }}</div>
+            <div v-if="file.status" class="file-status" :class="file.status">
+              <div class="status-icon">
+                <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              {{ file.status === 'processing' ? 'Processing...' : 
+                 file.status === 'success' ? 'Fixed Successfully' : 
+                 file.status === 'error' ? 'Metadata Not Found' : '' }}
+            </div>
+          </div>
+        </div>
+        <div class="file-actions">
+          <button 
+            @click="$emit('fix-file', file)" 
+            :disabled="file.status === 'processing' || file.status === 'success' || file.status === 'error'"
+            class="fix-btn"
+          >
+            <div class="btn-icon">
+              <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 7V13M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            {{
+              file.status === 'processing' ? 'Processing...' :
+              file.status === 'success' ? 'Fixed' :
+              file.status === 'error' ? 'Error' : 'Find & Fix'
+            }}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="currentTab==='Duplicate' && duplicateFiles.length" class="file-list">
+      <div v-for="file in duplicateFiles" :key="file.fullPath" class="file-card">
+        <div class="file-content">
+          <div class="file-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L19.7071 9.70711C19.8946 9.89464 20 10.149 20 10.4142V19C20 20.1046 19.1046 21 18 21H17ZM17 21V10H12V5H7V19H17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="file-info">
+            <div class="file-name">{{ file.fileName }}</div>
+            <div class="file-path">{{ file.directory }}</div>
+            <div v-if="file.status" class="file-status" :class="file.status">
+              <div class="status-icon">
+                <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              {{ file.status === 'processing' ? 'Processing...' : 
+                 file.status === 'success' ? 'Fixed Successfully' : 
+                 file.status === 'error' ? 'Metadata Not Found' : '' }}
+            </div>
+          </div>
+        </div>
+        <div class="file-actions">
+          <button 
+            disabled
+            class="fix-btn duplicate-file"
+          >
+            <div class="btn-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            Delete Later
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else-if="currentTab==='NewlyAdded' && newlyAddedFiles.length" class="file-list">
+      <div v-for="file in newlyAddedFiles" :key="file.fullPath" class="file-card">
+        <div class="file-content">
+          <div class="file-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L19.7071 9.70711C19.8946 9.89464 20 10.149 20 10.4142V19C20 20.1046 19.1046 21 18 21H17ZM17 21V10H12V5H7V19H17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="file-info">
+            <div class="file-name file-name-with-date">
+              <span>{{ file.fileName }}</span>
+              <span v-if="file.createdDate" class="created-date">{{ formatDate(file.createdDate) }}</span>
+            </div>
+            <div class="file-path">{{ file.directory }}</div>
+            <div v-if="file.status" class="file-status" :class="file.status">
+              <div class="status-icon">
+                <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              {{ file.status === 'processing' ? 'Processing...' : 
+                 file.status === 'success' ? 'Fixed Successfully' : 
+                 file.status === 'error' ? 'Metadata Not Found' : '' }}
+            </div>
+          </div>
+        </div>
+        <div class="file-actions">
+          <button 
+            disabled
+            class="fix-btn newly-added"
+          >
+            <div class="btn-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            Newly Added
+          </button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="file-list empty-list">
+      <p>No files found for this tab.</p>
+    </div>
+
     <!-- Errors Section -->
     <div v-if="scanResults.scanErrors && scanResults.scanErrors.length > 0" class="error-card">
       <div class="card-header">
@@ -72,94 +261,6 @@
       </div>
     </div>
 
-    <!-- Missing Files Section -->
-    <div v-if="scanResults.missingFiles && scanResults.missingFiles.length > 0" class="missing-files-card">
-      <div class="card-header">
-        <div class="card-icon warning">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <h3>Orphan Files Not Found in Database</h3>
-      </div>
-      
-      <div class="warning-banner">
-        <div class="warning-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </div>
-        <div class="warning-content">
-          <strong>Warning:</strong> 'Find and Fix' will search Civitai for metadata. If found, the file will be renamed to match the database entry.
-        </div>
-      </div>
-      
-      <div class="file-list">
-        <div v-for="file in scanResults.missingFiles" :key="file.fullPath" class="file-card">
-          <div class="file-content">
-            <div class="file-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M9 12H15M9 16H15M17 21H7C5.89543 21 5 20.1046 5 19V5C5 3.89543 5.89543 3 7 3H12.5858C12.851 3 13.1054 3.10536 13.2929 3.29289L19.7071 9.70711C19.8946 9.89464 20 10.149 20 10.4142V19C20 20.1046 19.1046 21 18 21H17ZM17 21V10H12V5H7V19H17Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div class="file-info">
-              <div class="file-name">{{ file.fileName }}</div>
-              <div class="file-path">{{ file.directory }}</div>
-              <div v-if="file.status" class="file-status" :class="file.status">
-                <div class="status-icon">
-                  <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                  <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </div>
-                {{ file.status === 'processing' ? 'Processing...' : 
-                   file.status === 'success' ? 'Fixed Successfully' : 
-                   file.status === 'error' ? 'Metadata Not Found' : '' }}
-              </div>
-            </div>
-          </div>
-          <div class="file-actions">
-            <button 
-              @click="$emit('fix-file', file)" 
-              :disabled="file.status === 'processing' || file.status === 'success' || file.status === 'error' || file.fileName.includes('_duplicate')"
-              class="fix-btn"
-              :class="{ 
-                'processing': file.status === 'processing',
-                'success': file.status === 'success',
-                'error': file.status === 'error',
-                'duplicate-file': file.fileName.includes('_duplicate')
-              }"
-            >
-              <div class="btn-icon">
-                <svg v-if="file.status === 'processing'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <svg v-else-if="file.status === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <svg v-else-if="file.status === 'error'" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M12 7V13M12 17H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              {{ file.status === 'processing' ? 'Processing...' : 
-                 file.status === 'success' ? 'Fixed' : 
-                 file.status === 'error' ? 'Error' : 
-                 file.fileName.includes('_duplicate') ? 'Delete Later' : 'Find & Fix' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- No Missing Files -->
     <div v-else-if="scanResults.totalScanned > 0" class="success-card">
       <div class="success-icon">
@@ -174,6 +275,7 @@
 </template>
 
 <script>
+import { apiService } from '@/utils/api.js';
 export default {
   name: 'OrphanFilesResults',
   props: {
@@ -182,7 +284,63 @@ export default {
       default: null
     }
   },
-  emits: ['fix-file']
+  emits: ['fix-file'],
+  data() {
+    return {
+      currentTab: 'Orphan',
+      showTooltip: false,
+    };
+  },
+  watch: {
+    scanResults: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal && newVal.missingFiles) {
+          this.fetchAllCreatedDates(newVal.missingFiles);
+        }
+      }
+    }
+  },
+  computed: {
+    orphanFiles() {
+      if (!this.scanResults || !this.scanResults.missingFiles) return [];
+      return this.scanResults.missingFiles.filter(f => !f.fileName.includes('_duplicate') && !this.isNewlyAdded(f));
+    },
+    duplicateFiles() {
+      if (!this.scanResults || !this.scanResults.missingFiles) return [];
+      return this.scanResults.missingFiles.filter(f => f.fileName.includes('_duplicate'));
+    },
+    newlyAddedFiles() {
+      if (!this.scanResults || !this.scanResults.missingFiles) return [];
+      return this.scanResults.missingFiles.filter(f => this.isNewlyAdded(f));
+    }
+  },
+  methods: {
+    async fetchAllCreatedDates(files) {
+      for (const file of files) {
+        try {
+          const res = await apiService.fetchFileCreatedDate(file.fullPath);
+          file.createdDate = res.createdDate;
+        } catch (e) {
+          file.createdDate = null;
+        }
+      }
+      this.$forceUpdate();
+    },
+    isNewlyAdded(file) {
+      if (file.createdDate) {
+        const fileDate = new Date(file.createdDate);
+        const cutoff = new Date(2025, 4, 7); // May is month 4 (0-based)
+        return fileDate > cutoff;
+      }
+      return false;
+    },
+    formatDate(date) {
+      if (!date) return '';
+      const d = new Date(date);
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+  }
 }
 </script>
 
@@ -503,9 +661,36 @@ export default {
 
 .fix-btn.duplicate-file {
   background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
-  color: white !important;
-  cursor: not-allowed;
+  color: #fff !important;
+  border: none !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Even when disabled, keep red */
+.fix-btn.duplicate-file:disabled {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  opacity: 1 !important;
+  cursor: not-allowed !important;
+}
+
+/* Blue style for newly added files */
+.fix-btn.newly-added {
+  background: #3498db !important;
+  color: #fff !important;
+  border: 1px solid #2980b9;
   opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* If both duplicate-file and newly-added, force red style */
+.fix-btn.duplicate-file.newly-added {
+  background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
+  color: #fff !important;
+  border: 1px solid #c53030 !important;
+  opacity: 1 !important;
 }
 
 .fix-btn:disabled {
@@ -539,6 +724,68 @@ export default {
   color: #38a169;
   font-size: 1.125rem;
   font-weight: 500;
+}
+
+.orphan-tabs {
+  display: flex;
+  gap: 1rem;
+  margin: 1.5rem 0 1rem 0;
+  background: #f0f4f8;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 8px rgba(100, 100, 200, 0.08);
+  border: 1.5px solid #b8c2cc;
+}
+.orphan-tabs button {
+  padding: 0.5rem 1.5rem;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 700;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  box-shadow: 0 1px 4px rgba(100, 100, 200, 0.07);
+  position: relative;
+}
+.orphan-tabs button.active {
+  background: linear-gradient(135deg, #a5b4fc 0%, #818cf8 100%);
+  color: #fff;
+  border: 2px solid #6366f1;
+  box-shadow: 0 2px 8px rgba(100, 100, 200, 0.13);
+}
+/* Tooltip style for info icon */
+.info-tooltip {
+  font-size: 0.85em;
+  margin-left: 0.3em;
+  vertical-align: middle;
+  cursor: help;
+  position: relative;
+}
+
+/* Custom tooltip for info icon */
+.info-tooltip {
+  font-size: 0.85em;
+  margin-left: 0.3em;
+  vertical-align: middle;
+  cursor: help;
+  position: relative;
+}
+.custom-tooltip {
+  position: absolute;
+  left: 50%;
+  top: 120%;
+  transform: translateX(-50%);
+  background: #222;
+  color: #fff;
+  padding: 0.35em 0.7em;
+  border-radius: 6px;
+  font-size: 0.82em;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  pointer-events: none;
 }
 
 /* Responsive Design */
@@ -581,5 +828,17 @@ export default {
 .file-status.processing .status-icon svg,
 .fix-btn.processing .btn-icon svg {
   animation: spin 1s linear infinite;
+}
+.created-date {
+  color: #6366f1;
+  font-size: 0.95em;
+  font-weight: 500;
+  margin-left: 0.5em;
+  white-space: nowrap;
+}
+.file-name-with-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75em;
 }
 </style> 

@@ -9,6 +9,7 @@ const {
     validateFixFileRequest 
 } = require('../../middleware/validation');
 const { createTimeoutMiddleware } = require('../../middleware/timeout');
+const fs = require('fs').promises;
 
 // Create a longer timeout for the register endpoint
 const registerTimeout = createTimeoutMiddleware(1200000); // 20 minutes
@@ -299,6 +300,20 @@ router.get('/read-json', async (req, res) => {
         } else {
             res.status(500).json({ error: error.message });
         }
+    }
+});
+
+// Add this endpoint to get file creation date
+router.post('/file/created-date', async (req, res) => {
+    const { filePath } = req.body;
+    if (!filePath) {
+        return res.status(400).json({ error: 'filePath is required' });
+    }
+    try {
+        const stats = await fs.stat(filePath);
+        return res.json({ createdDate: stats.birthtime });
+    } catch (err) {
+        return res.status(500).json({ error: 'Could not get file creation date', details: err.message });
     }
 });
 

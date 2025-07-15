@@ -4,7 +4,7 @@
       <div class="header-content">
         <span class="header-icon">📊</span>
         <div class="header-text">
-          <h2 class="section-title">Model Overview</h2>
+          <h2 class="section-title">Registered LoRA on your hard drive</h2>
           <p class="section-description">Overview of your Registered LoRA organized by base model and rating</p>
         </div>
       </div>

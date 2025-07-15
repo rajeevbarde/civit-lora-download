@@ -1,7 +1,14 @@
 <template>
   <div v-if="uniqueLorasResults || orphanFiles.length" class="unique-loras-container">
     <div class="unique-loras-summary" v-if="uniqueLorasResults && uniqueLorasResults.stats">
-      <p><strong>Total LoRA files on disk:</strong> {{ uniqueLorasResults.stats.totalDiskFiles }}</p>
+      <div class="stats-card">
+        <div class="stats-icon">📁</div>
+        <div class="stats-content">
+          <div class="stats-label">Total LoRA Files</div>
+          <div class="stats-value">{{ uniqueLorasResults.stats.totalDiskFiles }}</div>
+          <div class="stats-subtitle">on disk</div>
+        </div>
+      </div>
     </div>
     
     <!-- Tab Navigation -->
@@ -12,7 +19,7 @@
         @click="activeUniqueTab = tab.key"
         :class="['unique-tab-button', { active: activeUniqueTab === tab.key }]"
       >
-        {{ tab.label }} ({{ getUniqueTabCount(tab.key) }})
+        {{ tab.label }} <span class="tab-count">({{ getUniqueTabCount(tab.key) }})</span>
       </button>
     </div>
     
@@ -22,17 +29,17 @@
         <!-- Tab Description -->
         <template v-if="tab.key === 'unique-downloaded'">
           <div class="tab-description">
-            LoRA files are registered with local Civitai database. They do not have duplicate issues.
+            Registered LoRA with Civitai and no duplicates.
           </div>
         </template>
         <template v-else-if="tab.key === 'unique-not-downloaded'">
           <div class="tab-description">
-            LoRA files are present in your harddrive but not registered with local Civitai database. They do not have duplicate issues.
+            Not Registered LoRA present in your hardrive and dont have duplicates
           </div>
         </template>
         <template v-else-if="tab.key === 'duplicate-issues'">
           <div class="tab-description with-link">
-            <span>Wierd duplicate Issues</span>
+            <span>Duplicate LoRA which are not registered</span>
             <router-link to="/civit-data-fetcher" class="fix-link">
               <span class="fix-icon">🔧</span>
               <span class="fix-text">Fix it</span>
@@ -41,7 +48,7 @@
         </template>
         <template v-else-if="tab.key === 'orphan'">
           <div class="tab-description with-link">
-            <span>LoRA files present in harddrive but does not exist in Civitai database.</span>
+            <span>Unknown LoRA present in harddrive</span>
             <router-link to="/civit-data-fetcher" class="fix-link">
               <span class="fix-icon">🔧</span>
               <span class="fix-text">Fix it</span>
@@ -140,9 +147,9 @@ export default {
     return {
       activeUniqueTab: 'unique-downloaded',
       uniqueTabs: [
-        { key: 'unique-downloaded', label: 'LoRA Registered with local Civitai database' },
-        { key: 'unique-not-downloaded', label: 'LoRA not Registered' },
-        { key: 'duplicate-issues', label: 'Duplicate Issues' }
+        { key: 'unique-downloaded', label: 'Registered' },
+        { key: 'unique-not-downloaded', label: 'Not Registered' },
+        { key: 'duplicate-issues', label: 'Duplicate' }
       ]
     };
   },
@@ -150,7 +157,7 @@ export default {
     uniqueTabsWithOrphan() {
       return [
         ...this.uniqueTabs,
-        { key: 'orphan', label: 'Orphan Files' }
+        { key: 'orphan', label: 'Orphan' }
       ];
     }
   },
@@ -170,7 +177,7 @@ export default {
           case 'unique-downloaded':
             return file.status === 'Unique' && file.isDownloaded === 1;
           case 'unique-not-downloaded':
-            return file.status === 'Unique' && file.isDownloaded === 0;
+            return file.status === 'Unique' && (file.isDownloaded === 0 || file.isDownloaded === 4);
           case 'duplicate-issues':
             return file.status !== 'Unique';
           default:
@@ -203,8 +210,51 @@ export default {
 }
 
 .unique-loras-summary {
-  margin-bottom: 1rem;
-  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.stats-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  max-width: 200px;
+}
+
+.stats-icon {
+  font-size: 1.5rem;
+  opacity: 0.9;
+}
+
+.stats-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.stats-label {
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stats-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stats-subtitle {
+  font-size: 0.65rem;
+  opacity: 0.8;
+  font-weight: 400;
 }
 
 .unique-tab-navigation {
@@ -459,5 +509,10 @@ export default {
   .unique-loras-table td {
     padding: 8px 6px;
   }
+}
+
+.tab-count {
+  font-weight: bold;
+  color: inherit;
 }
 </style> 

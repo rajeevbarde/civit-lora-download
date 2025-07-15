@@ -4,8 +4,8 @@
       <div class="header-content">
         <span class="header-icon">📁</span>
         <div class="header-text">
-          <h2 class="section-title">LoRA File Locations</h2>
-          <p class="section-description">Summary of your LoRA file locations and total file counts for easy organization</p>
+          <h2 class="section-title">LoRA folders</h2>
+          <p class="section-description">Summary of your LoRA folders and total file counts for easy organization</p>
         </div>
       </div>
     </div>
@@ -339,8 +339,8 @@ export default {
   color: #3b82f6;
 }
 .path-text {
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-  font-size: 0.875rem;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 1rem;
   color: #1e293b;
   word-break: break-all;
   line-height: 1.4;
@@ -354,7 +354,7 @@ export default {
   color: white;
   padding: 6px 12px;
   border-radius: 20px;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
   display: inline-block;
   min-width: 40px;
@@ -368,7 +368,7 @@ export default {
   color: white;
   padding: 8px 16px;
   border-radius: 20px;
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 700;
   display: inline-block;
   min-width: 60px;

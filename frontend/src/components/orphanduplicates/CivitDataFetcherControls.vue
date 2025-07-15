@@ -1,8 +1,8 @@
 <template>
   <div class="controls-section">
     <div class="controls-header">
-      <h2 class="controls-title">File Management Tools</h2>
-      <p class="controls-subtitle">Scan for orphan files and resolve duplicate issues</p>
+      <h2 class="controls-title">LoRA File Cleanup and Maintenance</h2>
+      <p class="controls-subtitle">Resolve Orphan and Duplicate LoRAs</p>
     </div>
     
     <div class="controls-buttons">
@@ -13,7 +13,7 @@
           class="control-btn primary-btn"
         >
           <span class="btn-icon">🔍</span>
-          <span class="btn-text">{{ isScanning ? 'Scanning...' : 'Scan for Orphan Files' }}</span>
+          <span class="btn-text">{{ isScanning ? 'Scanning...' : 'Orphan Files' }}</span>
         </button>
         
         <div v-if="isScanning || scanTimer > 0" class="timer-display">
@@ -29,7 +29,7 @@
           class="control-btn secondary-btn"
         >
           <span class="btn-icon">🔄</span>
-          <span class="btn-text">{{ duplicateIssuesLoading ? 'Scanning...' : 'Duplicate Issues' }}</span>
+          <span class="btn-text">{{ duplicateIssuesLoading ? 'Scanning...' : 'Duplicates' }}</span>
         </button>
         
         <div v-if="duplicateIssuesLoading || duplicateTimer > 0" class="timer-display">

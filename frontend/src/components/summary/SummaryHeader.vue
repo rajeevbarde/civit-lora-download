@@ -1,7 +1,7 @@
 <template>
   <div class="header-section">
     <h1 class="page-title">LoRA Dashboard</h1>
-    <p class="page-subtitle">Comprehensive overview of your LoRA model collection and file organization</p>
+    <p class="page-subtitle">Overview of your LoRA collection and files organized</p>
   </div>
 </template>
 

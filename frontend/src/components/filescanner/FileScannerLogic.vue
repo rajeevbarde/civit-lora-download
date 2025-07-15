@@ -153,7 +153,7 @@ export default {
       this.cancelPendingOperation(operationId);
       this.startOperation(operationId);
       this.scanningUniqueLoras = true;
-      this.message = 'Scanning for unique loras...';
+      this.message = 'Scanning for unique loRA...';
       this.uniqueLorasResults = null;
       
       try {
@@ -169,7 +169,7 @@ export default {
         this.removeOperationController(operationId);
         this.scanningUniqueLoras = false;
         // Clear message if not an error
-        if (this.message === 'Scanning for unique loras...') {
+        if (this.message === 'Scanning for unique loRA...') {
           this.message = '';
         }
       }

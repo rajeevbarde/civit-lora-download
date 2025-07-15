@@ -1,8 +1,8 @@
 <template>
   <div class="summary-tabs">
-    <button class="tab-btn" :class="{active: activeTab === 'overview'}" @click="$emit('tab-click', 'overview')">Model Overview</button>
-    <button class="tab-btn" :class="{active: activeTab === 'locations'}" @click="$emit('tab-click', 'locations')">LoRA File Locations</button>
-    <button class="tab-btn" :class="{active: activeTab === 'lora'}" @click="$emit('tab-click', 'lora')">Latest Updated LoRA</button>
+    <button class="tab-btn" :class="{active: activeTab === 'overview'}" @click="$emit('tab-click', 'overview')">Registered LoRA on your hard drive</button>
+    <button class="tab-btn" :class="{active: activeTab === 'locations'}" @click="$emit('tab-click', 'locations')">LoRA folders</button>
+    <button class="tab-btn" :class="{active: activeTab === 'lora'}" @click="$emit('tab-click', 'lora')">Recent Activty</button>
   </div>
 </template>
 

@@ -1,8 +1,12 @@
 <template>
   <div class="action-section">
     <div class="action-header">
-      <h2 class="action-title">Scan and Register LoRA</h2>
-      <p class="action-subtitle">Validate existing LoRA files and discover new ones</p>
+      <h2 class="action-title">Scan, Register and Validate</h2>
+      <div class="action-steps">
+        <p class="step">1. Scan folders</p>
+        <p class="step">2. Register LoRA</p>
+        <p class="step">3. Validate registered files</p>
+      </div>
     </div>
     
     <div class="action-buttons">
@@ -13,7 +17,7 @@
           class="action-btn primary-btn"
         >
           <span class="btn-icon">🔍</span>
-          <span class="btn-text">{{ scanningUniqueLoras ? 'Scanning...' : 'Scan Files' }}</span>
+          <span class="btn-text">{{ scanningUniqueLoras ? 'Scanning...' : 'Scan Folder' }}</span>
         </button>
         
         <div v-if="scanningUniqueLoras || scanTimer > 0" class="timer-display">
@@ -234,6 +238,22 @@ export default {
   font-weight: 600;
   color: #667eea;
   font-size: 1rem;
+}
+
+.action-steps {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.step {
+  font-size: 1rem;
+  color: #495057;
+  margin: 0;
+  font-weight: 500;
+  padding: 0.25rem 0;
 }
 
 /* Responsive design */

@@ -386,6 +386,13 @@ export const apiService = {
     });
     return response.data;
   },
+
+  async fetchFileCreatedDate(filePath, options = {}) {
+    const response = await api.post('/files/file/created-date', { filePath }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
 };
 
 export default apiService; 
