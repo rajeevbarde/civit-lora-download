@@ -602,7 +602,8 @@ export default {
   background: #f8f9fa;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
-  font-size: 0.8rem;
+  font-size: 1rem;
+  font-weight: bold;
   color: #495057;
   border-left: 3px solid #dee2e6;
 }

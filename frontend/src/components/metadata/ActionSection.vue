@@ -20,7 +20,7 @@
       >
         <span v-if="fetchingMetadata" class="btn-spinner">⏳</span>
         <span v-else class="btn-icon">🔄</span>
-        {{ fetchingMetadata ? 'Stop Fetching' : 'Fetch Metadata' }}
+        {{ fetchingMetadata ? 'Stop Fetching' : 'Fetch Trigger words' }}
       </button>
       
       <button 

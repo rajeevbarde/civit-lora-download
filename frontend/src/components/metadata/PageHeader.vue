@@ -1,7 +1,6 @@
 <template>
   <div class="page-header">
-    <h1>Metadata</h1>
-    <p>This page shows statistics about metadata completeness for your downloaded LoRAs.</p>
+    <h1>Metadata <span class="bracket-text">(includes trigger words)</span></h1>
   </div>
 </template>
 
@@ -22,6 +21,12 @@ export default {
   font-weight: 700;
   color: #2c3e50;
   margin-bottom: 0.5rem;
+}
+
+.bracket-text {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #7f8c8d;
 }
 
 .page-header p {

@@ -3,8 +3,7 @@
     <div class="settings-section-header">
       <span class="section-icon">📂</span>
       <div>
-        <h3 class="section-title gradient-text">Download Base Directory</h3>
-        <p class="section-subtitle">Set the base directory for downloads [This full path should be listed in 'Scanner' folder as well]</p>
+        <h3 class="section-title gradient-text">Civitai Download Folder Path</h3>
       </div>
     </div>
     <div class="settings-section-content">

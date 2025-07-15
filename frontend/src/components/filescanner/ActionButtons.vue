@@ -3,9 +3,29 @@
     <div class="action-header">
       <h2 class="action-title">Scan, Register and Validate</h2>
       <div class="action-steps">
-        <p class="step">1. Scan folders</p>
-        <p class="step">2. Register LoRA</p>
-        <p class="step">3. Validate registered files</p>
+        <div class="step-item">
+          <div class="step-icon">🔍</div>
+          <div class="step-content">
+            <div class="step-number">1</div>
+            <div class="step-text">Scan folders</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">📝</div>
+          <div class="step-content">
+            <div class="step-number">2</div>
+            <div class="step-text">Register LoRA</div>
+          </div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step-item">
+          <div class="step-icon">✅</div>
+          <div class="step-content">
+            <div class="step-number">3</div>
+            <div class="step-text">Validate files</div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -241,19 +261,74 @@ export default {
 }
 
 .action-steps {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
   align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
-.step {
-  font-size: 1rem;
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+  min-width: 140px;
+}
+
+.step-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.step-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  color: white;
+  font-weight: bold;
+}
+
+.step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.step-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.step-text {
+  font-size: 0.9rem;
+  font-weight: 600;
   color: #495057;
   margin: 0;
-  font-weight: 500;
-  padding: 0.25rem 0;
+}
+
+.step-arrow {
+  font-size: 1.5rem;
+  color: #667eea;
+  font-weight: bold;
+  margin: 0 0.5rem;
+  opacity: 0.7;
 }
 
 /* Responsive design */
@@ -269,6 +344,20 @@ export default {
   
   .action-subtitle {
     font-size: 1rem;
+  }
+  
+  .action-steps {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .step-arrow {
+    transform: rotate(90deg);
+    margin: 0.5rem 0;
+  }
+  
+  .step-item {
+    min-width: 200px;
   }
   
   .action-buttons {
