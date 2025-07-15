@@ -1,76 +1,63 @@
-# civit-lora-download
+# 🎨 civit-lora-download
 
-Easily organize and download LoRA models using a pre-scraped CivitAI database—all in one simple app.
+> Easily organize and download LoRA using a pre-scraped CivitAI database—all in one simple app.
 
-<img src="docs/images/App_overview.png" alt="App Homepage Screenshot" width="500"/>
+<div align="center">
+  <img src="docs/images/app-screenshot.png" alt="Civit LoRA Download App" width="800" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+</div>
 
-## Features ([screenshots](FEATURES.md))
+## 📋 Table of Contents
+- [✨ Features](#features)
+- [🚀 How to begin after installation?](#how-to-begin)
+- [⚙️ Installation](#installation)
+  - [📋 Prerequisites](#prerequisites)
+  - [🔧 Setup](#setup)
+  - [🗄️ Database Setup](#database-setup)
+- [🔧 Troubleshooting](#troubleshooting)
+- [💝 Support & Donations](#support--donations)
 
-- Effortlessly organize your LoRA models on your local hard drive
-- Download LoRA models directly from Civitai
-- Scan and register existing LoRA models already present on your hard drive
-- Detect and list orphan files (files not linked to any model)
-- Identify and manage duplicate LoRA models on your HDD
+## ✨ Features
 
-## Prerequisites
-- Node.js v20 must be installed on your system. [Download Node.js here](https://nodejs.org/en/download)
-- Windows 11 only. You can try linux, share errors if found.
+| Feature | Documentation |
+|---------|---------------|
+| 🔍 **Scan & Register existing LoRA** | [Screenshots and Steps](docs/file-scanner.md) |
+| ⬇️ **Download LoRA from Civitai with Filters** | [Screenshots and Steps](docs/download-management.md) |
+| 🔍 **Detect Duplicates and Orphan LoRA** | [Screenshots and Steps](docs/duplicate-orphan-finder.md) |
+| 👤 **LoRA Profile Page** | [Screenshots and Steps](docs/lora-details.md) |
+| 📊 **Dashboard of Registered LoRA** | [Screenshots and Steps](docs/dashboard.md) |
+| 🎯 **Fetch Trigger Words** | [Screenshots and Steps](docs/trigger-word-finder.md) |
+| ⚙️ **Settings** | [Screenshots and Steps](docs/settings.md) |
 
-## Setup
+## 🚀 How to begin after installation?
 
-1. Clone this project:
-   ```
-   git clone https://github.com/rajeevbarde/civit-lora-download.git
-   ```
+1. Share your LoRA folders path on harddrive
+2. Press Scan Button
+3. Register lora
+4. Validate files
+5. Fix duplicates
+6. Fix Orphans
+7. Download new LoRA
+8. Fetch Metadata for trigger words
 
-2. Run `start_servers.bat` to launch both the frontend and backend servers at once. This will also automatically download and install all necessary files and dependencies.
+## ⚙️ Installation
 
-3. Visit [http://localhost:5173/](http://localhost:5173/) in your browser. If the page doesn't load, check the console for the correct port number.
+### 📋 Prerequisites
+<!-- Add prerequisites here -->
 
----
+### 🔧 App Setup
+<!-- Add setup instructions here -->
 
-🎉 **Congratulations!** If you can see the app's homepage as shown below with warning, your basic setup is done.
+### 🗄️ Database Setup
+<!-- Add database setup instructions here -->
 
-<img src="docs/images/homepage_sampledb.png" alt="App Homepage Screenshot" width="400"/>
+## 🔧 Troubleshooting
 
-## About the Warning Message
+### Common Issues
+- ⚠️ **App won't start**: Make sure Node.js is installed
+- 🔌 **Can't connect**: Check if the server is running on the correct port
+- ❌ **Download fails**: Verify your Civitai API token
 
-The warning appears because this app uses a sample of a community-scraped CivitAI database (Data till May 2025). The full collection is available via a Reddit post [here](https://www.reddit.com/r/StableDiffusion/comments/1kfvt73/civitai_model_database_checkpoints_and_loras/). This just lets you know you're viewing a limited dataset.
-
-I used that database to create a new minimal version focused on LoRA models.
-
-**To use the minimal LoRA database:**
-
-1. Download the file from [this link](https://drive.proton.me/urls/2ERE25EKZW#sXQbMZspNTUa).
-2. Save the downloaded file in a suitable folder where you can easily find and access it later.
-3. Follow the next App configuration guide to complete the setup.
-
-## App Configuration Guide
-
-For author's App settings, see [AUTHORCONFIG.md](AUTHORCONFIG.md).
-
-**It is strongly recommended that any folder path saved in the app should NOT be inside this project folder.**
-
-### Database Path Location
-
-1. Set the full file path to the database file you downloaded in the previous steps.
-2. Press the **Verify** button to check the database file.
-3. Press the **Save DB path** button to save your configuration.
-
-<img src="docs/images/settings.png" alt="App Homepage Screenshot" width="400"/>
-
-### Download Directory and API Token
-
-1. Save the full folder path where all the LoRA files will get downloaded.
-2. Add your Civitai API token.
-3. Press the **Save All settings** button to apply your changes.
-
-## Future plans
-
-1. Download LoRA from Hugging Face and Civitai that are not present in the database, and register them automatically.
-2. Create a similar app for managing and organizing checkpoint models.
-
-## Support & Donations
+## 💝 Support & Donations
 
 If you find this project helpful, consider supporting it!
 
