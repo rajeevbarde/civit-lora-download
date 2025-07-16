@@ -15,8 +15,9 @@ router.get('/', validatePagination, async (req, res) => {
             modelNsfw: req.query.modelNsfw,
             versionNsfwLevelRange: req.query.versionNsfwLevelRange
         };
+        const searchQuery = req.query.searchQuery || null;
 
-        const result = await databaseService.getModels(page, limit, filters);
+        const result = await databaseService.getModels(page, limit, filters, searchQuery);
         res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });

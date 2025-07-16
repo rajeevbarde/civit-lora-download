@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 class DatabaseService {
     // Get models with pagination and filters
-    async getModels(page = 1, limit = 20, filters = {}) {
+    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null) {
         const offset = (page - 1) * limit;
         let baseWhere = [];
         let params = [];
@@ -30,6 +30,15 @@ class DatabaseService {
             }
         }
 
+        // Add search condition if provided (minimum 3 characters)
+        if (searchQuery && searchQuery.length >= 3) {
+            baseWhere.push('(tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE)');
+            const exactMatch = searchQuery;
+            const startsWith = `${searchQuery}%`;
+            const contains = `%${searchQuery}%`;
+            params.push(exactMatch, startsWith, contains);
+        }
+
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
 
         let query = `
@@ -40,6 +49,7 @@ class DatabaseService {
                 fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
             FROM ALLCivitData
             ${whereClause}
+            ORDER BY modelVersionDownloadCount DESC, modelVersionId DESC
         `;
 
         let connection;
@@ -49,7 +59,7 @@ class DatabaseService {
             // First, get the total count with filters
             const countResult = await dbPool.runQuerySingle(connection, `SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params);
             
-            // Then get the paginated data
+            // Then get the paginated data with proper ordering
             const rows = await dbPool.runQuery(connection, query + ' LIMIT ? OFFSET ?', [...params, limit, offset]);
             
             return {
