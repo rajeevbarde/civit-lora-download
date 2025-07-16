@@ -5,7 +5,7 @@
         <div class="header-content">
           <span class="header-icon">⏰</span>
           <div class="header-text">
-            <h2 class="section-title">Recent Activty</h2>
+            <h2 class="section-title">Recent Activity</h2>
             <p class="section-description">Recently updated LoRA</p>
           </div>
         </div>
