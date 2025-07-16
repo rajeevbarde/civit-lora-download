@@ -1,8 +1,12 @@
 <template>
   <div class="image-carousel-container">
-    <!-- Image Carousel -->
+    <!-- Image Carousel or Not Found -->
     <div v-if="modelImages.length > 0" class="image-carousel">
       <div class="carousel-container">
+        <!-- Loader Overlay -->
+        <div v-if="imageLoading" class="loader-overlay">
+          <LoadingSpinner :loading="true" size="small" message="" />
+        </div>
         <!-- First Image -->
         <div class="carousel-image-wrapper">
           <img 
@@ -10,9 +14,11 @@
             :alt="`Model image ${currentImageIndex + 1}`"
             class="carousel-image"
             @error="handleImageError"
+            @load="onImageLoad"
+            ref="carouselImg1"
+            :style="imageLoading ? 'opacity:0.5;filter:blur(2px);' : ''"
           />
         </div>
-        
         <!-- Second Image (if available) -->
         <div v-if="modelImages.length > 1" class="carousel-image-wrapper">
           <img 
@@ -20,18 +26,12 @@
             :alt="`Model image ${getSecondImageIndex() + 1}`"
             class="carousel-image"
             @error="handleImageError"
+            @load="onImageLoad"
+            ref="carouselImg2"
+            :style="imageLoading ? 'opacity:0.5;filter:blur(2px);' : ''"
           />
         </div>
-        
         <!-- Navigation Arrows -->
-        <button 
-          v-if="modelImages.length > 2"
-          @click="previousImage" 
-          class="carousel-arrow carousel-arrow-left"
-          aria-label="Previous image"
-        >
-          ‹
-        </button>
         <button 
           v-if="modelImages.length > 2"
           @click="nextImage" 
@@ -40,27 +40,39 @@
         >
           ›
         </button>
-        
+        <button 
+          v-if="modelImages.length > 2"
+          @click="previousImage" 
+          class="carousel-arrow carousel-arrow-left"
+          aria-label="Previous image"
+        >
+          ‹
+        </button>
         <!-- Image Counter -->
         <div v-if="modelImages.length > 2" class="image-counter">
           {{ currentImageIndex + 1 }}-{{ getSecondImageIndex() + 1 }} / {{ modelImages.length }}
         </div>
       </div>
     </div>
-    
     <!-- Placeholder when no images -->
-    <div v-else class="model-image-placeholder">
+    <div v-else-if="!imageLoading" class="model-image-placeholder">
       <div class="image-icon">🖼️</div>
       <span class="image-text">Image Not Found</span>
+    </div>
+    <!-- Loader when no images but still loading -->
+    <div v-else class="model-image-placeholder">
+      <LoadingSpinner :loading="true" size="small" message="" />
     </div>
   </div>
 </template>
 
 <script>
 import { apiService } from '@/utils/api.js';
+import LoadingSpinner from './LoadingSpinner.vue';
 
 export default {
   name: 'ImageCarousel',
+  components: { LoadingSpinner },
   props: {
     modelId: {
       type: [Number, String],
@@ -80,7 +92,9 @@ export default {
     return {
       modelImages: [],
       currentImageIndex: 0,
-      imageLoading: false
+      imageLoading: true, // Start as true to show loader immediately
+      imagesLoadedCount: 0,
+      loaderTimeout: null
     };
   },
   watch: {
@@ -97,50 +111,47 @@ export default {
       immediate: true
     }
   },
+  beforeUnmount() {
+    if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
+  },
   methods: {
     // Image Fetching Methods
     async fetchModelImages() {
+      this.imageLoading = true;
+      this.imagesLoadedCount = 0;
+      if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
+      // Show "Image Not Found" after 12 seconds
+      this.loaderTimeout = setTimeout(() => {
+        this.imageLoading = false;
+      }, 12000);
       if (!this.modelId || !this.modelVersionId) {
         this.modelImages = [];
+        this.imageLoading = false;
+        if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
         return;
       }
-      
       try {
-        this.imageLoading = true;
-        
         // First, check if we have locally cached images
         try {
           const localImagesResult = await apiService.getLocalImages(this.modelId, this.modelVersionId);
-          
           if (localImagesResult.success && localImagesResult.hasCachedTxt && localImagesResult.localImages.length > 0) {
-            // Use local images - much faster!
             this.modelImages = localImagesResult.localImages;
             this.currentImageIndex = 0;
+            await this.$nextTick();
+            this.checkImagesLoaded();
             return;
           }
-        } catch (localError) {
-          // Local images check failed, falling back to URL-based approach
-        }
+        } catch (localError) {}
         
         // Fallback: Use the original URL-based approach
-        
-        // Construct the predictable path format
         const jsonPath = `backend/data/modeljson/${this.modelId}/${this.modelVersionId}/${this.modelId}_${this.modelVersionId}.json`;
-        
         let jsonData;
-        
         try {
-          // First, try to read the existing JSON file
           jsonData = await apiService.readJsonFile(jsonPath);
         } catch (fileError) {
-          // JSON file not found locally, attempting to download from API
-          
-          // If file doesn't exist, download it from the API
           try {
             const downloadResult = await apiService.downloadJsonMetadata(this.modelId, this.modelVersionId);
-            
             if (downloadResult.success) {
-              // Now try to read the newly downloaded file
               jsonData = await apiService.readJsonFile(jsonPath);
             } else {
               throw new Error(downloadResult.message || 'Failed to download metadata');
@@ -149,8 +160,6 @@ export default {
             throw new Error(`Failed to download metadata: ${downloadError.message}`);
           }
         }
-        
-        // Extract image URLs from the 'images' array
         if (jsonData.images && Array.isArray(jsonData.images)) {
           this.modelImages = jsonData.images
             .map(image => image.url)
@@ -158,49 +167,71 @@ export default {
         } else {
           this.modelImages = [];
         }
-        
-        // Reset current image index
         this.currentImageIndex = 0;
-        
+        await this.$nextTick();
+        this.checkImagesLoaded();
       } catch (err) {
         this.modelImages = [];
         this.$emit('error', err.message || 'Failed to load model images');
-      } finally {
-        this.imageLoading = false;
       }
     },
-    
-    // Navigation Methods
+    checkImagesLoaded() {
+      // Check if the images are already loaded (cached)
+      let loaded = 0;
+      const img1 = this.$refs.carouselImg1;
+      if (img1 && img1.complete) loaded++;
+      const img2 = this.$refs.carouselImg2;
+      if (img2 && img2.complete) loaded++;
+      this.imagesLoadedCount = loaded;
+      if (loaded >= Math.min(this.modelImages.length, 2)) {
+        this.imageLoading = false;
+        if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
+      }
+    },
+    onImageLoad() {
+      // Called for each image as it loads
+      this.imagesLoadedCount++;
+      if (this.imagesLoadedCount >= Math.min(this.modelImages.length, 2)) {
+        this.imageLoading = false;
+        if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
+      }
+    },
     nextImage() {
       if (this.modelImages.length > 2) {
         this.currentImageIndex = (this.currentImageIndex + 2) % this.modelImages.length;
+        this.imagesLoadedCount = 0;
+        this.imageLoading = true;
+        this.$nextTick(() => this.checkImagesLoaded());
       }
     },
-    
     previousImage() {
       if (this.modelImages.length > 2) {
         this.currentImageIndex = this.currentImageIndex === 0 
           ? Math.max(0, this.modelImages.length - 2) 
           : this.currentImageIndex - 2;
+        this.imagesLoadedCount = 0;
+        this.imageLoading = true;
+        this.$nextTick(() => this.checkImagesLoaded());
       }
     },
-    
     getSecondImageIndex() {
       if (this.modelImages.length <= 1) {
         return this.currentImageIndex;
       }
       return (this.currentImageIndex + 1) % this.modelImages.length;
     },
-    
     handleImageError(event) {
-      // Remove the failed image from the array
       const failedImageUrl = event.target.src;
       const index = this.modelImages.indexOf(failedImageUrl);
       if (index > -1) {
         this.modelImages.splice(index, 1);
-        // Adjust current index if needed
         if (this.currentImageIndex >= this.modelImages.length) {
           this.currentImageIndex = Math.max(0, this.modelImages.length - 1);
+        }
+        // If all images failed, hide loader
+        if (this.modelImages.length === 0) {
+          this.imageLoading = false;
+          if (this.loaderTimeout) clearTimeout(this.loaderTimeout);
         }
       }
     }
@@ -387,5 +418,19 @@ export default {
     width: 200px;
     height: 300px;
   }
+}
+
+.loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.4);
+  z-index: 20;
+  pointer-events: none;
 }
 </style> 
