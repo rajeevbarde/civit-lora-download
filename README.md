@@ -16,7 +16,7 @@
 - [🔧 Troubleshooting](#troubleshooting)
 - [💝 Support & Donations](#support--donations)
 
-## ✨ Features
+## <span style="font-size:2em; font-weight:bold;">✨ Features</span>
 
 Easily manage, download, and organize your LoRA models with these helpful tools:
 
@@ -30,21 +30,29 @@ Easily manage, download, and organize your LoRA models with these helpful tools:
 | 🎯 **Fetch Trigger Words** | [Screenshots and Steps](docs/trigger-word-finder.md) |
 | ⚙️ **Settings** | [Screenshots and Steps](docs/settings.md) |
 
-## 🚀 How to begin after installation?
+## <span style="font-size:2em; font-weight:bold;">🚀 How to begin after installation?</span>
 
 Follow these simple steps to get your LoRA collection up and running in the app:
+
+**Register and Validate LoRA**
 
 1. Tell the app where your LoRA folders are.
 2. Click Scan to find your LoRA files.
 3. Register your found LoRA.
 4. Validate to check if files are working.
+
+**Handle Duplicates and Orphans**
+
 5. Remove any duplicates the app finds.
 6. Fix any orphan files (files not linked to a model).
+
+**LoRA Management**
+
 7. Download new LoRA from CivitAI if you want.
 8. Fetch trigger words to use with your LoRA.
 9. Check the LoRA Hub to view downloaded, ignored, or failed LoRA.
 
-## ⚙️ Installation
+## <span style="font-size:2em; font-weight:bold;">⚙️ Installation <span style='font-size:0.6em; font-weight:400;'>(one-time activity)</span></span>
 
 ### <u>Prerequisites</u>
 - Install Node.js 20
@@ -56,11 +64,7 @@ Follow these simple steps to get your LoRA collection up and running in the app:
 3. Open http://localhost:5173/ in your browser
 4. You should see the app interface like below
 
-<div align="center">
-  <a href="docs/images/appreadysampledb.png" target="_blank" rel="noopener noreferrer">
     <img src="docs/images/appreadysampledb.png" alt="App Screenshot" width="350" style="max-width: 50%; height: auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border: 2px solid #e1e5e9; display: block; margin-left: 0;">
-  </a>
-</div>
 
 5. Configure these settings:
    - **Register**: Add your existing LoRA folder paths
@@ -71,7 +75,20 @@ Follow these simple steps to get your LoRA collection up and running in the app:
    - Double-click `start_servers.bat` to restart the app.
 
 ### <u>Database Setup</u>
-<!-- Add database setup instructions here -->
+
+<span style="font-size:1.05em; color:#b26a00; margin-bottom: 10px;">This database only contains LoRA data up to 7 May 2025.</span>
+
+1. Download and unzip the database file named `models_standalone.db` from [this link](https://drive.proton.me/urls/2ERE25EKZW#sXQbMZspNTUa).
+2. On the Settings page, provide the file path to your `models_standalone.db` file.
+3. Press the **Verify** button and make sure you see green checkmarks everywhere and no errors.
+4. Press **Save DB path** (see screenshot below):
+
+   <img src="docs/images/dbsettings.png" alt="DB Settings Screenshot" width="350" style="max-width: 50%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.10); border: 1px solid #e1e5e9; margin: 12px 0;">
+
+5. Restart the app again (close both server windows and double-click `start_servers.bat`).
+6. Verify on the home page that warning is removed.
+
+<div style="font-size:1.3em; font-weight:600; margin: 12px 0;">🎉 Congrats! Your app is now ready to use.</div>
 
 ## 🔧 Troubleshooting
 
