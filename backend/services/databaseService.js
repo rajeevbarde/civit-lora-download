@@ -32,10 +32,16 @@ class DatabaseService {
 
         // Add search condition if provided (minimum 3 characters)
         if (searchQuery && searchQuery.length >= 3) {
-            baseWhere.push('(tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE)');
+            baseWhere.push('((' +
+                'tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE' +
+                ' OR modelName LIKE ? COLLATE NOCASE OR modelName LIKE ? COLLATE NOCASE OR modelName LIKE ? COLLATE NOCASE' +
+            '))');
             const exactMatch = searchQuery;
             const startsWith = `${searchQuery}%`;
             const contains = `%${searchQuery}%`;
+            // tags
+            params.push(exactMatch, startsWith, contains);
+            // modelName
             params.push(exactMatch, startsWith, contains);
         }
 
