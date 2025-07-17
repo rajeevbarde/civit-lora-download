@@ -658,6 +658,26 @@ class DatabaseService {
             }
         }
     }
+
+    // Get downloaded LoRAs (isDownloaded = 1)
+    async getDownloadedLoras() {
+        const query = `
+            SELECT modelId, modelVersionId, modelName, modelVersionName, fileName, file_path
+            FROM ALLCivitData
+            WHERE isDownloaded = 1 AND file_path IS NOT NULL
+            ORDER BY modelId, modelVersionId
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
 }
 
 module.exports = new DatabaseService(); 

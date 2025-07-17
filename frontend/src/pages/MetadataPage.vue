@@ -27,7 +27,7 @@
         :caching-images="cachingImages"
         :checking-cached="checkingCached"
         @fetch-metadata="(forceUpdate) => fetchMetadata(forceUpdate)"
-        @cache-images="cacheImages"
+        @cache-images="(onlyDownloaded) => cacheImages(onlyDownloaded)"
         @check-cached="checkCached"
       />
 
@@ -240,7 +240,7 @@ export default {
       }
     };
 
-        const cacheImages = async () => {
+        const cacheImages = async (onlyDownloaded = false) => {
       // If already caching, cancel the operation
       if (cachingImages.value) {
         cancelCache.value = true;
@@ -281,13 +281,13 @@ export default {
           modelName: 'Image Caching',
           modelVersionName: 'In Progress...',
           status: 'fetching',
-          message: `Processing ${jsonFiles.length} JSON files with concurrent downloads...`,
+          message: `Processing ${jsonFiles.length} JSON files with concurrent downloads...${onlyDownloaded ? ' (Downloaded LoRAs only)' : ''}`,
           timestamp: new Date().toISOString()
         };
         progress.value.push(progressItem);
         
         // Process all files at once (backend handles concurrency)
-        const result = await apiService.cacheImages({
+        const result = await apiService.cacheImages(onlyDownloaded, {
           signal: cacheAbortController.value.signal
         });
         
