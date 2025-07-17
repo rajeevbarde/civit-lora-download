@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 class DatabaseService {
     // Get models with pagination and filters
-    async getModels(page = 1, limit = 20, filters = {}) {
+    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null) {
         const offset = (page - 1) * limit;
         let baseWhere = [];
         let params = [];
@@ -30,6 +30,21 @@ class DatabaseService {
             }
         }
 
+        // Add search condition if provided (minimum 3 characters)
+        if (searchQuery && searchQuery.length >= 3) {
+            baseWhere.push('((' +
+                'tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE OR tags LIKE ? COLLATE NOCASE' +
+                ' OR modelName LIKE ? COLLATE NOCASE OR modelName LIKE ? COLLATE NOCASE OR modelName LIKE ? COLLATE NOCASE' +
+            '))');
+            const exactMatch = searchQuery;
+            const startsWith = `${searchQuery}%`;
+            const contains = `%${searchQuery}%`;
+            // tags
+            params.push(exactMatch, startsWith, contains);
+            // modelName
+            params.push(exactMatch, startsWith, contains);
+        }
+
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
 
         let query = `
@@ -40,6 +55,7 @@ class DatabaseService {
                 fileName, fileType, fileDownloadUrl, size_in_kb, publishedAt, tags, isDownloaded, file_path
             FROM ALLCivitData
             ${whereClause}
+            ORDER BY modelVersionDownloadCount DESC, modelVersionId DESC
         `;
 
         let connection;
@@ -49,7 +65,7 @@ class DatabaseService {
             // First, get the total count with filters
             const countResult = await dbPool.runQuerySingle(connection, `SELECT COUNT(*) as total FROM ALLCivitData ${whereClause}`, params);
             
-            // Then get the paginated data
+            // Then get the paginated data with proper ordering
             const rows = await dbPool.runQuery(connection, query + ' LIMIT ? OFFSET ?', [...params, limit, offset]);
             
             return {
@@ -642,6 +658,26 @@ class DatabaseService {
         try {
             connection = await dbPool.getConnection();
             return await dbPool.runUpdate(connection, 'UPDATE ALLCivitData SET isDownloaded = 4, last_updated = CURRENT_TIMESTAMP WHERE modelVersionId = ?', [modelVersionId]);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
+    // Get downloaded LoRAs (isDownloaded = 1)
+    async getDownloadedLoras() {
+        const query = `
+            SELECT modelId, modelVersionId, modelName, modelVersionName, fileName, file_path
+            FROM ALLCivitData
+            WHERE isDownloaded = 1 AND file_path IS NOT NULL
+            ORDER BY modelId, modelVersionId
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            return await dbPool.runQuery(connection, query);
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);

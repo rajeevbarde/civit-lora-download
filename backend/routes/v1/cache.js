@@ -7,13 +7,42 @@ const logger = require('../../utils/logger');
 const https = require('https');
 const http = require('http');
 
-// Cache images endpoint
+// Get downloaded LoRAs from database
+router.get('/downloaded-loras', async (req, res) => {
+    try {
+        const databaseService = require('../../services/databaseService');
+        const downloadedLoras = await databaseService.getDownloadedLoras();
+        
+        res.json({
+            success: true,
+            downloadedLoras: downloadedLoras
+        });
+        
+    } catch (error) {
+        logger.error('Error getting downloaded LoRAs:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get downloaded LoRAs',
+            error: error.message
+        });
+    }
+});
+
+// Cache images endpoint with optional downloaded filter
 router.post('/images', async (req, res) => {
     try {
+        const { onlyDownloaded } = req.body; // New parameter
         const modelJsonPath = path.join(__dirname, '../../data/modeljson');
         
-        // Process all modelId folders
-        const jsonFiles = await scanForJsonFiles(modelJsonPath);
+        let jsonFiles;
+        
+        if (onlyDownloaded) {
+            // Get only JSON files for downloaded LoRAs
+            jsonFiles = await getJsonFilesForDownloadedLoras(modelJsonPath);
+        } else {
+            // Process all modelId folders (original behavior)
+            jsonFiles = await scanForJsonFiles(modelJsonPath);
+        }
         
         // Download images from each JSON file
         const downloadResults = await downloadImagesFromJsonFiles(jsonFiles, modelJsonPath, req.signal);
@@ -23,7 +52,8 @@ router.post('/images', async (req, res) => {
             message: `Processed ${jsonFiles.length} JSON files. ${downloadResults.successCount} images downloaded successfully, ${downloadResults.errorCount} failed.`,
             files: jsonFiles,
             downloadResults,
-            progress: downloadResults.details
+            progress: downloadResults.details,
+            onlyDownloaded: onlyDownloaded
         });
         
     } catch (error) {
@@ -137,6 +167,40 @@ async function scanForJsonFiles(basePath, maxModelIds = null) {
         
     } catch (error) {
         logger.error('Error scanning directory:', error);
+        throw error;
+    }
+}
+
+// Function to get JSON files only for downloaded LoRAs
+async function getJsonFilesForDownloadedLoras(basePath) {
+    const jsonFiles = [];
+    
+    try {
+        // Get downloaded LoRAs from database
+        const databaseService = require('../../services/databaseService');
+        const downloadedLoras = await databaseService.getDownloadedLoras();
+        
+        // Create a set for faster lookup
+        const downloadedSet = new Set();
+        downloadedLoras.forEach(lora => {
+            downloadedSet.add(`${lora.modelId}_${lora.modelVersionId}`);
+        });
+        
+        // Scan for JSON files but only include those that match downloaded LoRAs
+        const allJsonFiles = await scanForJsonFiles(basePath);
+        
+        for (const jsonFile of allJsonFiles) {
+            const key = `${jsonFile.modelId}_${jsonFile.modelVersionId}`;
+            if (downloadedSet.has(key)) {
+                jsonFiles.push(jsonFile);
+            }
+        }
+        
+        logger.info(`Found ${jsonFiles.length} JSON files for ${downloadedLoras.length} downloaded LoRAs`);
+        return jsonFiles;
+        
+    } catch (error) {
+        logger.error('Error getting JSON files for downloaded LoRAs:', error);
         throw error;
     }
 }

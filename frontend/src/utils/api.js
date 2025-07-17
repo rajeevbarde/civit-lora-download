@@ -353,8 +353,8 @@ export const apiService = {
   },
 
   // Cache operations
-  async cacheImages(options = {}) {
-    const response = await api.post('/cache/images', {}, {
+  async cacheImages(onlyDownloaded = false, options = {}) {
+    const response = await api.post('/cache/images', { onlyDownloaded }, {
       signal: options.signal
     });
     return response.data;

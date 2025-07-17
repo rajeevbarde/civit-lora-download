@@ -10,6 +10,16 @@
         />
         <span class="checkbox-text">Force Update (ignore existing files)</span>
       </label>
+      
+      <label class="checkbox-label">
+        <input 
+          type="checkbox" 
+          v-model="onlyDownloaded"
+          :disabled="fetchingMetadata || cachingImages || checkingCached"
+          class="checkbox-input"
+        />
+        <span class="checkbox-text">Only Downloaded (cache images for downloaded LoRAs only)</span>
+      </label>
     </div>
     
     <div class="button-group">
@@ -25,7 +35,7 @@
       
       <button 
         v-if="showCacheButton"
-        @click="$emit('cache-images')" 
+        @click="$emit('cache-images', onlyDownloaded)" 
         :disabled="fetchingMetadata || checkingCached"
         class="cache-images-btn"
       >
@@ -70,9 +80,11 @@ export default {
   emits: ['fetch-metadata', 'cache-images', 'check-cached'],
   setup() {
     const forceUpdate = ref(false);
+    const onlyDownloaded = ref(false);
     
     return {
-      forceUpdate
+      forceUpdate,
+      onlyDownloaded
     };
   },
   computed: {
@@ -104,7 +116,9 @@ export default {
 
 .options-group {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1rem;
 }
 

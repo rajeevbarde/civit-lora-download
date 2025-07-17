@@ -16,6 +16,17 @@
       :initial-filters="savedFilters"
       @filter-change="handleFilterChange"
     />
+
+    <!-- Search Box (centered, not yet functional) -->
+    <div class="search-box-container">
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="search-box"
+        placeholder="Search models by tags..."
+        @input="handleSearchInput"
+      />
+    </div>
     
     <!-- Enhanced Bulk Download Controls -->
     <ModelBulkActions 
@@ -118,6 +129,9 @@ export default {
     const isRestoringFilters = ref(false);
     const savedFilters = ref({});
     const cleanupInterval = ref(null);
+    // Add searchQuery for future use
+    const searchQuery = ref("");
+    const searchTimeout = ref(null);
 
     // Methods
     const handleFilterChange = (filters) => {
@@ -275,6 +289,11 @@ export default {
         if (savedFilters.value.selectedDownloaded !== '') params.isDownloaded = savedFilters.value.selectedDownloaded;
         if (savedFilters.value.selectedModelNsfw !== '') params.modelNsfw = savedFilters.value.selectedModelNsfw;
         if (savedFilters.value.selectedVersionNsfwLevelRange !== '') params.versionNsfwLevelRange = savedFilters.value.selectedVersionNsfwLevelRange;
+        
+        // Add search query if it's 3 or more characters
+        if (searchQuery.value && searchQuery.value.length >= 3) {
+          params.searchQuery = searchQuery.value;
+        }
         
         const signal = createRequestController(operationId);
         const response = await apiService.getModels(params, { signal });
@@ -711,6 +730,19 @@ export default {
       }
     };
 
+    const handleSearchInput = () => {
+      // Clear any existing timeout
+      clearTimeout(searchTimeout.value);
+      
+      // Reset to page 1 when searching
+      currentPage.value = 1;
+      
+      // Debounce the search to avoid too many API calls
+      searchTimeout.value = setTimeout(() => {
+        fetchModels();
+      }, 500); // 500ms debounce time
+    };
+
     // Lifecycle hooks
     onMounted(() => {
       // Restore filter state from localStorage
@@ -738,6 +770,11 @@ export default {
       
       // Clear all operations
       concurrentOperations.value.clear();
+      
+      // Clear search timeout
+      if (searchTimeout.value) {
+        clearTimeout(searchTimeout.value);
+      }
     });
 
     onDeactivated(() => {
@@ -770,7 +807,9 @@ export default {
       relatedLoraMap,
       savedFilters,
       notificationsRef,
-
+      // Add searchQuery to returned refs
+      searchQuery,
+      searchTimeout,
       // Methods
       handleFilterChange,
       handleSelectionChange,
@@ -799,7 +838,8 @@ export default {
       removeRequestController,
       getRelatedLoraStatus,
       fetchRelatedLoraForVisibleModels,
-      ignoreModelStatus
+      ignoreModelStatus,
+      handleSearchInput
     };
   }
 }
@@ -813,5 +853,91 @@ export default {
   padding: 2rem;
 }
 
+/* Centered search box styles - Material Design */
+.search-box-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 2rem 0 1.5rem 0;
+  position: relative;
+}
 
+.search-box {
+  width: 400px;
+  max-width: 90vw;
+  padding: 1rem 1.5rem 1rem 3rem;
+  font-size: 1.1rem;
+  border: 2px solid #e1e5e9;
+  border-radius: 50px;
+  outline: none;
+  background: white;
+  color: #333;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.search-box::before {
+  content: "🔍";
+  position: absolute;
+  left: 1.2rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.2rem;
+  z-index: 2;
+  pointer-events: none;
+  color: #667eea;
+}
+
+.search-box::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.search-box:focus {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
+  background: white;
+}
+
+.search-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-color: #cbd5e1;
+}
+
+/* Add a subtle animation on load */
+.search-box-container {
+  animation: slideInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add a pulsing effect to the search icon when focused */
+.search-box:focus::before {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.1);
+  }
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+}
 </style>
