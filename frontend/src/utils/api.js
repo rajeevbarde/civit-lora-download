@@ -177,6 +177,13 @@ export const apiService = {
     return response.data;
   },
 
+  async scanDuplicateFilenames(options = {}) {
+    const response = await api.post('/files/scan-duplicate-filenames', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   // Additional methods for FileScanner - updated to use v1 routes
   async savePathLegacy(path, options = {}) {
     const response = await api.post('/paths', { path }, {

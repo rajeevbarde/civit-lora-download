@@ -113,6 +113,22 @@ router.post('/scan-unique-loras', async (req, res) => {
     }
 });
 
+// Scan for duplicate filenames across all folders
+router.post('/scan-duplicate-filenames', async (req, res) => {
+    try {
+        const paths = await pathService.readSavedPaths();
+        
+        if (!paths.length) {
+            return res.status(400).json({ error: 'No saved paths to scan.' });
+        }
+        
+        const result = await fileService.scanDuplicateFilenames(paths);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Register unregistered files in batch
 router.post('/register-unregistered', registerTimeout, async (req, res) => {
     try {
@@ -193,6 +209,8 @@ router.post('/verify-db', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
 
 // Get the latest publishedAt value
 router.get('/latest-published-at', async (req, res) => {

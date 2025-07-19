@@ -617,6 +617,65 @@ class FileService {
         };
     }
 
+    // Scan for duplicate filenames across all folders
+    async scanDuplicateFilenames(paths) {
+        const startTime = Date.now();
+        logger.userAction('Duplicate filenames scan started', { pathCount: paths.length });
+        logger.info('Scanning for duplicate filenames', { pathCount: paths.length });
+
+        // Get all files from disk in parallel
+        const allDiskFiles = [];
+        const filesPerPath = await Promise.all(paths.map(async (p) => {
+            const validation = this.validatePath(p);
+            if (validation.valid) {
+                const files = await this.getAllFiles(p, []);
+                return files.map(f => ({
+                    fullPath: f,
+                    baseName: path.basename(f).toLowerCase()
+                }));
+            }
+            return [];
+        }));
+        filesPerPath.forEach(files => allDiskFiles.push(...files));
+
+        logger.info('Found files on disk', { totalFiles: allDiskFiles.length });
+
+        // Group files by filename
+        const filenameGroups = {};
+        allDiskFiles.forEach(file => {
+            if (!filenameGroups[file.baseName]) {
+                filenameGroups[file.baseName] = [];
+            }
+            filenameGroups[file.baseName].push(file.fullPath);
+        });
+
+        // Find filenames that have duplicates (more than one path)
+        const duplicateFilenames = Object.entries(filenameGroups)
+            .filter(([filename, paths]) => paths.length > 1)
+            .map(([filename, paths]) => ({
+                filename: filename,
+                paths: paths.sort() // Sort paths for consistent ordering
+            }))
+            .sort((a, b) => a.filename.localeCompare(b.filename)); // Sort by filename
+
+        logger.userAction('Duplicate filenames scan completed', { 
+            duplicateCount: duplicateFilenames.length,
+            totalFiles: allDiskFiles.length 
+        });
+        logger.logTimeTaken('Duplicate filenames scan', startTime, { 
+            totalDiskFiles: allDiskFiles.length,
+            duplicateFilenames: duplicateFilenames.length 
+        });
+
+        return {
+            duplicateFilenames: duplicateFilenames,
+            stats: {
+                totalDiskFiles: allDiskFiles.length,
+                duplicateFilenames: duplicateFilenames.length
+            }
+        };
+    }
+
     // Rename file as duplicate by adding _duplicate suffix
     async renameFileAsDuplicate(filePath) {
         try {
