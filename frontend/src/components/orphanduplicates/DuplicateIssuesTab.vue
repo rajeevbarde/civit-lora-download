@@ -698,6 +698,7 @@ export default {
 .file-path {
   font-family: 'Courier New', monospace;
   font-size: 0.8rem;
+  font-weight: bold;
   color: #495057;
   margin-bottom: 0.5rem;
   padding: 0.25rem 0.5rem;

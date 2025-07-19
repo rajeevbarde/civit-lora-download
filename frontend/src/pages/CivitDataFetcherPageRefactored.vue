@@ -849,7 +849,10 @@ export default {
               resultText += `<div style="margin-bottom: 12px;"><strong>Hash: ${result.hash}</strong></div>`;
               resultText += `<div style="margin-bottom: 4px;"><strong> ${result.dbFilename}</strong></div>`;
               resultText += `<a href="${result.modelUrl}" target="_blank">Model ID: ${result.civitaiModelId}, Version ID: ${result.civitaiModelVersionId}</a><br>`;
-              resultText += `<div style="margin-top: 4px; color: #666;">Files with this hash: ${result.paths.length}</div>`;
+              resultText += `<div style="margin-top: 4px; color: #666;"><strong>Files with this hash (${result.paths.length}):</strong></div>`;
+              result.paths.forEach(path => {
+                resultText += `<div style="margin-left: 12px; font-size: 0.9em; color: #555;">• ${path}</div>`;
+              });
             }
             
             if (index < comparisonResults.length - 1) {
