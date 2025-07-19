@@ -167,7 +167,7 @@ class DatabaseService {
         // Use LOWER() function for case-insensitive comparison
         const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
         const query = `
-            SELECT fileName, isDownloaded
+            SELECT fileName, isDownloaded, file_path
             FROM ALLCivitData
             WHERE LOWER(fileName) IN (${placeholders})
         `;
@@ -176,6 +176,44 @@ class DatabaseService {
         try {
             connection = await dbPool.getConnection();
             return await dbPool.runQuery(connection, query, fileNames);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
+    // Get all file records for multiple filenames (for duplicate checking)
+    async getAllFileRecordsByFilenames(fileNames) {
+        if (!fileNames || fileNames.length === 0) {
+            return {};
+        }
+
+        // Use LOWER() function for case-insensitive comparison
+        const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
+        const query = `
+            SELECT fileName, isDownloaded, file_path, modelId, modelVersionId
+            FROM ALLCivitData
+            WHERE LOWER(fileName) IN (${placeholders})
+            ORDER BY fileName, modelVersionId
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const records = await dbPool.runQuery(connection, query, fileNames);
+            
+            // Group records by filename (lowercase)
+            const groupedRecords = {};
+            records.forEach(record => {
+                const lowerFileName = record.fileName.toLowerCase();
+                if (!groupedRecords[lowerFileName]) {
+                    groupedRecords[lowerFileName] = [];
+                }
+                groupedRecords[lowerFileName].push(record);
+            });
+            
+            return groupedRecords;
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);

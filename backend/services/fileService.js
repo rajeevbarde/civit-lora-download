@@ -590,6 +590,7 @@ class FileService {
         const processedNonUniqueFiles = nonUniqueFiles.map(f => {
             const dbRecord = dbRecordMap[f.baseName];
             const isDownloaded = dbRecord ? dbRecord.isDownloaded : 0;
+            const filePath = dbRecord ? dbRecord.file_path : null;
             
             // Determine the reason for non-uniqueness
             let status = 'Duplicate Issue';
@@ -605,12 +606,58 @@ class FileService {
                 fullPath: f.fullPath,
                 baseName: f.baseName,
                 status: status,
-                isDownloaded: isDownloaded
+                isDownloaded: isDownloaded,
+                file_path: filePath
             };
         });
 
+        // Filter out "Duplicate in DB" files that are already properly registered
+        const filteredNonUniqueFiles = [];
+        
+        // Get all unique filenames that are "Duplicate in DB"
+        const duplicateInDbFilenames = processedNonUniqueFiles
+            .filter(f => f.status === 'Duplicate in DB')
+            .map(f => f.baseName);
+        
+        // Batch query all duplicate in DB filenames at once
+        const allDbRecordsByFilename = await databaseService.getAllFileRecordsByFilenames(duplicateInDbFilenames);
+        
+        for (const f of processedNonUniqueFiles) {
+            if (f.status === 'Duplicate in DB') {
+                // For "Duplicate in DB" cases, check if ANY of the duplicate records in DB are properly registered
+                const allDbRecords = allDbRecordsByFilename[f.baseName] || [];
+                const hasAnyRegistered = allDbRecords.some(record => 
+                    record.isDownloaded === 1 && record.file_path !== null
+                );
+                
+                if (hasAnyRegistered) {
+                    logger.info('Filtering out duplicate in DB - at least one record is properly registered', { 
+                        fileName: f.baseName,
+                        totalDbRecords: allDbRecords.length,
+                        registeredCount: allDbRecords.filter(r => r.isDownloaded === 1 && r.file_path !== null).length
+                    });
+                    continue; // Skip this file - don't add to filtered results
+                } else {
+                    logger.info('Keeping duplicate in DB - no records are properly registered', { 
+                        fileName: f.baseName,
+                        totalDbRecords: allDbRecords.length,
+                        registeredCount: 0
+                    });
+                }
+            }
+            filteredNonUniqueFiles.push(f);
+        }
+
+        const filteredCount = processedNonUniqueFiles.length - filteredNonUniqueFiles.length;
+        if (filteredCount > 0) {
+            logger.info('Filtered out properly registered duplicates', { 
+                filteredCount: filteredCount,
+                remainingCount: filteredNonUniqueFiles.length 
+            });
+        }
+
         return {
-            uniqueFiles: [...processedUniqueFiles, ...processedNonUniqueFiles],
+            uniqueFiles: [...processedUniqueFiles, ...filteredNonUniqueFiles],
             stats: {
                 totalDiskFiles: allDiskFiles.length
             }
