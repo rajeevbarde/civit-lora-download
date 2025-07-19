@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 class DatabaseService {
     // Get models with pagination and filters
-    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null) {
+    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null, ignoreTags = null) {
         const offset = (page - 1) * limit;
         let baseWhere = [];
         let params = [];
@@ -43,6 +43,28 @@ class DatabaseService {
             params.push(exactMatch, startsWith, contains);
             // modelName
             params.push(exactMatch, startsWith, contains);
+        }
+
+        // Add ignore tags condition if provided
+        if (ignoreTags && ignoreTags.trim()) {
+            const ignoreTagsList = ignoreTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            if (ignoreTagsList.length > 0) {
+                // Create conditions for both tags and modelName
+                const ignoreTagConditions = ignoreTagsList.map(() => 'tags NOT LIKE ? COLLATE NOCASE').join(' AND ');
+                const ignoreNameConditions = ignoreTagsList.map(() => 'modelName NOT LIKE ? COLLATE NOCASE').join(' AND ');
+                
+                // Combine both conditions with OR - exclude if found in either tags OR modelName
+                baseWhere.push(`((${ignoreTagConditions}) AND (${ignoreNameConditions}))`);
+                
+                // Add parameters for tags
+                ignoreTagsList.forEach(tag => {
+                    params.push(`%${tag}%`);
+                });
+                // Add parameters for modelName
+                ignoreTagsList.forEach(tag => {
+                    params.push(`%${tag}%`);
+                });
+            }
         }
 
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
