@@ -270,6 +270,21 @@ router.post('/delete-and-fail', async (req, res) => {
     }
 });
 
+// Unregister file (set isdownloaded=0, file_path=null) - for files not found on disk
+router.post('/unregister', async (req, res) => {
+    try {
+        const { modelVersionId } = req.body;
+        if (!modelVersionId) {
+            return res.status(400).json({ error: 'modelVersionId is required' });
+        }
+        // Update the DB: isdownloaded=0, file_path=null
+        await databaseService.updateModelAsInProgress(modelVersionId);
+        res.json({ success: true, message: 'File unregistered from database' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Read JSON file content
 router.get('/read-json', async (req, res) => {
     try {

@@ -81,6 +81,15 @@
             <td>
               <div class="action-buttons">
                 <button 
+                  v-if="mismatch.issue === 'File not found on disk'"
+                  class="unregister-btn" 
+                  @click="handleUnregisterFile(mismatch, idx)" 
+                  :disabled="mismatch.unregistering || mismatch.unregistered"
+                >
+                  {{ mismatch.unregistering ? 'Processing...' : mismatch.unregistered ? 'Unregistered' : 'Unregister' }}
+                </button>
+                <button 
+                  v-else
                   class="delete-failed-btn" 
                   @click="handleDeleteFileAndFail(mismatch, idx)" 
                   :disabled="mismatch.deleting || mismatch.deleted"
@@ -96,6 +105,7 @@
                 </a>
               </div>
               <span v-if="mismatch.deleteError" class="delete-error">{{ mismatch.deleteError }}</span>
+              <span v-if="mismatch.unregisterError" class="delete-error">{{ mismatch.unregisterError }}</span>
             </td>
           </tr>
         </tbody>
@@ -171,6 +181,27 @@ export default {
         this.validationResults.mismatches[idx].deleteError = 
           error.response?.data?.error || error.message || 'Failed to delete and mark as failed.';
         this.validationResults.mismatches[idx].deleting = false;
+      }
+    },
+
+    async handleUnregisterFile(mismatch, idx) {
+      this.validationResults.mismatches[idx].unregistering = true;
+      this.validationResults.mismatches[idx].unregisterError = '';
+      
+      try {
+        await apiService.unregisterFile({ 
+          modelVersionId: mismatch.modelVersionId
+        });
+        
+        // Mark as unregistered instead of removing the row
+        this.validationResults.mismatches[idx].unregistered = true;
+        this.validationResults.mismatches[idx].unregistering = false;
+        this.$emit('mismatch-deleted', idx);
+        this.errorHandler.handleSuccess('File unregistered from database.');
+      } catch (error) {
+        this.validationResults.mismatches[idx].unregisterError = 
+          error.response?.data?.error || error.message || 'Failed to unregister file.';
+        this.validationResults.mismatches[idx].unregistering = false;
       }
     }
   }
@@ -444,6 +475,36 @@ export default {
 }
 
 .delete-failed-btn:disabled {
+  background: linear-gradient(135deg, #bdbdbd 0%, #9e9e9e 100%);
+  color: #757575;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.7;
+}
+
+.unregister-btn {
+  background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-weight: 500;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(156, 39, 176, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.unregister-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8e24aa 0%, #6a1b9a 100%);
+  box-shadow: 0 4px 8px rgba(156, 39, 176, 0.4);
+  transform: translateY(-1px);
+}
+
+.unregister-btn:disabled {
   background: linear-gradient(135deg, #bdbdbd 0%, #9e9e9e 100%);
   color: #757575;
   cursor: not-allowed;

@@ -322,6 +322,14 @@ export const apiService = {
     return response.data;
   },
 
+  // Unregister file (set isdownloaded=0, file_path=null) - for files not found on disk
+  async unregisterFile({ modelVersionId }, options = {}) {
+    const response = await api.post('/files/unregister', { modelVersionId }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   async getRelatedLoraByModelId(modelId, options = {}) {
     const response = await api.get(`/models/related-lora/${modelId}`, {
       signal: options.signal

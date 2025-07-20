@@ -902,4 +902,41 @@ describe('Files Routes', () => {
       expect(response.body).toEqual({ error: 'Delete error' });
     });
   });
+
+  describe('POST /unregister', () => {
+    it('should unregister file successfully', async () => {
+      mockDatabaseService.updateModelAsInProgress.mockResolvedValue({ changes: 1 });
+      
+      const response = await request(app)
+        .post('/api/v1/files/unregister')
+        .send({ modelVersionId: 123 })
+        .expect(200);
+
+      expect(response.body).toEqual({
+        success: true,
+        message: 'File unregistered from database'
+      });
+      expect(mockDatabaseService.updateModelAsInProgress).toHaveBeenCalledWith(123);
+    });
+
+    it('should handle missing modelVersionId error', async () => {
+      const response = await request(app)
+        .post('/api/v1/files/unregister')
+        .send({})
+        .expect(400);
+
+      expect(response.body).toEqual({ error: 'modelVersionId is required' });
+    });
+
+    it('should handle errors in unregister endpoint', async () => {
+      mockDatabaseService.updateModelAsInProgress.mockRejectedValue(new Error('Database error'));
+      
+      const response = await request(app)
+        .post('/api/v1/files/unregister')
+        .send({ modelVersionId: 123 })
+        .expect(500);
+
+      expect(response.body).toEqual({ error: 'Database error' });
+    });
+  });
 }); 
