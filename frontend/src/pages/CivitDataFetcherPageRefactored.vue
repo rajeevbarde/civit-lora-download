@@ -9,8 +9,11 @@
       :scan-timer="scanTimer"
       :duplicate-issues-loading="duplicateIssuesLoading"
       :duplicate-timer="duplicateTimer"
+      :bad-downloads-loading="badDownloadsLoading"
+      :bad-downloads-timer="badDownloadsTimer"
       @scan-orphan-files="scanForMissingFiles"
       @scan-duplicate-issues="onDuplicateIssuesClick"
+      @scan-bad-downloads="onBadDownloadsClick"
     />
     
     <!-- Duplicate Issues Component -->
@@ -37,6 +40,15 @@
       :scan-results="scanResults"
       @fix-file="fixFile"
     />
+    
+    <!-- Bad Downloads Results Component -->
+    <BadDownloadsResults
+      :show-bad-downloads="showBadDownloads"
+      :bad-downloads-loading="badDownloadsLoading"
+      :bad-downloads-error="badDownloadsError"
+      :bad-downloads="badDownloads"
+      @identify="onIdentifyBadDownload"
+    />
   </div>
 </template>
 
@@ -51,6 +63,7 @@ import CivitDataFetcherHeader from '@/components/orphanduplicates/CivitDataFetch
 import CivitDataFetcherControls from '@/components/orphanduplicates/CivitDataFetcherControls.vue';
 import DuplicateIssuesTabs from '@/components/orphanduplicates/DuplicateIssuesTabs.vue';
 import OrphanFilesResults from '@/components/orphanduplicates/OrphanFilesResults.vue';
+import BadDownloadsResults from '@/components/orphanduplicates/BadDownloadsResults.vue';
 
 export default {
   name: 'CivitDataFetcherRefactored',
@@ -58,7 +71,8 @@ export default {
     CivitDataFetcherHeader,
     CivitDataFetcherControls,
     DuplicateIssuesTabs,
-    OrphanFilesResults
+    OrphanFilesResults,
+    BadDownloadsResults
   },
   setup() {
     const errorHandler = useErrorHandler();
@@ -98,6 +112,15 @@ export default {
       duplicateStartTime: null,
       duplicateInterval: null,
       activeDuplicateTab: 'disk',
+      
+      // Bad downloads state
+      badDownloadsLoading: false,
+      badDownloads: null,
+      badDownloadsError: null,
+      showBadDownloads: false,
+      badDownloadsTimer: 0,
+      badDownloadsStartTime: null,
+      badDownloadsInterval: null,
       
       // Hash check state
       hashCheckLoading: {},
@@ -485,6 +508,19 @@ export default {
       }
     },
     
+    resetBadDownloadsState() {
+      this.badDownloads = null;
+      this.badDownloadsError = null;
+      this.showBadDownloads = false;
+      
+      this.badDownloadsTimer = 0;
+      this.badDownloadsStartTime = null;
+      if (this.badDownloadsInterval) {
+        clearInterval(this.badDownloadsInterval);
+        this.badDownloadsInterval = null;
+      }
+    },
+    
     onDuplicateIssuesClick() {
       this.scanResults = null;
       this.isScanning = false;
@@ -497,6 +533,30 @@ export default {
       
       this.resetDuplicateIssuesState();
       this.fetchDuplicateIssues();
+    },
+    
+    onBadDownloadsClick() {
+      this.scanResults = null;
+      this.isScanning = false;
+      this.scanTimer = 0;
+      this.scanStartTime = null;
+      if (this.scanInterval) {
+        clearInterval(this.scanInterval);
+        this.scanInterval = null;
+      }
+      
+      this.duplicateIssues = null;
+      this.duplicateIssuesError = null;
+      this.showDuplicateIssues = false;
+      this.duplicateTimer = 0;
+      this.duplicateStartTime = null;
+      if (this.duplicateInterval) {
+        clearInterval(this.duplicateInterval);
+        this.duplicateInterval = null;
+      }
+      
+      this.resetBadDownloadsState();
+      this.fetchBadDownloads();
     },
     
     async fetchDuplicateIssues() {
@@ -534,6 +594,93 @@ export default {
         this.duplicateStartTime = null;
       }
     },
+    
+    async fetchBadDownloads() {
+      this.badDownloadsLoading = true;
+      this.badDownloadsError = null;
+      this.showBadDownloads = false;
+      
+      this.badDownloadsStartTime = performance.now();
+      this.badDownloadsTimer = 0;
+      if (this.badDownloadsInterval) clearInterval(this.badDownloadsInterval);
+      this.badDownloadsInterval = setInterval(() => {
+        if (this.badDownloadsLoading && this.badDownloadsStartTime) {
+          this.badDownloadsTimer = (performance.now() - this.badDownloadsStartTime) / 1000;
+        }
+      }, 10);
+      
+      try {
+        const data = await apiService.scanDuplicateFilenames();
+        
+        if (data && Array.isArray(data.duplicateFilenames)) {
+          this.badDownloads = data.duplicateFilenames;
+        } else {
+          this.badDownloads = [];
+        }
+        this.showBadDownloads = true;
+        this.errorHandler.handleSuccess('Bad downloads scan completed successfully');
+      } catch (error) {
+        this.badDownloadsError = error.message || 'Failed to fetch bad downloads.';
+        this.badDownloads = [];
+        this.showBadDownloads = true;
+      } finally {
+        this.badDownloadsLoading = false;
+        if (this.badDownloadsInterval) clearInterval(this.badDownloadsInterval);
+        if (this.badDownloadsStartTime) this.badDownloadsTimer = (performance.now() - this.badDownloadsStartTime) / 1000;
+        this.badDownloadsInterval = null;
+        this.badDownloadsStartTime = null;
+      }
+    },
+    
+    async onIdentifyBadDownload(item) {
+      // Set identifying state for this item
+      item.identifying = true;
+      item.hashResult = null;
+      
+      try {
+        console.log('Identifying bad download for:', item.filename);
+        this.errorHandler.handleSuccess(`Identification started for ${item.filename}`);
+        
+        // Compute hashes for all duplicate files
+        const hashPromises = item.paths.map(async (path) => {
+          try {
+            const data = await apiService.computeFileHash(path);
+            return { path, hash: data.hash };
+          } catch (error) {
+            return { path, hash: null, error: error.message };
+          }
+        });
+        
+        const results = await Promise.all(hashPromises);
+        const hashes = results.map(r => r.hash).filter(h => h !== null);
+        const errors = results.filter(r => r.error);
+        
+        let resultText = '';
+        if (errors.length > 0) {
+          resultText = `Error: ${errors.length} file(s) failed to hash`;
+        } else if (hashes.length === 0) {
+          resultText = 'No valid hashes computed';
+        } else {
+          const uniqueHashes = new Set(hashes);
+          if (uniqueHashes.size === 1) {
+            resultText = '✅ Identical hashes - files are not corrupted';
+          } else {
+            resultText = `❌ Files have different hashes (${uniqueHashes.size} unique hashes) - potential bad downloads`;
+          }
+        }
+        
+        item.hashResult = resultText;
+        this.errorHandler.handleSuccess(`Identification completed for ${item.filename}`);
+        
+      } catch (error) {
+        this.errorHandler.handleError(error, `identifying bad download for ${item.filename}`);
+        item.hashResult = `❌ Error: ${error.message}`;
+      } finally {
+        item.identifying = false;
+      }
+    },
+    
+
     
     // Methods for duplicate issues functionality
     async checkHashForGroup(filename) {
@@ -702,7 +849,10 @@ export default {
               resultText += `<div style="margin-bottom: 12px;"><strong>Hash: ${result.hash}</strong></div>`;
               resultText += `<div style="margin-bottom: 4px;"><strong> ${result.dbFilename}</strong></div>`;
               resultText += `<a href="${result.modelUrl}" target="_blank">Model ID: ${result.civitaiModelId}, Version ID: ${result.civitaiModelVersionId}</a><br>`;
-              resultText += `<div style="margin-top: 4px; color: #666;">Files with this hash: ${result.paths.length}</div>`;
+              resultText += `<div style="margin-top: 4px; color: #666;"><strong>Files with this hash (${result.paths.length}):</strong></div>`;
+              result.paths.forEach(path => {
+                resultText += `<div style="margin-left: 12px; font-size: 0.9em; color: #555;">• ${path}</div>`;
+              });
             }
             
             if (index < comparisonResults.length - 1) {

@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 
 class DatabaseService {
     // Get models with pagination and filters
-    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null) {
+    async getModels(page = 1, limit = 20, filters = {}, searchQuery = null, ignoreTags = null) {
         const offset = (page - 1) * limit;
         let baseWhere = [];
         let params = [];
@@ -43,6 +43,28 @@ class DatabaseService {
             params.push(exactMatch, startsWith, contains);
             // modelName
             params.push(exactMatch, startsWith, contains);
+        }
+
+        // Add ignore tags condition if provided
+        if (ignoreTags && ignoreTags.trim()) {
+            const ignoreTagsList = ignoreTags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+            if (ignoreTagsList.length > 0) {
+                // Create conditions for both tags and modelName
+                const ignoreTagConditions = ignoreTagsList.map(() => 'tags NOT LIKE ? COLLATE NOCASE').join(' AND ');
+                const ignoreNameConditions = ignoreTagsList.map(() => 'modelName NOT LIKE ? COLLATE NOCASE').join(' AND ');
+                
+                // Combine both conditions with OR - exclude if found in either tags OR modelName
+                baseWhere.push(`((${ignoreTagConditions}) AND (${ignoreNameConditions}))`);
+                
+                // Add parameters for tags
+                ignoreTagsList.forEach(tag => {
+                    params.push(`%${tag}%`);
+                });
+                // Add parameters for modelName
+                ignoreTagsList.forEach(tag => {
+                    params.push(`%${tag}%`);
+                });
+            }
         }
 
         let whereClause = baseWhere.length ? 'WHERE ' + baseWhere.join(' AND ') : '';
@@ -145,7 +167,7 @@ class DatabaseService {
         // Use LOWER() function for case-insensitive comparison
         const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
         const query = `
-            SELECT fileName, isDownloaded
+            SELECT fileName, isDownloaded, file_path
             FROM ALLCivitData
             WHERE LOWER(fileName) IN (${placeholders})
         `;
@@ -154,6 +176,44 @@ class DatabaseService {
         try {
             connection = await dbPool.getConnection();
             return await dbPool.runQuery(connection, query, fileNames);
+        } finally {
+            if (connection) {
+                dbPool.releaseConnection(connection);
+            }
+        }
+    }
+
+    // Get all file records for multiple filenames (for duplicate checking)
+    async getAllFileRecordsByFilenames(fileNames) {
+        if (!fileNames || fileNames.length === 0) {
+            return {};
+        }
+
+        // Use LOWER() function for case-insensitive comparison
+        const placeholders = fileNames.map(() => 'LOWER(?)').join(',');
+        const query = `
+            SELECT fileName, isDownloaded, file_path, modelId, modelVersionId
+            FROM ALLCivitData
+            WHERE LOWER(fileName) IN (${placeholders})
+            ORDER BY fileName, modelVersionId
+        `;
+
+        let connection;
+        try {
+            connection = await dbPool.getConnection();
+            const records = await dbPool.runQuery(connection, query, fileNames);
+            
+            // Group records by filename (lowercase)
+            const groupedRecords = {};
+            records.forEach(record => {
+                const lowerFileName = record.fileName.toLowerCase();
+                if (!groupedRecords[lowerFileName]) {
+                    groupedRecords[lowerFileName] = [];
+                }
+                groupedRecords[lowerFileName].push(record);
+            });
+            
+            return groupedRecords;
         } finally {
             if (connection) {
                 dbPool.releaseConnection(connection);

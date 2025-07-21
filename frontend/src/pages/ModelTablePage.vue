@@ -17,15 +17,29 @@
       @filter-change="handleFilterChange"
     />
 
-    <!-- Search Box (centered, not yet functional) -->
-    <div class="search-box-container">
-      <input
-        v-model="searchQuery"
-        type="text"
-        class="search-box"
-        placeholder="Search models by tags..."
-        @input="handleSearchInput"
-      />
+    <!-- Search Boxes Container -->
+    <div class="search-boxes-container">
+      <!-- Main Search Box -->
+      <div class="search-box-container">
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="search-box"
+          placeholder="Search models by tags..."
+          @input="handleSearchInput"
+        />
+      </div>
+
+      <!-- Ignore Tags Search Box -->
+      <div class="search-box-container ignore-tags-container">
+        <input
+          v-model="ignoreTagsQuery"
+          type="text"
+          class="search-box ignore-tags-box"
+          placeholder="Ignore tags (comma separated)..."
+          @input="handleSearchInput"
+        />
+      </div>
     </div>
     
     <!-- Enhanced Bulk Download Controls -->
@@ -132,6 +146,7 @@ export default {
     // Add searchQuery for future use
     const searchQuery = ref("");
     const searchTimeout = ref(null);
+    const ignoreTagsQuery = ref("");
 
     // Methods
     const handleFilterChange = (filters) => {
@@ -293,6 +308,11 @@ export default {
         // Add search query if it's 3 or more characters
         if (searchQuery.value && searchQuery.value.length >= 3) {
           params.searchQuery = searchQuery.value;
+        }
+        
+        // Add ignore tags if provided
+        if (ignoreTagsQuery.value && ignoreTagsQuery.value.trim()) {
+          params.ignoreTags = ignoreTagsQuery.value.trim();
         }
         
         const signal = createRequestController(operationId);
@@ -810,6 +830,7 @@ export default {
       // Add searchQuery to returned refs
       searchQuery,
       searchTimeout,
+      ignoreTagsQuery,
       // Methods
       handleFilterChange,
       handleSelectionChange,
@@ -853,12 +874,21 @@ export default {
   padding: 2rem;
 }
 
+/* Search boxes container for side-by-side layout */
+.search-boxes-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0 1.5rem 0;
+  flex-wrap: wrap;
+}
+
 /* Centered search box styles - Material Design */
 .search-box-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 2rem 0 1.5rem 0;
   position: relative;
 }
 
@@ -939,5 +969,36 @@ export default {
   100% {
     transform: translateY(-50%) scale(1);
   }
+}
+
+/* Ignore tags box styling */
+.ignore-tags-container {
+  /* No margin needed since they're side by side */
+}
+
+.ignore-tags-box {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+
+.ignore-tags-box::before {
+  content: "🚫";
+  color: #ef4444;
+}
+
+.ignore-tags-box::placeholder {
+  color: #94a3b8;
+}
+
+.ignore-tags-box:focus {
+  border-color: #ef4444;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+  background: white;
+}
+
+.ignore-tags-box:hover {
+  border-color: #fca5a5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 </style>

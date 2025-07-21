@@ -177,6 +177,13 @@ export const apiService = {
     return response.data;
   },
 
+  async scanDuplicateFilenames(options = {}) {
+    const response = await api.post('/files/scan-duplicate-filenames', {}, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
   // Additional methods for FileScanner - updated to use v1 routes
   async savePathLegacy(path, options = {}) {
     const response = await api.post('/paths', { path }, {
@@ -310,6 +317,14 @@ export const apiService = {
   // Delete file and mark as failed
   async deleteFileAndFail({ modelVersionId, file_path }, options = {}) {
     const response = await api.post('/files/delete-and-fail', { modelVersionId, file_path }, {
+      signal: options.signal
+    });
+    return response.data;
+  },
+
+  // Unregister file (set isdownloaded=0, file_path=null) - for files not found on disk
+  async unregisterFile({ modelVersionId }, options = {}) {
+    const response = await api.post('/files/unregister', { modelVersionId }, {
       signal: options.signal
     });
     return response.data;
