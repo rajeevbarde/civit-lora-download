@@ -52,6 +52,7 @@
               <tr>
                 <th class="path-header">Directory Path</th>
                 <th class="count-header">Safetensor Files</th>
+                <th class="size-header">Total Size</th>
               </tr>
             </thead>
             <tbody>
@@ -65,6 +66,9 @@
                 <td class="count-cell">
                   <span class="count-badge">{{ pathData.count }}</span>
                 </td>
+                <td class="size-cell">
+                  <span class="size-badge">{{ formatFileSize(pathData.totalSize || 0) }}</span>
+                </td>
               </tr>
             </tbody>
             <tfoot>
@@ -72,6 +76,9 @@
                 <td class="total-label">Total</td>
                 <td class="total-count">
                   <span class="total-badge">{{ getTotalSafetensorCount() }}</span>
+                </td>
+                <td class="total-size">
+                  <span class="total-badge">{{ formatFileSize(getTotalFileSize()) }}</span>
                 </td>
               </tr>
             </tfoot>
@@ -90,6 +97,8 @@
 </template>
 
 <script>
+import { formatFileSize } from '../../utils/helpers.js';
+
 export default {
   name: 'LoraFileLocations',
   props: {
@@ -99,9 +108,15 @@ export default {
     pathError: String
   },
   methods: {
+    formatFileSize,
     getTotalSafetensorCount() {
       return this.pathCounts.reduce((total, pathData) => {
         return total + (pathData.count || 0);
+      }, 0);
+    },
+    getTotalFileSize() {
+      return this.pathCounts.reduce((total, pathData) => {
+        return total + (pathData.totalSize || 0);
       }, 0);
     }
   }
@@ -326,6 +341,10 @@ export default {
   min-width: 150px;
   text-align: center !important;
 }
+.size-header {
+  min-width: 150px;
+  text-align: center !important;
+}
 .path-cell {
   vertical-align: middle;
 }
@@ -360,7 +379,25 @@ export default {
   min-width: 40px;
   text-align: center;
 }
+.size-cell {
+  text-align: center !important;
+  font-weight: 600;
+}
+.size-badge {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-block;
+  min-width: 60px;
+  text-align: center;
+}
 .total-count {
+  text-align: center !important;
+}
+.total-size {
   text-align: center !important;
 }
 .total-badge {

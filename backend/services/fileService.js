@@ -782,6 +782,7 @@ class FileService {
     // Get safetensor file counts for each directory
     async getSafetensorCounts(paths) {
         logger.info('Getting safetensor counts for directories', { pathCount: paths.length });
+        const fsPromises = fs.promises;
         // Parallelize per-path scanning
         const results = await Promise.all(paths.map(async (dirPath) => {
             try {
@@ -789,15 +790,33 @@ class FileService {
                 if (validation.valid) {
                     const files = await this.getAllFiles(dirPath, []);
                     const count = files.length;
-                    logger.debug('Safetensor count for directory', { path: dirPath, count: count });
-                    return { path: dirPath, count: count };
+                    
+                    // Calculate total file size
+                    let totalSize = 0;
+                    if (count > 0) {
+                        const fileStats = await Promise.all(
+                            files.map(async (filePath) => {
+                                try {
+                                    const stats = await fsPromises.stat(filePath);
+                                    return stats.size;
+                                } catch (error) {
+                                    logger.warn('Error getting file size', { filePath, error: error.message });
+                                    return 0;
+                                }
+                            })
+                        );
+                        totalSize = fileStats.reduce((sum, size) => sum + size, 0);
+                    }
+                    
+                    logger.debug('Safetensor count for directory', { path: dirPath, count: count, totalSize: totalSize });
+                    return { path: dirPath, count: count, totalSize: totalSize };
                 } else {
                     logger.warn('Invalid directory path', { path: dirPath, error: validation.error });
-                    return { path: dirPath, count: 0 };
+                    return { path: dirPath, count: 0, totalSize: 0 };
                 }
             } catch (error) {
                 logger.error('Error counting safetensor files', { path: dirPath, error: error.message });
-                return { path: dirPath, count: 0 };
+                return { path: dirPath, count: 0, totalSize: 0 };
             }
         }));
         logger.info('Safetensor count completed', {
